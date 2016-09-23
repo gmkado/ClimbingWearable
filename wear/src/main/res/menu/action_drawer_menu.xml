@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id = "@+id/add_climb"
+        android:icon = "@android:drawable/ic_menu_add"
+        android:title="Add Climb"
+        />
+    <item android:id = "@+id/delete_last"
+        android:icon = "@android:drawable/ic_menu_revert"
+        android:title="Delete Last Climb"
+        />
+    <item android:id = "@+id/clear_climbs"
+        android:icon = "@android:drawable/ic_menu_delete"
+        android:title="Clear Todays Climbs"
+        />
+</menu>

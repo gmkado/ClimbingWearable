@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        style="@style/Widget.WearDiag.TextView.Title"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:text="Bouldering"
+        android:layout_gravity="center"
+        android:gravity="center_vertical|center_horizontal"
+        android:id="@+id/title_textView"
+        android:layout_weight="1" />
+</LinearLayout>
