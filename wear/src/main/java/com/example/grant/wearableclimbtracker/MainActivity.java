@@ -16,6 +16,14 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.TextView;
 
+import com.example.grant.wearableclimbtracker.model.Climb;
+
+import java.util.Calendar;
+import java.util.Date;
+
+import io.realm.Realm;
+import io.realm.RealmResults;
+
 public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener {
 
     private static final String TAG = "MainActivity";
@@ -27,6 +35,8 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     private WearableActionDrawer mActionDrawer;
     private GridViewPager mGridViewPager;
     private ContentPagerAdapter mContentPagerAdapter;
+    private Realm mRealm;
+
 
     @Override
     public boolean onMenuItemClick(MenuItem menuItem) {
@@ -34,7 +44,15 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
         int itemId = menuItem.getItemId();
 
-        DbHelper dbHelper = new DbHelper(this);
+        final RealmResults<Climb> results;
+
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date startOfDay = cal.getTime();
+
         switch(itemId) {
             case R.id.add_climb:
                 // start addclimbactivity
@@ -45,23 +63,35 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 mDrawerLayout.closeDrawer(Gravity.BOTTOM);
                 return true;
             case R.id.delete_last:
-                String deleteQuery = DbHelper.ClimbEntry.COLUMN_CLIMB_TYPE + " =  " + Integer.toString(mSelectedClimbType.ordinal()) +
-                        " AND " + DbHelper.ClimbEntry._ID + " = (SELECT MAX(" + DbHelper.ClimbEntry._ID +
-                        ") FROM " + DbHelper.ClimbEntry.TABLE_NAME + ")";
+                results = mRealm.where(Climb.class)
+                        .greaterThan("date", startOfDay)
+                        .equalTo("type", mSelectedClimbType.ordinal())
+                        .findAll();
+                mRealm.executeTransaction(new Realm.Transaction() {
+                    @Override
+                    public void execute(Realm realm) {
+                        results.deleteLastFromRealm();
+                    }
+                });
 
-                dbHelper.getWritableDatabase().delete(DbHelper.ClimbEntry.TABLE_NAME, deleteQuery, null);
                 mContentPagerAdapter.notifyDataSetChanged();
                 // TODO: delayed confirmation
-
                 mDrawerLayout.closeDrawer(Gravity.BOTTOM);
                 return true;
             case R.id.clear_climbs:
-                String clearQuery =  DbHelper.ClimbEntry.COLUMN_CLIMB_TYPE + " =  " + Integer.toString(mSelectedClimbType.ordinal()) +
-                        " AND " + DbHelper.ClimbEntry.COLUMN_DATETIME + " >= datetime('now', 'localtime', 'start of day')";
-                dbHelper.getWritableDatabase().delete(DbHelper.ClimbEntry.TABLE_NAME, clearQuery, null);
-                mContentPagerAdapter.notifyDataSetChanged();
-                // TODO: delayed confirmation
+                results = mRealm.where(Climb.class)
+                        .greaterThan("date",startOfDay)
+                        .equalTo("type", mSelectedClimbType.ordinal())
+                        .findAll();
+                mRealm.executeTransaction(new Realm.Transaction(){
 
+                    @Override
+                    public void execute(Realm realm) {
+                        results.deleteAllFromRealm();
+                    }
+                });
+                // TODO: delayed confirmation
+                mContentPagerAdapter.notifyDataSetChanged();
                 mDrawerLayout.closeDrawer(Gravity.BOTTOM);
                 return true;
         }
@@ -81,6 +111,13 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         }
 
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mRealm.close();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -108,6 +145,8 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         inflater.inflate(R.menu.action_drawer_menu, menu);
         mActionDrawer.setOnMenuItemClickListener(this);
 
+        // get the realm instance
+        mRealm = Realm.getDefaultInstance();
     }
 
     public ClimbType getClimbType() {

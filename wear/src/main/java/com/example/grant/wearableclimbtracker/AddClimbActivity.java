@@ -3,7 +3,6 @@ package com.example.grant.wearableclimbtracker;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.wearable.activity.ConfirmationActivity;
@@ -19,21 +18,33 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.example.grant.wearableclimbtracker.model.Climb;
+
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
+
+import io.realm.Realm;
 
 public class AddClimbActivity extends Activity implements AdapterView.OnItemClickListener, DelayedConfirmationView.DelayedConfirmationListener {
     private static final String TAG = "AddClimbActivity";
     private MainActivity.ClimbType mClimbType;
     private List<String> mGradeList;
-    private DbHelper mDbHelper;
     private DelayedConfirmationView mDelayedView;
     private int mSelectedPosition; // the current selected grade
     private ListView mListView;
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mRealm.close();
+    }
+
     private LinearLayout mDelayedViewLayout;
     private FrameLayout mListViewLayout;
+    private Realm mRealm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,8 +58,8 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
                 Arrays.asList(getResources().getStringArray(R.array.bouldering_grades)) :
                 Arrays.asList(getResources().getStringArray(R.array.rope_grades));
 
-        mDbHelper = new DbHelper(this);
-        //TODO: is oncreate for dbhelper called?
+
+        mRealm = Realm.getDefaultInstance();
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
 
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
@@ -110,17 +121,20 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
         // not cancelled so save the climb
         Log.d(TAG, "onTimerFinished");
 
-        // get database
-        SQLiteDatabase db = mDbHelper.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(DbHelper.ClimbEntry.COLUMN_CLIMB_TYPE, mClimbType.ordinal());
+        mRealm.executeTransaction(new Realm.Transaction(){
 
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Date date = new Date();
-        values.put(DbHelper.ClimbEntry.COLUMN_DATETIME, df.format(date));
-        values.put(DbHelper.ClimbEntry.COLUMN_GRADE_INDEX, mSelectedPosition);
+            @Override
+            public void execute(Realm realm) {
+                Climb climb = mRealm.createObject(Climb.class);
 
-        long rowId = db.insert(DbHelper.ClimbEntry.TABLE_NAME, null, values);
+                // set climb fields
+                climb.setDate(new Date());
+                climb.setGrade(mSelectedPosition);
+                climb.setType(mClimbType);
+                climb.setId(UUID.randomUUID().toString());
+
+            }
+        });
 
         // show confirmation
         Intent intent = new Intent(this, ConfirmationActivity.class);
