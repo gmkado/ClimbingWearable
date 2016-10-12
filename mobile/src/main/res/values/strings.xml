@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">WearableClimbTracker</string>
+    <string name="sync">Sync from wear</string>
 </resources>

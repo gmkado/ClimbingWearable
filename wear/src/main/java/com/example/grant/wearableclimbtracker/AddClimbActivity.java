@@ -1,14 +1,12 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.app.Activity;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.wearable.activity.ConfirmationActivity;
 import android.support.wearable.view.DelayedConfirmationView;
 import android.support.wearable.view.WatchViewStub;
-import android.text.Layout;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -20,7 +18,6 @@ import android.widget.TextView;
 
 import com.example.grant.wearableclimbtracker.model.Climb;
 
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -120,6 +117,7 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
     public void onTimerFinished(View view) {
         // not cancelled so save the climb
         Log.d(TAG, "onTimerFinished");
+
 
         mRealm.executeTransaction(new Realm.Transaction(){
 

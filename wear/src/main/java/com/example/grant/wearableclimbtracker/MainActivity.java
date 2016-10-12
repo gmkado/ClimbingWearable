@@ -1,6 +1,5 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.app.FragmentManager;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -17,6 +16,16 @@ import android.view.MenuItem;
 import android.widget.TextView;
 
 import com.example.grant.wearableclimbtracker.model.Climb;
+import com.example.mysynclibrary.Tools;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -24,7 +33,7 @@ import java.util.Date;
 import io.realm.Realm;
 import io.realm.RealmResults;
 
-public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener {
+public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, MessageApi.MessageListener {
 
     private static final String TAG = "MainActivity";
     public static final String EXTRA_CLIMBTYPE = "ClimbType";
@@ -36,6 +45,16 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     private GridViewPager mGridViewPager;
     private ContentPagerAdapter mContentPagerAdapter;
     private Realm mRealm;
+    private int count = 0;
+    private GoogleApiClient mGoogleApiClient;
+
+    @Override
+    public void onMessageReceived(MessageEvent messageEvent) {
+        Log.d(TAG, "onMessageReceived");
+        if (messageEvent.getPath().equals(Tools.REALM_SYNC_PATH)) {
+            syncRealmDb();
+        }
+    }
 
 
     @Override
@@ -98,6 +117,18 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         return false;
     }
 
+
+    public void syncRealmDb() {
+        Log.d(TAG, "syncRealmDb");
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(Tools.REALM_SYNC_PATH);
+        putDataMapRequest.getDataMap().putInt(Tools.COUNT_KEY, count++);
+
+        PutDataRequest putDataRequest= putDataMapRequest.asPutDataRequest();
+        PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(mGoogleApiClient, putDataRequest);
+    }
+
+
+
     public enum ClimbType {
         bouldering("Bouldering", R.drawable.icon_boulder),
         ropes("Ropes", R.drawable.icon_ropes);
@@ -147,7 +178,48 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
         // get the realm instance
         mRealm = Realm.getDefaultInstance();
+
+        // create and connect the api client
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
+                    @Override
+                    public void onConnected(Bundle connectionHint) {
+                        Log.d(TAG, "onConnected: " + connectionHint);
+                        // Now you can use the Data Layer API
+
+                        Wearable.MessageApi.addListener(mGoogleApiClient, MainActivity.this);
+                    }
+                    @Override
+                    public void onConnectionSuspended(int cause) {
+                        Log.d(TAG, "onConnectionSuspended: " + cause);
+                    }
+                })
+                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(ConnectionResult result) {
+                        Log.d(TAG, "onConnectionFailed: " + result);
+                    }
+                })
+                // Request access only to the Wearable API
+                .addApi(Wearable.API)
+                .build();
+
     }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        mGoogleApiClient.disconnect();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mGoogleApiClient.connect();
+    }
+
+
 
     public ClimbType getClimbType() {
         return mSelectedClimbType;

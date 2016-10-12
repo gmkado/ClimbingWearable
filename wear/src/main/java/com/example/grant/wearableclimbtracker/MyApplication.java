@@ -17,7 +17,9 @@ public class MyApplication extends Application {
         super.onCreate();
 
         // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
-        RealmConfiguration config = new RealmConfiguration.Builder(this).build();
+        RealmConfiguration config = new RealmConfiguration.Builder(this)
+                .deleteRealmIfMigrationNeeded()
+                .build();
         Realm.setDefaultConfiguration(config);
 
         Stetho.initialize(

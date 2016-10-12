@@ -33,10 +33,8 @@ public class ContentPagerAdapter extends FragmentGridPagerAdapter {
         Bundle args = new Bundle();
         args.putInt(SessionOverviewFragment.ARG_CLIMB_TYPE, mMainActivity.getClimbType().ordinal());
         fragment.setArguments(args);
-
         mFragmentList.add(fragment);
 
-//        // TODO: remove this, its a test
         fragment = new BarChartFragment();
         fragment.setArguments(args);
         mFragmentList.add(fragment);
