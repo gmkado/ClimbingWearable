@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="rope_grades">
+        <item>5.7</item>
+        <item>5.8</item>
+        <item>5.9</item>
+        <item>5.10a</item>
+        <item>5.10b</item>
+        <item>5.10c</item>
+        <item>5.10d</item>
+        <item>5.11a</item>
+        <item>5.11b</item>
+        <item>5.11c</item>
+        <item>5.11d</item>
+        <item>5.12a</item>
+        <item>5.12b</item>
+        <item>5.12c</item>
+        <item>5.12d</item>
+    </string-array>
+
+    <string-array name="bouldering_grades">
+
+    </string-array>
+</resources>

@@ -16,9 +16,9 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.example.grant.wearableclimbtracker.model.Climb;
+import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.model.Climb;
 
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -27,7 +27,7 @@ import io.realm.Realm;
 
 public class AddClimbActivity extends Activity implements AdapterView.OnItemClickListener, DelayedConfirmationView.DelayedConfirmationListener {
     private static final String TAG = "AddClimbActivity";
-    private MainActivity.ClimbType mClimbType;
+    private Shared.ClimbType mClimbType;
     private List<String> mGradeList;
     private DelayedConfirmationView mDelayedView;
     private int mSelectedPosition; // the current selected grade
@@ -50,11 +50,9 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
         setContentView(R.layout.activity_add_climb);
 
         Bundle extras = getIntent().getExtras();
-        mClimbType = (MainActivity.ClimbType)extras.get(MainActivity.EXTRA_CLIMBTYPE);
-        mGradeList = mClimbType == MainActivity.ClimbType.bouldering ?
-                Arrays.asList(getResources().getStringArray(R.array.bouldering_grades)) :
-                Arrays.asList(getResources().getStringArray(R.array.rope_grades));
+        mClimbType = (Shared.ClimbType)extras.get(MainActivity.EXTRA_CLIMBTYPE);
 
+        mGradeList = mClimbType.grades;
 
         mRealm = Realm.getDefaultInstance();
         final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
@@ -68,7 +66,7 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
                 mListView = (ListView)findViewById(R.id.listView);
 
 
-                ArrayAdapter adapter = new ArrayAdapter(AddClimbActivity.this, android.R.layout.simple_list_item_1, mGradeList);
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(AddClimbActivity.this, android.R.layout.simple_list_item_1, mGradeList);
                 mListView.setAdapter(adapter);
                 mListView.setOnItemClickListener(AddClimbActivity.this);
                 mDelayedView = (DelayedConfirmationView) findViewById(R.id.delayed_confirm);
@@ -128,7 +126,7 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
                 // set climb fields
                 climb.setDate(new Date());
                 climb.setGrade(mSelectedPosition);
-                climb.setType(mClimbType);
+                climb.setType(mClimbType.ordinal());
                 climb.setId(UUID.randomUUID().toString());
 
             }

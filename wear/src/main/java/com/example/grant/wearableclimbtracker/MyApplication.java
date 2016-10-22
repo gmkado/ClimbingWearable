@@ -2,6 +2,7 @@ package com.example.grant.wearableclimbtracker;
 
 import android.app.Application;
 
+import com.example.mysynclibrary.Shared;
 import com.facebook.stetho.Stetho;
 import com.uphyca.stetho_realm.RealmInspectorModulesProvider;
 
@@ -16,11 +17,7 @@ public class MyApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
-        RealmConfiguration config = new RealmConfiguration.Builder(this)
-                .deleteRealmIfMigrationNeeded()
-                .build();
-        Realm.setDefaultConfiguration(config);
+        Shared.initRealm(this);
 
         Stetho.initialize(
                 Stetho.newInitializerBuilder(this)
