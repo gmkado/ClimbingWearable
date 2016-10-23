@@ -2,10 +2,11 @@ package com.example.grant.wearableclimbtracker;
 
 import android.app.Fragment;
 import android.app.FragmentManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.FragmentGridPagerAdapter;
 import android.support.wearable.view.GridViewPager;
@@ -19,13 +20,13 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.TextView;
 
+import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.model.Climb;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.model.RealmResultsEvent;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.MessageEvent;
@@ -38,25 +39,25 @@ import org.greenrobot.eventbus.EventBus;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
 
-public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, MessageApi.MessageListener {
+public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, MessageApi.MessageListener, ClimbResultsProvider {
 
     private static final String TAG = "MainActivity";
     public static final String EXTRA_CLIMBTYPE = "ClimbType";
+    private static final String PREF_TYPE = "prefClimbType";
+    private static final String PREFS_NAME = "mySharedPreferences";
     private TextView mTextView;
-    private Shared.ClimbType mSelectedClimbType;
+    private Shared.ClimbType mClimbType;
     private WearableDrawerLayout mDrawerLayout;
     private WearableNavigationDrawer mNavigationDrawer;
     private WearableActionDrawer mActionDrawer;
     private GridViewPager mGridViewPager;
     private ContentPagerAdapter mContentPagerAdapter;
     private Realm mRealm;
-    private int count = 0;
     private GoogleApiClient mGoogleApiClient;
 
     @Override
@@ -69,9 +70,9 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 break;
             case Shared.REALM_ACK_PATH:
                 Log.d(TAG, "ack received -- deleting old data");
-                // delete all older than one day
+                // delete ALL older than one DAY
                 final RealmResults<Climb> results = mRealm.where(Climb.class)
-                        .lessThan("date", Shared.getStartOfDay())
+                        .lessThan("date", Shared.getStartOfDateRange(Shared.DateRange.DAY))
                         .findAll();
                 mRealm.executeTransaction(new Realm.Transaction() {
                     @Override
@@ -96,15 +97,15 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
             case R.id.add_climb:
                 // start addclimbactivity
                 Intent intent = new Intent(this, AddClimbActivity.class);
-                intent.putExtra(EXTRA_CLIMBTYPE, mSelectedClimbType);
+                intent.putExtra(EXTRA_CLIMBTYPE, mClimbType);
                 startActivity(intent);
 
                 mDrawerLayout.closeDrawer(Gravity.BOTTOM);
                 return true;
             case R.id.delete_last:
                 results = mRealm.where(Climb.class)
-                        .greaterThan("date", Shared.getStartOfDay())
-                        .equalTo("type", mSelectedClimbType.ordinal())
+                        .greaterThan("date", Shared.getStartOfDateRange(Shared.DateRange.DAY))
+                        .equalTo("type", mClimbType.ordinal())
                         .findAll().sort("date");
                 mRealm.executeTransaction(new Realm.Transaction() {
                     @Override
@@ -113,14 +114,13 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                     }
                 });
 
-                mContentPagerAdapter.notifyDataSetChanged();
                 // TODO: delayed confirmation
                 mDrawerLayout.closeDrawer(Gravity.BOTTOM);
                 return true;
             case R.id.clear_climbs:
                 results = mRealm.where(Climb.class)
-                        .greaterThan("date",Shared.getStartOfDay())
-                        .equalTo("type", mSelectedClimbType.ordinal())
+                        .greaterThan("date",Shared.getStartOfDateRange(Shared.DateRange.DAY))
+                        .equalTo("type", mClimbType.ordinal())
                         .findAll();
                 mRealm.executeTransaction(new Realm.Transaction(){
 
@@ -130,7 +130,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                     }
                 });
                 // TODO: delayed confirmation
-                mContentPagerAdapter.notifyDataSetChanged();
                 mDrawerLayout.closeDrawer(Gravity.BOTTOM);
                 return true;
         }
@@ -171,7 +170,8 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         setContentView(R.layout.activity_main);
         setAmbientEnabled();
 
-        mSelectedClimbType = Shared.ClimbType.bouldering;
+        mClimbType = Shared.ClimbType.values()[
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt(PREF_TYPE, Shared.ClimbType.bouldering.ordinal())];
 
         // create the gridviewpager
         mGridViewPager = (GridViewPager)findViewById(R.id.pager);
@@ -184,6 +184,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         mActionDrawer = (WearableActionDrawer) findViewById(R.id.bottom_action_drawer);
 
         mNavigationDrawer.setAdapter(new NavigationAdapter());
+        // TODO: set current item to climbtype
 
         Menu menu = mActionDrawer.getMenu();
         MenuInflater inflater = getMenuInflater();
@@ -218,6 +219,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 .addApi(Wearable.API)
                 .build();
 
+        invalidateRealmResult();
     }
 
     @Override
@@ -231,6 +233,17 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+    }
+
+    @Override
+    public Shared.ClimbType getType() {
+        return mClimbType;
+    }
+
+    @Override
+    public Shared.DateRange getDateRange() {
+        // wear app only shows today
+        return Shared.DateRange.DAY;
     }
 
 
@@ -248,13 +261,9 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
         @Override
         public void onItemSelected(int i) {
-            mSelectedClimbType = Shared.ClimbType.values()[i];
-            setRealmResult();
-            mContentPagerAdapter.notifyDataSetChanged();
-
-
+            mClimbType = Shared.ClimbType.values()[i];
+            invalidateRealmResult();
         }
-
 
         @Override
         public int getCount() {
@@ -262,20 +271,13 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         }
     }
 
-    private void setRealmResult() {
+    private void invalidateRealmResult() {
         // run a query for today
-        Calendar cal = Calendar.getInstance();
-
-        cal.set(Calendar.HOUR_OF_DAY, 0);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-
         RealmResults<Climb> results = mRealm.where(Climb.class)
-                .equalTo("type", mSelectedClimbType.ordinal())
-                .greaterThan("date",cal.getTime())
+                .equalTo("type", mClimbType.ordinal())
+                .greaterThan("date",Shared.getStartOfDateRange(Shared.DateRange.DAY))
                 .findAll();
-        EventBus.getDefault().postSticky(new RealmResultsEvent(results)); // send it to all subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().postSticky(new RealmResultsEvent(results)); // send it to ALL subscribers. post sticky so this result stays until we set it again
 
     }
 
@@ -291,14 +293,10 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
             mFragmentList = new ArrayList<>();
 
             // set climb type of the content fragment
-            Fragment fragment = new SessionOverviewFragment();
-            Bundle args = new Bundle();
-            args.putInt(SessionOverviewFragment.ARG_CLIMB_TYPE, mSelectedClimbType.ordinal());
-            fragment.setArguments(args);
+            Fragment fragment = new OverviewWearFragment();
             mFragmentList.add(fragment);
 
             fragment = new BarChartWearFragment();
-            fragment.setArguments(args);
             mFragmentList.add(fragment);
 
         }

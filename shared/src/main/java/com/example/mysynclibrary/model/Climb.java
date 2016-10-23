@@ -9,7 +9,7 @@ import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.Required;
 
 // Your model just have to extend RealmObject.
-// This will inherit an annotation which produces proxy getters and setters for all fields.
+// This will inherit an annotation which produces proxy getters and setters for ALL fields.
 public class Climb extends RealmObject {
 
     // All fields are by default persisted.

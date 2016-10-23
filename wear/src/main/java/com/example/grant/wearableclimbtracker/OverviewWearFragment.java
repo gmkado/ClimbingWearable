@@ -1,6 +1,7 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.app.Fragment;
+import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -9,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.model.Climb;
 import com.example.mysynclibrary.model.RealmResultsEvent;
@@ -16,29 +18,25 @@ import com.example.mysynclibrary.model.RealmResultsEvent;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
-import java.util.Arrays;
-import java.util.Calendar;
 import java.util.List;
 
-import io.realm.Realm;
 import io.realm.RealmChangeListener;
 import io.realm.RealmResults;
 
 /**
  * Created by Grant on 8/1/2016.
  */
-public class SessionOverviewFragment extends Fragment {
+public class OverviewWearFragment extends Fragment {
 
-    public static final String ARG_CLIMB_TYPE = "climbTypeArg";
     private TextView pointsTextView;
-    private Shared.ClimbType mClimbType;
-    private final String TAG = "SessionOverviewFragment";
+    private final String TAG = "OverviewWearFragment";
     private TextView typeTextView;
     private TextView countTextView;
     private TextView maxTextView;
     private RealmResults<Climb> mResult;
+    private ClimbResultsProvider mClimbResultsProvider;
 
-    public SessionOverviewFragment() {
+    public OverviewWearFragment() {
     }
 
     @Nullable
@@ -49,10 +47,8 @@ public class SessionOverviewFragment extends Fragment {
         countTextView = (TextView) rootView.findViewById(R.id.count_textview);
         maxTextView = (TextView) rootView.findViewById(R.id.max_textView);
 
-        typeTextView = (TextView)rootView.findViewById(R.id.title_textView);
-        mClimbType = Shared.ClimbType.values()[getArguments().getInt(ARG_CLIMB_TYPE)];
+        typeTextView = (TextView) rootView.findViewById(R.id.title_textView);
 
-        typeTextView.setText(mClimbType.title);
         return rootView;
     }
 
@@ -78,6 +74,9 @@ public class SessionOverviewFragment extends Fragment {
     @Override
     public void onStop() {
         super.onStop();
+        if(mResult!=null) {
+            mResult.removeChangeListeners();
+        }
         EventBus.getDefault().unregister(this);
     }
 
@@ -87,18 +86,22 @@ public class SessionOverviewFragment extends Fragment {
         EventBus.getDefault().register(this);
     }
 
+
     public void updatePointsView() {
         Log.d(TAG, "updatePointsView()");
 
-        int sum =  (mResult.sum("grade")).intValue();
+        Shared.ClimbType climbType = mClimbResultsProvider.getType();
+        typeTextView.setText(climbType.title);
+
+        int sum = (mResult.sum("grade")).intValue();
         int count = mResult.size();
         Number max = mResult.max("grade");
 
-        if(max == null) {
+        if (max == null) {
             maxTextView.setVisibility(View.GONE);
-        }else{
+        } else {
             maxTextView.setVisibility(View.VISIBLE);
-            List<String> gradeList = mClimbType.grades;
+            List<String> gradeList = climbType.grades;
 
             maxTextView.setText(String.format("MAX: %s", gradeList.get(max.intValue())));
         }
@@ -106,5 +109,17 @@ public class SessionOverviewFragment extends Fragment {
         pointsTextView.setText(String.format("POINTS: %d", sum));
         countTextView.setText(String.format("CLIMBS: %d", count));
     }
-}
 
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        try {
+            mClimbResultsProvider = (ClimbResultsProvider) context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString()
+                    + " must implement ClimbResultsProvider");
+        }
+    }
+
+}

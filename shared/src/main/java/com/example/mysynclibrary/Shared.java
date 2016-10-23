@@ -2,13 +2,7 @@ package com.example.mysynclibrary;
 
 import android.content.Context;
 
-import com.example.mysynclibrary.model.Climb;
 import com.example.mysynclibrary.model.ClimbingModule;
-import com.github.mikephil.charting.data.BarDataSet;
-import com.github.mikephil.charting.data.BarEntry;
-import com.github.mikephil.charting.interfaces.datasets.IBarDataSet;
-import com.github.mikephil.charting.utils.ColorTemplate;
-import com.github.mikephil.charting.utils.EntryXComparator;
 import com.google.android.gms.wearable.Asset;
 import com.google.gson.Gson;
 
@@ -18,15 +12,11 @@ import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
-import io.realm.RealmResults;
 
 /**
  * Created by Grant on 9/28/2016.
@@ -51,23 +41,57 @@ public class Shared {
         Realm.setDefaultConfiguration(config);
     }
 
-    public static Date getStartOfDay() {
+    public static Date getStartOfDateRange(DateRange dr) {
         // null if using today
         Calendar cal = Calendar.getInstance();
 
         /*if(date != null) {
             cal.setTime(date);
         }*/
-
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
 
+        switch(dr) {
+            case DAY:
+                // do nothing
+                break;
+            case WEEK:
+                cal.add(Calendar.WEEK_OF_MONTH, -1);
+                break;
+            case MONTH:
+                cal.add(Calendar.MONTH, -1);
+                break;
+            case YEAR:
+                cal.add(Calendar.YEAR, -1);
+                break;
+            case ALL:
+                // return null which signifies use ALL dates
+                return null;
+        }
+
         return cal.getTime();
     }
 
 
+    public enum DateRange{
+        DAY,
+        WEEK,
+        MONTH,
+        YEAR,
+        ALL;
+
+        DateRange() {}
+
+        public static ArrayList<String> getLabels() {
+            ArrayList<String> labels = new ArrayList<>();
+            for (DateRange dr: DateRange.values()) {
+                labels.add(dr.name());
+            }
+            return labels;
+        }
+    }
     public enum ClimbType {
         bouldering("Bouldering", R.drawable.icon_boulder, createGradeList(0, 15, "V", 16, null)),
         ropes("Ropes", R.drawable.icon_ropes, createGradeList(6, 13, "5.",10, Arrays.asList("a","b","c","d")));

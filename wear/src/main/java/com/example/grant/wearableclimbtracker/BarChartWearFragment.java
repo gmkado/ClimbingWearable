@@ -1,5 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -8,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.model.Climb;
 import com.example.mysynclibrary.model.RealmResultsEvent;
@@ -45,11 +47,14 @@ public class BarChartWearFragment extends android.app.Fragment {
     private final String TAG = "BarChartWearFragment";
     private BarChart mBarChart;
     private RealmResults<Climb> mResult;
+    private ClimbResultsProvider mClimbResultsProvider;
 
     @Override
     public void onStop() {
         super.onStop();
-        mResult.removeChangeListeners();
+        if(mResult!=null) {
+            mResult.removeChangeListeners();
+        }
         EventBus.getDefault().unregister(this);
     }
 
@@ -94,7 +99,7 @@ public class BarChartWearFragment extends android.app.Fragment {
             mBarChart.setData(null);
         } else {
             // get the climb type from the data
-            final Shared.ClimbType type = Shared.ClimbType.values()[mResult.get(0).getType()];
+            final Shared.ClimbType type = mClimbResultsProvider.getType();
 
             HashMap<Integer, Integer> bins = new HashMap<>();
             for (Climb climb : mResult) {
@@ -108,7 +113,7 @@ public class BarChartWearFragment extends android.app.Fragment {
                 }
             }
 
-            // add all to bar entries
+            // add ALL to bar entries
             List<BarEntry> barEntries = new ArrayList<>();
             for (Map.Entry<Integer, Integer> entry : bins.entrySet()) {
                 barEntries.add(new BarEntry(entry.getKey(), entry.getValue()));
@@ -156,5 +161,16 @@ public class BarChartWearFragment extends android.app.Fragment {
             mBarChart.setData(data);
         }
         mBarChart.invalidate(); // refresh
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        try {
+            mClimbResultsProvider = (ClimbResultsProvider) context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString()
+                    + " must implement ClimbResultsProvider");
+        }
     }
 }

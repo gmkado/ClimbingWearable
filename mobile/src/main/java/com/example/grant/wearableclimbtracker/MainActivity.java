@@ -1,5 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
@@ -17,6 +18,7 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.model.Climb;
 import com.example.mysynclibrary.model.RealmResultsEvent;
@@ -38,6 +40,8 @@ import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
+import org.honorato.multistatetogglebutton.MultiStateToggleButton;
+import org.honorato.multistatetogglebutton.ToggleButton;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,21 +49,25 @@ import java.util.Date;
 import java.util.Set;
 
 import io.realm.Realm;
-import io.realm.RealmChangeListener;
+import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import io.realm.internal.IOException;
 
-public class MainActivity extends AppCompatActivity implements DataApi.DataListener{
+public class MainActivity extends AppCompatActivity implements DataApi.DataListener, ClimbResultsProvider{
 
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREFS_NAME = "MyPrefsFile";
+    private static final String PREF_LASTSYNC = "prefLastSync";
+    private static final String PREF_TYPE = "prefType";
+    private static final String PREF_DATERANGE = "prefDateRange";
     private GoogleApiClient mGoogleApiClient;
     private String mNodeId;
     private Realm mRealm;
     private ChartPagerAdapter mChartPagerAdapter;
     private Switch typeToggle;
-    private Shared.ClimbType mType;
+    private Shared.ClimbType mClimbType;
+    private Shared.DateRange mDateRange;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -68,27 +76,24 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         inflater.inflate(R.menu.main_menu, menu);
 
         typeToggle = (Switch)menu.findItem(R.id.type_toggle).getActionView().findViewById(R.id.switch1);
-        setType(typeToggle.isChecked()? Shared.ClimbType.bouldering: Shared.ClimbType.ropes);
+        typeToggle.setChecked(mClimbType == Shared.ClimbType.bouldering);
 
         typeToggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                setType(isChecked? Shared.ClimbType.bouldering: Shared.ClimbType.ropes);
+                mClimbType = isChecked? Shared.ClimbType.bouldering: Shared.ClimbType.ropes;
+
+                // save this in shared pref
+                SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+                editor.putInt(PREF_TYPE, mClimbType.ordinal());
+                editor.commit();
+
+                invalidateRealmResult();
             }
         });
         return true;
     }
 
-    private void setType(Shared.ClimbType type) {
-        //Log.d(TAG, "setType");
-        mType = type;
-        if(type == Shared.ClimbType.bouldering) {
-            typeToggle.setText("B");
-        }else{
-            typeToggle.setText("TR");
-        }
-        setRealmResult();
-    }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -117,6 +122,8 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+
+        // TODO: is this called after on
     }
 
     @Override
@@ -124,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         super.onDestroy();
         mRealm.close();
     }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,6 +146,32 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         mChartPagerAdapter = new ChartPagerAdapter(this,getSupportFragmentManager());
         ViewPager pager = (ViewPager) findViewById(R.id.pager);
         pager.setAdapter(mChartPagerAdapter);
+
+        // get the shared preferences for type and date range
+        SharedPreferences pref = getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE);
+        mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_TYPE, Shared.ClimbType.bouldering.ordinal())];
+        mDateRange = Shared.DateRange.values()[pref.getInt(PREF_DATERANGE, Shared.DateRange.ALL.ordinal())];
+
+        // setup date toggle button
+        MultiStateToggleButton button = (MultiStateToggleButton)findViewById(R.id.mstb_daterange);
+        button.setElements(Shared.DateRange.getLabels());
+        button.setValue(mDateRange.ordinal());
+
+        button.setOnValueChangedListener(new ToggleButton.OnValueChangedListener(){
+
+            @Override
+            public void onValueChanged(int position) {
+                // change the date range
+                mDateRange = Shared.DateRange.values()[position];
+
+                // save this in shared pref
+                SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+                editor.putInt(PREF_DATERANGE, mDateRange.ordinal());
+                editor.commit();
+
+                invalidateRealmResult();
+            }
+        });
 
         // setup google api
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -167,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
                 .addApi(Wearable.API)
                 .build();
 
-
+        invalidateRealmResult();
     }
 
     private void sendMessageToRealmCreator(final String path, final byte[] data) {
@@ -220,7 +254,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
 
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
-        final SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+        final SharedPreferences settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
         for (DataEvent event: dataEvents) {
             if (event.getType() == DataEvent.TYPE_CHANGED) {
@@ -230,14 +264,14 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
 
                     Log.d(TAG, "onDataChanged: got datachange -- string = " + dataMap.getString(Shared.DB_DATA_KEY));
 
-                    //get the start of day of last data sync
+                    //get the start of DAY of last data sync
                     final Gson gson = Shared.getGson();
-                    Date lastSyncDate = gson.fromJson(settings.getString("lastSync", gson.toJson(Shared.getStartOfDay())), Date.class);
+                    Date lastSyncDate = gson.fromJson(settings.getString(PREF_LASTSYNC, gson.toJson(Shared.getStartOfDateRange(Shared.DateRange.DAY))), Date.class);
 
                     final Climb[] climbList = gson.fromJson(dataMap.getString(Shared.DB_DATA_KEY), Climb[].class);
 
 
-                    // delete all climbs after last sync day
+                    // delete ALL climbs after last sync DAY
                     final RealmResults results = mRealm.where(Climb.class)
                             .greaterThan("date", lastSyncDate)
                             .findAll();
@@ -263,7 +297,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
 
                                 //set today as the new last sync date
                                 SharedPreferences.Editor editor = settings.edit();
-                                editor.putString("lastSync", gson.toJson(Shared.getStartOfDay()));
+                                editor.putString(PREF_LASTSYNC, gson.toJson(Shared.getStartOfDateRange(Shared.DateRange.DAY)));
                                 editor.commit();
 
 
@@ -282,12 +316,26 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         }
     }
 
-    public void setRealmResult() {
+    public void invalidateRealmResult() {
         //Log.d(TAG, "setClimbRealmResult");
-        RealmResults<Climb> realmResult =  mRealm.where(Climb.class)
-                .equalTo("type", mType.ordinal()).findAll();
-        EventBus.getDefault().postSticky(new RealmResultsEvent(realmResult)); // send it to all subscribers. post sticky so this result stays until we set it again
+        RealmQuery<Climb> realmQuery =  mRealm.where(Climb.class)
+                .equalTo("type", mClimbType.ordinal());
 
+        if(mDateRange != Shared.DateRange.ALL) {
+            realmQuery.greaterThan("date", Shared.getStartOfDateRange(mDateRange));
+        }
+        EventBus.getDefault().postSticky(new RealmResultsEvent(realmQuery.findAll())); // send it to ALL subscribers. post sticky so this result stays until we set it again
+
+    }
+
+    @Override
+    public Shared.ClimbType getType() {
+        return mClimbType;
+    }
+
+    @Override
+    public Shared.DateRange getDateRange() {
+        return mDateRange;
     }
 
 
@@ -306,7 +354,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
             mFragmentList = new ArrayList<>();
 
             // set climb type of the content fragment
-            Fragment fragment = new OverviewFragment();
+            Fragment fragment = new OverviewMobileFragment();
             mFragmentList.add(new Pair("Overview", fragment));
 
             fragment = new BarChartMobileFragment();

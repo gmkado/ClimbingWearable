@@ -1,5 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -9,6 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.model.Climb;
 import com.example.mysynclibrary.model.RealmResultsEvent;
@@ -43,6 +45,7 @@ public class BarChartMobileFragment extends Fragment {
     private static final String TAG = "BarChartMobileFragment";
     private BarChart mBarChart;
     private RealmResults<Climb> mResult;
+    private ClimbResultsProvider mClimbResultsProvider;
 
     public BarChartMobileFragment() {
 
@@ -92,6 +95,19 @@ public class BarChartMobileFragment extends Fragment {
         setUpBarChart();
     }
 
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        super.onAttach(context);
+        try {
+            mClimbResultsProvider = (ClimbResultsProvider) context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString()
+                    + " must implement ClimbResultsProvider");
+        }
+
+    }
+
     private void setUpBarChart() {
         Log.d(TAG, "setUpBarChart");
 
@@ -99,7 +115,7 @@ public class BarChartMobileFragment extends Fragment {
             mBarChart.setData(null);
         } else {
             // get the climb type from the data
-            final Shared.ClimbType type = Shared.ClimbType.values()[mResult.get(0).getType()];
+            final Shared.ClimbType type = mClimbResultsProvider.getType();
 
             HashMap<Integer, Integer> bins = new HashMap<>();
             for (Climb climb : mResult) {
@@ -113,7 +129,7 @@ public class BarChartMobileFragment extends Fragment {
                 }
             }
 
-            // add all to bar entries
+            // add ALL to bar entries
             List<BarEntry> barEntries = new ArrayList<>();
             for (Map.Entry<Integer, Integer> entry : bins.entrySet()) {
                 barEntries.add(new BarEntry(entry.getKey(), entry.getValue()));
@@ -165,4 +181,5 @@ public class BarChartMobileFragment extends Fragment {
         }
         mBarChart.invalidate(); // refresh
     }
+
 }
