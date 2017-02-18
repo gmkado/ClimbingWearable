@@ -16,14 +16,5 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name=".MobileDataLayerService"
-            android:enabled="true"
-            android:exported="true">
-
-        </service>
-
     </application>
-
 </manifest>

@@ -19,7 +19,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.TextView;
 
-import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
@@ -34,7 +33,6 @@ import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
-import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.List;

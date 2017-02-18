@@ -19,7 +19,6 @@ import android.widget.Switch;
 import android.widget.Toast;
 
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.WearDataEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.google.android.gms.common.ConnectionResult;
@@ -28,7 +27,6 @@ import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.tasks.RuntimeExecutionException;
 import com.google.android.gms.wearable.CapabilityApi;
-import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
@@ -38,6 +36,7 @@ import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
+import com.mariux.teleport.lib.TeleportClient;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -58,12 +57,11 @@ import io.realm.internal.IOException;
 public class MainActivity extends AppCompatActivity{
 
     private static final String TAG = "MainActivity";
-    private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
+    //private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREFS_NAME = "MyPrefsFile";
     private static final String PREF_LASTSYNC = "prefLastSync";
     private static final String PREF_TYPE = "prefType";
     private static final String PREF_DATERANGE = "prefDateRange";
-    private GoogleApiClient mGoogleApiClient;
     private String mNodeId;
     private Realm mRealm;
     private ChartPagerAdapter mChartPagerAdapter;
@@ -71,6 +69,7 @@ public class MainActivity extends AppCompatActivity{
     private Shared.ClimbType mClimbType;
     private Shared.DateRange mDateRange;
     private MenuItem syncMenuItem;
+    private TeleportClient mTeleportClient;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -123,18 +122,14 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onStop() {
         super.onStop();
-        if(mGoogleApiClient!=null && mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
-
+        mTeleportClient.disconnect();
         EventBus.getDefault().unregister(this);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        mGoogleApiClient.connect();
-
+        mTeleportClient.connect();
         EventBus.getDefault().register(this);
     }
 
@@ -183,32 +178,9 @@ public class MainActivity extends AppCompatActivity{
             }
         });
 
-        // setup google api
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle connectionHint) {
-                        Log.d(TAG, "onConnected: " + connectionHint);
 
-                        // Now request a sync
-                        Log.d(TAG, "requesting sync");
-                        sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
-                    }
-                    @Override
-                    public void onConnectionSuspended(int cause) {
-                        Log.d(TAG, "onConnectionSuspended: " + cause);
-                    }
-                })
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult result) {
-                        Log.d(TAG, "onConnectionFailed: " + result);
-                    }
-                })
-                // Request access only to the Wearable API
-                .addApi(Wearable.API)
-                .build();
-
+        mTeleportClient = new TeleportClient(this);
+        mTeleportClient.setOnSyncDataItemTask(new SyncRealmFromTeleportTask());
         invalidateRealmResult();
     }
 
@@ -259,7 +231,6 @@ public class MainActivity extends AppCompatActivity{
         });
     }
 
-    @Subscribe (sticky = true)
     public void onWearDataEvent(WearDataEvent wearDataEvent) {
         DataEventBuffer dataEvents = wearDataEvent.dataEvents;  // unpack the dataeventbuffer from the eventbus event
         final SharedPreferences settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -382,4 +353,10 @@ public class MainActivity extends AppCompatActivity{
     }
 
 
+    private class SyncRealmFromTeleportTask extends TeleportClient.OnSyncDataItemTask {
+        @Override
+        protected void onPostExecute(DataMap result) {
+
+        }
+    }
 }
