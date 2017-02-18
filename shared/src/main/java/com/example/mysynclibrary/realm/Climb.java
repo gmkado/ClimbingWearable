@@ -1,6 +1,4 @@
-package com.example.mysynclibrary.model;
-
-import com.example.mysynclibrary.Shared;
+package com.example.mysynclibrary.realm;
 
 import java.util.Date;
 

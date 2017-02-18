@@ -17,7 +17,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.model.Climb;
+import com.example.mysynclibrary.realm.Climb;
 
 import java.util.Date;
 import java.util.List;

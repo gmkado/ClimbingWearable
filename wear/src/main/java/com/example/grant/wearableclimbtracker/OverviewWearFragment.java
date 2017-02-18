@@ -10,10 +10,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.model.Climb;
-import com.example.mysynclibrary.model.RealmResultsEvent;
+import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -34,7 +33,7 @@ public class OverviewWearFragment extends Fragment {
     private TextView countTextView;
     private TextView maxTextView;
     private RealmResults<Climb> mResult;
-    private ClimbResultsProvider mClimbResultsProvider;
+    private Shared.ClimbType mClimbType;
 
     public OverviewWearFragment() {
     }
@@ -61,6 +60,7 @@ public class OverviewWearFragment extends Fragment {
     @Subscribe(sticky = true)
     public void onRealmResult(RealmResultsEvent event) {
         mResult = event.realmResults;
+        mClimbType = event.climbType;
         mResult.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
             @Override
             public void onChange(RealmResults<Climb> element) {
@@ -90,8 +90,7 @@ public class OverviewWearFragment extends Fragment {
     public void updatePointsView() {
         Log.d(TAG, "updatePointsView()");
 
-        Shared.ClimbType climbType = mClimbResultsProvider.getType();
-        typeTextView.setText(climbType.title);
+        typeTextView.setText(mClimbType.title);
 
         int sum = (mResult.sum("grade")).intValue();
         int count = mResult.size();
@@ -101,25 +100,13 @@ public class OverviewWearFragment extends Fragment {
             maxTextView.setVisibility(View.GONE);
         } else {
             maxTextView.setVisibility(View.VISIBLE);
-            List<String> gradeList = climbType.grades;
+            List<String> gradeList = mClimbType.grades;
 
             maxTextView.setText(String.format("MAX: %s", gradeList.get(max.intValue())));
         }
 
         pointsTextView.setText(String.format("POINTS: %d", sum));
         countTextView.setText(String.format("CLIMBS: %d", count));
-    }
-
-
-    @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        try {
-            mClimbResultsProvider = (ClimbResultsProvider) context;
-        } catch (ClassCastException e) {
-            throw new ClassCastException(context.toString()
-                    + " must implement ClimbResultsProvider");
-        }
     }
 
 }

@@ -2,8 +2,7 @@ package com.example.grant.wearableclimbtracker;
 
 import android.app.Application;
 
-import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.model.ClimbingModule;
+import com.example.mysynclibrary.realm.ClimbingModule;
 import com.facebook.stetho.Stetho;
 import com.uphyca.stetho_realm.RealmInspectorModulesProvider;
 

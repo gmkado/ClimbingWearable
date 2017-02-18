@@ -18,10 +18,10 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
 
-import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.model.Climb;
-import com.example.mysynclibrary.model.RealmResultsEvent;
+import com.example.mysynclibrary.eventbus.WearDataEvent;
+import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -40,11 +40,13 @@ import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 import org.honorato.multistatetogglebutton.MultiStateToggleButton;
 import org.honorato.multistatetogglebutton.ToggleButton;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Set;
 
@@ -53,7 +55,7 @@ import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import io.realm.internal.IOException;
 
-public class MainActivity extends AppCompatActivity implements DataApi.DataListener, ClimbResultsProvider{
+public class MainActivity extends AppCompatActivity{
 
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
@@ -68,6 +70,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
     private Switch typeToggle;
     private Shared.ClimbType mClimbType;
     private Shared.DateRange mDateRange;
+    private MenuItem syncMenuItem;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -75,22 +78,30 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_menu, menu);
 
+        // check last climbtype and set current view
         typeToggle = (Switch)menu.findItem(R.id.type_toggle).getActionView().findViewById(R.id.switch1);
         typeToggle.setChecked(mClimbType == Shared.ClimbType.bouldering);
+
+        final SharedPreferences pref = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
         typeToggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 mClimbType = isChecked? Shared.ClimbType.bouldering: Shared.ClimbType.ropes;
-
-                // save this in shared pref
-                SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+                SharedPreferences.Editor editor = pref.edit();
+                // save this in shared pref.edit();
                 editor.putInt(PREF_TYPE, mClimbType.ordinal());
                 editor.commit();
 
                 invalidateRealmResult();
             }
         });
+
+        //  set title to last update date
+        syncMenuItem = menu.findItem(R.id.sync_db);
+        syncMenuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        syncMenuItem.setTitle(pref.getString(PREF_LASTSYNC, "not synced"));
+
         return true;
     }
 
@@ -113,9 +124,10 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
     protected void onStop() {
         super.onStop();
         if(mGoogleApiClient!=null && mGoogleApiClient.isConnected()) {
-            Wearable.DataApi.removeListener(mGoogleApiClient, this);
             mGoogleApiClient.disconnect();
         }
+
+        EventBus.getDefault().unregister(this);
     }
 
     @Override
@@ -123,7 +135,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         super.onStart();
         mGoogleApiClient.connect();
 
-        // TODO: is this called after on
+        EventBus.getDefault().register(this);
     }
 
     @Override
@@ -131,7 +143,6 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         super.onDestroy();
         mRealm.close();
     }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -168,7 +179,6 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
                 SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
                 editor.putInt(PREF_DATERANGE, mDateRange.ordinal());
                 editor.commit();
-
                 invalidateRealmResult();
             }
         });
@@ -179,8 +189,6 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
                     @Override
                     public void onConnected(Bundle connectionHint) {
                         Log.d(TAG, "onConnected: " + connectionHint);
-                        // add the listener for incoming realm data
-                        Wearable.DataApi.addListener(mGoogleApiClient, MainActivity.this);
 
                         // Now request a sync
                         Log.d(TAG, "requesting sync");
@@ -207,11 +215,11 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
     private void sendMessageToRealmCreator(final String path, final byte[] data) {
         //Log.d(TAG,"sendMessageToRealmCreator");
         if(mNodeId == null) {
-            // need to find a capable node
-            PendingResult result = Wearable.CapabilityApi.getCapability(
-                    mGoogleApiClient, REALM_CONTENT_CREATOR_CAPABILITY,
-                    CapabilityApi.FILTER_REACHABLE);
-            result.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
+                // need to find a capable node
+                PendingResult result = Wearable.CapabilityApi.getCapability(
+                        mGoogleApiClient, REALM_CONTENT_CREATOR_CAPABILITY,
+                        CapabilityApi.FILTER_REACHABLE);
+                result.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
                 @Override
                 public void onResult(@NonNull CapabilityApi.GetCapabilityResult result) {
                     Set<Node> connectedNodes = result.getCapability().getNodes();
@@ -251,9 +259,9 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         });
     }
 
-
-    @Override
-    public void onDataChanged(DataEventBuffer dataEvents) {
+    @Subscribe (sticky = true)
+    public void onWearDataEvent(WearDataEvent wearDataEvent) {
+        DataEventBuffer dataEvents = wearDataEvent.dataEvents;  // unpack the dataeventbuffer from the eventbus event
         final SharedPreferences settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
         for (DataEvent event: dataEvents) {
@@ -267,6 +275,7 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
                     //get the start of DAY of last data sync
                     final Gson gson = Shared.getGson();
                     Date lastSyncDate = gson.fromJson(settings.getString(PREF_LASTSYNC, gson.toJson(Shared.getStartOfDateRange(Shared.DateRange.DAY))), Date.class);
+                    lastSyncDate = Shared.getStartofDate(lastSyncDate);
 
                     final Climb[] climbList = gson.fromJson(dataMap.getString(Shared.DB_DATA_KEY), Climb[].class);
 
@@ -297,9 +306,11 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
 
                                 //set today as the new last sync date
                                 SharedPreferences.Editor editor = settings.edit();
-                                editor.putString(PREF_LASTSYNC, gson.toJson(Shared.getStartOfDateRange(Shared.DateRange.DAY)));
+                                String newSyncDate = gson.toJson(Calendar.getInstance().getTime()); // TODO: can this be stored as calendar instead of date?
+                                editor.putString(PREF_LASTSYNC, newSyncDate);
                                 editor.commit();
 
+                                syncMenuItem.setTitle(newSyncDate);
 
                                 // send back acknowledge message
                                 Log.d(TAG, "sending sync ack");
@@ -324,19 +335,10 @@ public class MainActivity extends AppCompatActivity implements DataApi.DataListe
         if(mDateRange != Shared.DateRange.ALL) {
             realmQuery.greaterThan("date", Shared.getStartOfDateRange(mDateRange));
         }
-        EventBus.getDefault().postSticky(new RealmResultsEvent(realmQuery.findAll())); // send it to ALL subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().postSticky(new RealmResultsEvent(realmQuery.findAll(), mClimbType)); // send it to ALL subscribers. post sticky so this result stays until we set it again
 
     }
 
-    @Override
-    public Shared.ClimbType getType() {
-        return mClimbType;
-    }
-
-    @Override
-    public Shared.DateRange getDateRange() {
-        return mDateRange;
-    }
 
 
     private class ChartPagerAdapter extends FragmentPagerAdapter{

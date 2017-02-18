@@ -8,16 +8,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.example.mysynclibrary.ClimbResultsProvider;
-import com.example.mysynclibrary.Shared;
-
 /**
  * Created by Grant on 10/17/2016.
  */
 public class OverviewMobileFragment extends Fragment{
     private MainActivity mMainActivity;
-    private ClimbResultsProvider mClimbResultsProvider;
-
     public OverviewMobileFragment() {
 
     }
@@ -29,17 +24,6 @@ public class OverviewMobileFragment extends Fragment{
         mMainActivity = (MainActivity)getActivity();
 
         return rootView;
-    }
-
-    @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        try {
-            mClimbResultsProvider = (ClimbResultsProvider) context;
-        } catch (ClassCastException e) {
-            throw new ClassCastException(context.toString()
-                    + " must implement ClimbResultsProvider");
-        }
     }
 
 }

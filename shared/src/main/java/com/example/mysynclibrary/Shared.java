@@ -2,7 +2,7 @@ package com.example.mysynclibrary;
 
 import android.content.Context;
 
-import com.example.mysynclibrary.model.ClimbingModule;
+import com.example.mysynclibrary.realm.ClimbingModule;
 import com.google.android.gms.wearable.Asset;
 import com.google.gson.Gson;
 
@@ -41,13 +41,25 @@ public class Shared {
         Realm.setDefaultConfiguration(config);
     }
 
-    public static Date getStartOfDateRange(DateRange dr) {
+    public static Date getStartofDate(Date date) {
         // null if using today
         Calendar cal = Calendar.getInstance();
 
-        /*if(date != null) {
+        if(date != null) {
             cal.setTime(date);
-        }*/
+        }
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+
+        return cal.getTime();
+    }
+
+    public static Date getStartOfDateRange(DateRange dr) {
+        Calendar cal = Calendar.getInstance();
+
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);

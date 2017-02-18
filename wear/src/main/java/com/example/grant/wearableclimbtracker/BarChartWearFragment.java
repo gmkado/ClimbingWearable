@@ -7,12 +7,10 @@ import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
-import com.example.mysynclibrary.ClimbResultsProvider;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.model.Climb;
-import com.example.mysynclibrary.model.RealmResultsEvent;
+import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.components.AxisBase;
 import com.github.mikephil.charting.components.XAxis;
@@ -29,14 +27,11 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.realm.Realm;
 import io.realm.RealmChangeListener;
 import io.realm.RealmResults;
 
@@ -47,13 +42,13 @@ public class BarChartWearFragment extends android.app.Fragment {
     private final String TAG = "BarChartWearFragment";
     private BarChart mBarChart;
     private RealmResults<Climb> mResult;
-    private ClimbResultsProvider mClimbResultsProvider;
+    private Shared.ClimbType mClimbType;
 
     @Override
     public void onStop() {
         super.onStop();
         if(mResult!=null) {
-            mResult.removeChangeListeners();
+            mResult.removeChangeListeners();  // TODO: does this get added again somehow?
         }
         EventBus.getDefault().unregister(this);
     }
@@ -83,6 +78,7 @@ public class BarChartWearFragment extends android.app.Fragment {
     @Subscribe(sticky = true)
     public void onRealmResult(RealmResultsEvent event) {
         mResult = event.realmResults;
+        mClimbType = event.climbType;
         mResult.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
             @Override
             public void onChange(RealmResults<Climb> element) {
@@ -99,7 +95,6 @@ public class BarChartWearFragment extends android.app.Fragment {
             mBarChart.setData(null);
         } else {
             // get the climb type from the data
-            final Shared.ClimbType type = mClimbResultsProvider.getType();
 
             HashMap<Integer, Integer> bins = new HashMap<>();
             for (Climb climb : mResult) {
@@ -131,7 +126,7 @@ public class BarChartWearFragment extends android.app.Fragment {
             AxisValueFormatter formatter = new AxisValueFormatter() {
                 @Override
                 public String getFormattedValue(float value, AxisBase axis) {
-                    return type.grades.get((int) value);
+                    return mClimbType.grades.get((int) value);
                 }
 
                 @Override
@@ -163,14 +158,5 @@ public class BarChartWearFragment extends android.app.Fragment {
         mBarChart.invalidate(); // refresh
     }
 
-    @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        try {
-            mClimbResultsProvider = (ClimbResultsProvider) context;
-        } catch (ClassCastException e) {
-            throw new ClassCastException(context.toString()
-                    + " must implement ClimbResultsProvider");
-        }
-    }
+
 }

@@ -31,6 +31,7 @@ dependencies {
     compile 'com.github.PhilJay:MPAndroidChart-Realm:v1.1.0@aar'
     compile 'com.github.PhilJay:MPAndroidChart:v3.0.0-beta1'
     compile 'com.android.support.constraint:constraint-layout:1.0.0-alpha9'
+    compile 'Teleport:teleportlib:0.1.4'
 }
 
 repositories {

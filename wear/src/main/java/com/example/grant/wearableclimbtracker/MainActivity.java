@@ -4,7 +4,6 @@ import android.app.Fragment;
 import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.wearable.activity.WearableActivity;
@@ -20,31 +19,32 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.TextView;
 
-import com.example.mysynclibrary.ClimbResultsProvider;
-import com.example.mysynclibrary.model.Climb;
+import com.example.mysynclibrary.eventbus.WearMessageEvent;
+import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.model.RealmResultsEvent;
+import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.wearable.DataApi;
-import com.google.android.gms.wearable.MessageApi;
-import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
 
-public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, MessageApi.MessageListener, ClimbResultsProvider {
+import static org.greenrobot.eventbus.ThreadMode.MAIN;
+
+public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener {
 
     private static final String TAG = "MainActivity";
     public static final String EXTRA_CLIMBTYPE = "ClimbType";
@@ -59,33 +59,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     private ContentPagerAdapter mContentPagerAdapter;
     private Realm mRealm;
     private GoogleApiClient mGoogleApiClient;
-
-    @Override
-    public void onMessageReceived(MessageEvent messageEvent) {
-        Log.d(TAG, "onMessageReceived");
-        switch(messageEvent.getPath()) {
-            case Shared.REALM_SYNC_PATH:
-                Log.d(TAG, "sync received -- sending data");
-                syncRealmDb();
-                break;
-            case Shared.REALM_ACK_PATH:
-                Log.d(TAG, "ack received -- deleting old data");
-                // delete ALL older than one DAY
-                final RealmResults<Climb> results = mRealm.where(Climb.class)
-                        .lessThan("date", Shared.getStartOfDateRange(Shared.DateRange.DAY))
-                        .findAll();
-                mRealm.executeTransaction(new Realm.Transaction() {
-                    @Override
-                    public void execute(Realm realm) {
-                        results.deleteAllFromRealm();
-                    }
-                });
-                break;
-            default:
-                Log.e (TAG, "Unrecognized message");
-        }
-    }
-
 
     @Override
     public boolean onMenuItemClick(MenuItem menuItem) {
@@ -137,24 +110,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     }
 
 
-    public void syncRealmDb() {
-        Log.d(TAG, "syncRealmDb");
-        // query for the data to sync
-        List<Climb> allClimbs = mRealm.where(Climb.class).findAll().sort("date");
-        List<Climb> allClimbsCopy = mRealm.copyFromRealm(allClimbs);
-
-        Gson gson = Shared.getGson();
-        String json = gson.toJson(allClimbsCopy);
-
-        Log.d(TAG, "sending json:" + json);
-        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(Shared.REALM_SYNC_PATH);
-
-        putDataMapRequest.getDataMap().putString(Shared.DB_DATA_KEY, json);
-
-        PutDataRequest putDataRequest= putDataMapRequest.asPutDataRequest();
-        PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(mGoogleApiClient, putDataRequest);
-
-    }
 
     @Override
     protected void onDestroy() {
@@ -184,7 +139,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         mActionDrawer = (WearableActionDrawer) findViewById(R.id.bottom_action_drawer);
 
         mNavigationDrawer.setAdapter(new NavigationAdapter());
-        // TODO: set current item to climbtype
+
 
         Menu menu = mActionDrawer.getMenu();
         MenuInflater inflater = getMenuInflater();
@@ -201,8 +156,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                     public void onConnected(Bundle connectionHint) {
                         Log.d(TAG, "onConnected: " + connectionHint);
                         // Now you can use the Data Layer API
-
-                        Wearable.MessageApi.addListener(mGoogleApiClient, MainActivity.this);
                     }
                     @Override
                     public void onConnectionSuspended(int cause) {
@@ -227,23 +180,14 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         super.onStop();
 
         mGoogleApiClient.disconnect();
+        EventBus.getDefault().unregister(this);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
-    }
-
-    @Override
-    public Shared.ClimbType getType() {
-        return mClimbType;
-    }
-
-    @Override
-    public Shared.DateRange getDateRange() {
-        // wear app only shows today
-        return Shared.DateRange.DAY;
+        EventBus.getDefault().register(this);
     }
 
 
@@ -277,7 +221,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 .equalTo("type", mClimbType.ordinal())
                 .greaterThan("date",Shared.getStartOfDateRange(Shared.DateRange.DAY))
                 .findAll();
-        EventBus.getDefault().postSticky(new RealmResultsEvent(results)); // send it to ALL subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().postSticky(new RealmResultsEvent(results, mClimbType)); // send it to ALL subscribers. post sticky so this result stays until we set it again
 
     }
 
@@ -316,5 +260,45 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
             return mFragmentList.get(col);
         }
 
+    }
+
+    @Subscribe(sticky = true, threadMode = MAIN) // need to do this in the same thread that realm was created
+    public void onWearMessageEvent(WearMessageEvent event) {
+        switch(event.messageEvent.getPath()) {
+            case Shared.REALM_SYNC_PATH:
+                Log.d(TAG, "sync received -- sending data");
+
+                // query for the data to sync
+                List<Climb> allClimbs = mRealm.where(Climb.class).findAll().sort("date");
+                List<Climb> allClimbsCopy = mRealm.copyFromRealm(allClimbs);
+
+                // copy the results into a string format
+                Gson gson = Shared.getGson();
+                String json = gson.toJson(allClimbsCopy);
+                Log.d(TAG, "sending json:" + json);
+
+                // package the data into datamap and "put" it
+                PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(Shared.REALM_SYNC_PATH);
+                putDataMapRequest.getDataMap().putString(Shared.DB_DATA_KEY, json);
+                PutDataRequest putDataRequest= putDataMapRequest.asPutDataRequest();
+                PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(mGoogleApiClient, putDataRequest);
+                break;
+            case Shared.REALM_ACK_PATH:
+                Log.d(TAG, "ack received -- deleting old data");
+
+                // the data was received on the other end, so anything older than a day can be deleted from the wearable
+                final RealmResults<Climb> results = mRealm.where(Climb.class)
+                        .lessThan("date", Shared.getStartOfDateRange(Shared.DateRange.DAY))
+                        .findAll();
+                mRealm.executeTransaction(new Realm.Transaction() {
+                    @Override
+                    public void execute(Realm realm) {
+                        results.deleteAllFromRealm();
+                    }
+                });
+                break;
+            default:
+                Log.e (TAG, "Unrecognized message");
+        }
     }
 }
