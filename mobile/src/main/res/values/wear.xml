@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="android_wear_capabilities">
+        <item>realm_content_displayer</item>  <!--This is used in wear MainActivity-->
+    </string-array>
+</resources>

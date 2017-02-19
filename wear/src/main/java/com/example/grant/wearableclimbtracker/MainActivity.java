@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.FragmentGridPagerAdapter;
 import android.support.wearable.view.GridViewPager;
@@ -18,14 +19,22 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.Result;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.CapabilityApi;
 import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
@@ -33,9 +42,12 @@ import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
@@ -48,6 +60,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     public static final String EXTRA_CLIMBTYPE = "ClimbType";
     private static final String PREF_TYPE = "prefClimbType";
     private static final String PREFS_NAME = "mySharedPreferences";
+    private static final String REALM_CONTENT_DISPLAYER_CAPABILITY = "realm_content_displayer"; //Note: capability name defined in mobile module values/wear.xml
     private TextView mTextView;
     private Shared.ClimbType mClimbType;
     private WearableDrawerLayout mDrawerLayout;
@@ -57,6 +70,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     private ContentPagerAdapter mContentPagerAdapter;
     private Realm mRealm;
     private GoogleApiClient mGoogleApiClient;
+    private String mNodeId;
 
     @Override
     public boolean onMenuItemClick(MenuItem menuItem) {
@@ -261,7 +275,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     }
 
     @Subscribe(sticky = true, threadMode = MAIN) // need to do this in the same thread that realm was created
-    public void onWearMessageEvent(WearMessageEvent event) {
+    public void onMobileMessageEvent(WearMessageEvent event) {
         switch(event.messageEvent.getPath()) {
             case Shared.REALM_SYNC_PATH:
                 Log.d(TAG, "sync received -- sending data");
@@ -275,11 +289,25 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 String json = gson.toJson(allClimbsCopy);
                 Log.d(TAG, "sending json:" + json);
 
-                // package the data into datamap and "put" it
+                // TODO: this is just to try sending as a message
+                sendMessageToRealmDisplayer(Shared.REALM_SYNC_PATH, json.getBytes(StandardCharsets.UTF_8));
+
+                /* // package the data into datamap and "put" it
                 PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(Shared.REALM_SYNC_PATH);
                 putDataMapRequest.getDataMap().putString(Shared.DB_DATA_KEY, json);
-                PutDataRequest putDataRequest= putDataMapRequest.asPutDataRequest();
+                putDataMapRequest.getDataMap().putLong("Time",System.currentTimeMillis()); // add this to ensure data is always changed
+                PutDataRequest putDataRequest= putDataMapRequest.asPutDataRequest().setUrgent();
                 PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(mGoogleApiClient, putDataRequest);
+
+                // check if the dataitem was updated
+                pendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                    @Override
+                    public void onResult(final DataApi.DataItemResult result) {
+                        if(result.getStatus().isSuccess()) {
+                            Log.d(TAG, "Data item set: " + result.getDataItem().getUri());
+                        }
+                    }
+                });*/
                 break;
             case Shared.REALM_ACK_PATH:
                 Log.d(TAG, "ack received -- deleting old data");
@@ -298,5 +326,54 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
             default:
                 Log.e (TAG, "Unrecognized message");
         }
+    }
+
+
+
+    private void sendMessageToRealmDisplayer(final String path, final byte[] data) {
+        if(mNodeId == null) {
+            // need to find a capable node
+            PendingResult result = Wearable.CapabilityApi.getCapability(
+                    mGoogleApiClient, REALM_CONTENT_DISPLAYER_CAPABILITY,
+                    CapabilityApi.FILTER_REACHABLE);
+            result.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
+                @Override
+                public void onResult(@NonNull CapabilityApi.GetCapabilityResult result) {
+                    Set<Node> connectedNodes = result.getCapability().getNodes();
+
+                    // for now only anticipate single node with this capability
+                    // see message api docs if this changes
+                    if (connectedNodes.size() > 1) {
+                        Log.e(TAG, "More than one capable node connected.  This shouldn't happen");
+                    } else if(connectedNodes.isEmpty()) {
+                        Log.e(TAG, "No capable nodes found. This shouldn't happen");
+                    } else{
+                        Log.d(TAG, "setting node id");
+                        mNodeId = connectedNodes.iterator().next().getId();
+                        sendMessage(path, data);
+                    }
+                }
+            });
+        }
+        else{
+            sendMessage(path, data);
+        }
+    }
+
+    private void sendMessage(String path, byte[] data) {
+        Log.d(TAG, "sendMessage");
+        Wearable.MessageApi.sendMessage(mGoogleApiClient, mNodeId,
+                path, data).setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
+            @Override
+            public void onResult(@NonNull MessageApi.SendMessageResult sendMessageResult) {
+                if(sendMessageResult.getStatus().isSuccess()) {
+                    Log.d(TAG, "Message sent");
+                }else{
+                    // failed message
+                    Log.e(TAG, "Message failed");
+                }
+
+            }
+        });
     }
 }
