@@ -12,9 +12,11 @@ import io.realm.RealmResults;
 public class RealmResultsEvent {
     public final RealmResults<Climb> realmResults;
     public final Shared.ClimbType climbType;
+    public Shared.DateRange dateRange;
 
-    public RealmResultsEvent(RealmResults<Climb> realmResults, Shared.ClimbType climbType){
+    public RealmResultsEvent(RealmResults<Climb> realmResults, Shared.ClimbType climbType, Shared.DateRange dateRange){
         this.realmResults = realmResults;
         this.climbType = climbType;
+        this.dateRange = dateRange;
     }
 }

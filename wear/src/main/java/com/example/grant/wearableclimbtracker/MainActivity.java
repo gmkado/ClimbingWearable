@@ -233,7 +233,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 .equalTo("type", mClimbType.ordinal())
                 .greaterThan("date",Shared.getStartOfDateRange(Shared.DateRange.DAY))
                 .findAll();
-        EventBus.getDefault().postSticky(new RealmResultsEvent(results, mClimbType)); // send it to ALL subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().postSticky(new RealmResultsEvent(results, mClimbType, null)); // send it to ALL subscribers. post sticky so this result stays until we set it again
 
     }
 

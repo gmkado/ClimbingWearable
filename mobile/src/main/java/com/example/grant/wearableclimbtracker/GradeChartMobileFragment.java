@@ -40,13 +40,13 @@ import io.realm.RealmResults;
 /**
  * Created by Grant on 10/17/2016.
  */
-public class BarChartMobileFragment extends Fragment {
-    private static final String TAG = "BarChartMobileFragment";
+public class GradeChartMobileFragment extends Fragment {
+    private static final String TAG = "GradeFrag";
     private BarChart mBarChart;
     private RealmResults<Climb> mResult;
     private Shared.ClimbType mClimbType;
 
-    public BarChartMobileFragment() {
+    public GradeChartMobileFragment() {
 
     }
 
@@ -125,7 +125,26 @@ public class BarChartMobileFragment extends Fragment {
             Collections.sort(barEntries, new EntryXComparator());
 
             BarDataSet dataSet = new BarDataSet(barEntries, "grades");
-            dataSet.setColors(ColorTemplate.MATERIAL_COLORS);
+
+            int[] colors = new int[barEntries.size()];
+
+            // set colors based on grade
+            for(int i = 0; i<barEntries.size(); i++){
+                BarEntry entry = barEntries.get(i);
+                float gradeInd = entry.getX();
+
+                if(gradeInd<=mClimbType.getMaxGradeInd(Shared.ClimbLevel.beginner)) {
+                    colors[i] = ColorTemplate.MATERIAL_COLORS[0];
+                }else if(gradeInd<=mClimbType.getMaxGradeInd(Shared.ClimbLevel.intermediate)) {
+                    colors[i] = ColorTemplate.MATERIAL_COLORS[1];
+                }else if(gradeInd<=mClimbType.getMaxGradeInd(Shared.ClimbLevel.advanced)) {
+                    colors[i] = ColorTemplate.MATERIAL_COLORS[2];
+                }else {
+                    colors[i] = ColorTemplate.MATERIAL_COLORS[3];
+                }
+
+            }
+            dataSet.setColors(colors);
             dataSet.setDrawValues(false);
 
             ArrayList<IBarDataSet> dataSetList = new ArrayList<>();

@@ -10,7 +10,6 @@ import android.support.v4.util.Pair;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.style.AlignmentSpan;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -20,7 +19,6 @@ import android.widget.Switch;
 import android.widget.Toast;
 
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.WearDataEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
@@ -30,11 +28,6 @@ import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.tasks.RuntimeExecutionException;
 import com.google.android.gms.wearable.CapabilityApi;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.DataItem;
-import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
@@ -56,6 +49,7 @@ import java.util.Set;
 import io.realm.Realm;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
+import io.realm.Sort;
 import io.realm.internal.IOException;
 
 public class MainActivity extends AppCompatActivity{
@@ -151,6 +145,7 @@ public class MainActivity extends AppCompatActivity{
         mChartPagerAdapter = new ChartPagerAdapter(this,getSupportFragmentManager());
         ViewPager pager = (ViewPager) findViewById(R.id.pager);
         pager.setAdapter(mChartPagerAdapter);
+        pager.setCurrentItem(1); // start in overview fragment
 
         // get the shared preferences for type and date range
         SharedPreferences pref = getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE);
@@ -329,7 +324,7 @@ public class MainActivity extends AppCompatActivity{
         if(mDateRange != Shared.DateRange.ALL) {
             realmQuery.greaterThan("date", Shared.getStartOfDateRange(mDateRange));
         }
-        EventBus.getDefault().postSticky(new RealmResultsEvent(realmQuery.findAll(), mClimbType)); // send it to ALL subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().postSticky(new RealmResultsEvent(realmQuery.findAllSorted("date", Sort.ASCENDING), mClimbType, mDateRange)); // send it to ALL subscribers. post sticky so this result stays until we set it again
 
     }
 
@@ -349,12 +344,18 @@ public class MainActivity extends AppCompatActivity{
             //Log.d(TAG, "initiatePages");
             mFragmentList = new ArrayList<>();
 
+            Fragment fragment = new ListViewMobileFragment();
+            mFragmentList.add(new Pair("List", fragment));
+
             // set climb type of the content fragment
-            Fragment fragment = new OverviewMobileFragment();
+            fragment = new OverviewMobileFragment();
             mFragmentList.add(new Pair("Overview", fragment));
 
-            fragment = new BarChartMobileFragment();
-            mFragmentList.add(new Pair("Bar Chart", fragment));
+            fragment = new GradeChartMobileFragment();
+            mFragmentList.add(new Pair("Grades", fragment));
+
+            fragment = new HistoryChartMobileFragment();
+            mFragmentList.add(new Pair("History", fragment));
         }
 
         @Override

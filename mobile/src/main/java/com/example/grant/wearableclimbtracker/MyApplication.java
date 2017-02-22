@@ -4,6 +4,7 @@ import android.app.Application;
 
 import com.example.mysynclibrary.realm.ClimbingModule;
 import com.facebook.stetho.Stetho;
+import com.jakewharton.threetenabp.AndroidThreeTen;
 import com.uphyca.stetho_realm.RealmInspectorModulesProvider;
 
 import io.realm.Realm;
@@ -33,5 +34,6 @@ public class MyApplication extends Application {
                         .enableDumpapp(Stetho.defaultDumperPluginsProvider(this))
                         .enableWebKitInspector(RealmInspectorModulesProvider.builder(this).build())
                         .build());
+        AndroidThreeTen.init(this);
     }
 }

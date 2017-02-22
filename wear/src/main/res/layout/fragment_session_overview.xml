@@ -63,10 +63,10 @@
         android:layout_marginBottom="16dp" />
 
     <android.support.constraint.Guideline
-        android:layout_width="187dp"
+        android:layout_width="384dp"
         android:id="@+id/guideline2"
         android:orientation="horizontal"
-        tools:layout_editor_absoluteY="131dp"
+        tools:layout_editor_absoluteY="358dp"
         tools:layout_editor_absoluteX="0dp"
         android:layout_height="wrap_content"
         app:layout_constraintGuide_percent="0.7" />
@@ -77,16 +77,16 @@
         android:id="@+id/guideline3"
         app:layout_constraintGuide_percent="0.45"
         android:orientation="horizontal"
-        tools:layout_editor_absoluteY="84dp"
+        tools:layout_editor_absoluteY="230dp"
         tools:layout_editor_absoluteX="0dp" />
 
     <android.support.constraint.Guideline
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/guideline4"
-        app:layout_constraintGuide_percent="0.2"
+        app:layout_constraintGuide_percent="0.19765167"
         android:orientation="horizontal"
-        tools:layout_editor_absoluteY="37dp"
+        tools:layout_editor_absoluteY="101dp"
         tools:layout_editor_absoluteX="0dp" />
 
 </android.support.constraint.ConstraintLayout>
