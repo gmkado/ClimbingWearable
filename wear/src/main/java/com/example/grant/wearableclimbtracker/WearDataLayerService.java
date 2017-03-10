@@ -14,7 +14,7 @@ import org.greenrobot.eventbus.EventBus;
 import io.realm.Realm;
 import io.realm.RealmResults;
 
-public class WearDataLayerService extends WearableListenerService {
+public class  WearDataLayerService extends WearableListenerService {
     private static final String TAG = "WearDataLayerService";
 
     @Override

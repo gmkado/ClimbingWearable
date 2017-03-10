@@ -3,6 +3,8 @@ package com.example.mysynclibrary.eventbus;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
 
+import org.threeten.bp.temporal.ChronoUnit;
+
 import io.realm.RealmResults;
 
 /**
@@ -12,11 +14,13 @@ import io.realm.RealmResults;
 public class RealmResultsEvent {
     public final RealmResults<Climb> realmResults;
     public final Shared.ClimbType climbType;
-    public Shared.DateRange dateRange;
+    public ChronoUnit dateRange;
+    public int dateOffset;
 
-    public RealmResultsEvent(RealmResults<Climb> realmResults, Shared.ClimbType climbType, Shared.DateRange dateRange){
+    public RealmResultsEvent(RealmResults<Climb> realmResults, Shared.ClimbType climbType, ChronoUnit dateRange, int dateOffset){
         this.realmResults = realmResults;
         this.climbType = climbType;
         this.dateRange = dateRange;
+        this.dateOffset = dateOffset;
     }
 }

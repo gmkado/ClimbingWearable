@@ -1,22 +1,22 @@
 package com.example.mysynclibrary;
 
 import android.content.Context;
+import android.support.v4.util.Pair;
+import android.util.DisplayMetrics;
 import android.util.Log;
-import android.widget.TextView;
+import android.view.View;
+import android.view.ViewGroup;
 
 import com.example.mysynclibrary.realm.ClimbingModule;
-import com.github.mikephil.charting.components.MarkerView;
-import com.github.mikephil.charting.data.CandleEntry;
-import com.github.mikephil.charting.data.Entry;
-import com.github.mikephil.charting.highlight.Highlight;
-import com.github.mikephil.charting.utils.MPPointF;
-import com.github.mikephil.charting.utils.Utils;
+import com.example.mysynclibrary.realm.MyMigration;
 import com.google.android.gms.wearable.Asset;
 import com.google.gson.Gson;
 
 import org.threeten.bp.DateTimeUtils;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
+import org.threeten.bp.temporal.TemporalField;
+import org.threeten.bp.temporal.WeekFields;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
@@ -43,19 +44,56 @@ public class Shared {
 
     public static Gson getGson() {
         return new Gson();
+        /*
+        // see https://gist.github.com/cmelchior/ddac8efd018123a1e53a
+
+
+            Gson gson = new GsonBuilder()
+                    .setExclusionStrategies(new ExclusionStrategy() {
+                        @Override
+                        public boolean shouldSkipField(FieldAttributes f) {
+                            return f.getDeclaringClass().equals(RealmObject.class);
+                        }
+
+                        @Override
+                        public boolean shouldSkipClass(Class<?> clazz) {
+                            return false;
+                        }
+                    })
+                    .registerTypeAdapter(Climb.class, new ClimbSerializer())
+                    .create();
+
+
+        return gson; */
     }
 
     public static void initRealm(Context context) {
+        Realm.init(context);
+
         // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
-        RealmConfiguration config = new RealmConfiguration.Builder(context)
-                .deleteRealmIfMigrationNeeded()
-                .modules(new ClimbingModule())
+        RealmConfiguration config = new RealmConfiguration.Builder()
+                .schemaVersion(2)
+                .modules(new ClimbingModule()) // this is necessary for library modules
+                .migration(new MyMigration())
                 .build();
+
         Realm.setDefaultConfiguration(config);
     }
 
     public static Date getStartofDate(Date date) {
-        // null if using today
+        ZonedDateTime startZDT;
+        if(date != null) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(date);
+            startZDT = DateTimeUtils.toZonedDateTime(cal);
+
+        }else {
+            startZDT = ZonedDateTime.now();
+        }
+        startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
+        return DateTimeUtils.toDate(startZDT.toInstant());
+
+/*        // null if using today
         Calendar cal = Calendar.getInstance();
 
         if(date != null) {
@@ -67,32 +105,53 @@ public class Shared {
         cal.set(Calendar.MILLISECOND, 0);
 
 
-        return cal.getTime();
+        return cal.getTime();*/
     }
 
-    public static Date getStartOfDateRange(DateRange dr) {
-        ZonedDateTime zdt = ZonedDateTime.now();
-        zdt = zdt.truncatedTo(ChronoUnit.DAYS);
-        switch(dr) {
-            case DAY:
-                return DateTimeUtils.toDate(zdt.toInstant());
-            case WEEK:
-                return DateTimeUtils.toDate(zdt.minusWeeks(1).toInstant());
-            case MONTH:
-                return DateTimeUtils.toDate(zdt.minusMonths(1).toInstant());
-            case YEAR:
-                return DateTimeUtils.toDate(zdt.minusYears(1).toInstant());
-            case ALL:
+    // return a start and end date based on the date range (e.g. dateRange = MONTHS, start = first day of month, end = last day of month
+    // offset = number of "dateRanges" to subtract (e.g. offset = -1 then use previous month)
+    public static Pair<Date, Date> getDatesFromRange(ChronoUnit dateRange, int dateOffset) {
+        ZonedDateTime startZDT = ZonedDateTime.now();
+        startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
+
+        TemporalField tf = WeekFields.of(Locale.getDefault()).dayOfWeek();
+        switch(dateRange) {
+            case DAYS:
+                break;
+            case WEEKS:
+                startZDT = startZDT.with(WeekFields.of(Locale.getDefault()).dayOfWeek(),1);
+                break;
+            //return DateTimeUtils.toDate(zdt.minusWeeks(1).toInstant());
+            case MONTHS:
+                startZDT = startZDT.withDayOfMonth(1);
+                break;
+            //return DateTimeUtils.toDate(zdt.minusMonths(1).toInstant());
+            case YEARS:
+                startZDT = startZDT.withDayOfYear(1);
+                break;
+            //return DateTimeUtils.toDate(zdt.minusYears(1).toInstant());
+            case FOREVER:
                 // return null which signifies use ALL dates
                 return null;
             default:
                 Log.d(TAG, "getStartofDateRange: case not recognized");
                 return null;
         }
+        startZDT = startZDT.plus(dateOffset, dateRange);
+        ZonedDateTime endZDT = startZDT.plus(1, dateRange);
+
+        return new Pair<> (DateTimeUtils.toDate(startZDT.toInstant()),DateTimeUtils.toDate(endZDT.toInstant()));
+    }
+
+    public static void matchDeviceSizeProgrammatically(Context context, View rootView) {
+        DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+        int width = displayMetrics.widthPixels;
+        int height = displayMetrics.heightPixels;
+        rootView.setLayoutParams(new ViewGroup.LayoutParams(width, height));
     }
 
 
-    public enum DateRange{
+    /*public enum DateRange{
         DAY,
         WEEK,
         MONTH,
@@ -108,7 +167,7 @@ public class Shared {
             }
             return labels;
         }
-    }
+    }*/
 
     public enum ClimbLevel{
         beginner,

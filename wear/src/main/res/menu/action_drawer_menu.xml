@@ -8,8 +8,4 @@
         android:icon = "@android:drawable/ic_menu_revert"
         android:title="Delete Last Climb"
         />
-    <item android:id = "@+id/clear_climbs"
-        android:icon = "@android:drawable/ic_menu_delete"
-        android:title="Clear Todays Climbs"
-        />
 </menu>

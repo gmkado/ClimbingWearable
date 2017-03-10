@@ -4,13 +4,14 @@ import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.ListFragment;
-import android.text.Layout;
+import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -24,21 +25,18 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
 
 import io.realm.OrderedRealmCollection;
 import io.realm.RealmBaseAdapter;
-import io.realm.RealmChangeListener;
-import io.realm.RealmResults;
 
 /**
  * Created by Grant on 10/17/2016.
+ * // TODO: add ability to add/edit/delete climbs, keep track if edits were made today, so watch can be updated
  */
 public class ListViewMobileFragment extends Fragment {
     private final String TAG = "ListViewMobileFragment";
     private ListView mListView;
+    private Shared.ClimbType mClimbType;
 
     public ListViewMobileFragment() {
 
@@ -49,7 +47,39 @@ public class ListViewMobileFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_listview_mobile, container, false);
         mListView = (ListView)rootView.findViewById(R.id.list);
+        rootView.findViewById(R.id.fab_add_climb).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // add a climb, so open popup
+                showAddClimbDialog(null);
+            }
+        });
+        mListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
+                // Create and show the dialog.
+                Climb climb = ((ClimbListAdapter)mListView.getAdapter()).getItem(i);
+                showAddClimbDialog(climb.getId());
+                return true;
+            }
+        });
         return rootView;
+    }
+
+    private void showAddClimbDialog(String selectedClimbUUID) {
+        // DialogFragment.show() will take care of adding the fragment
+        // in a transaction.  We also want to remove any currently showing
+        // dialog, so make our own transaction and take care of that here.
+        FragmentTransaction ft = getFragmentManager().beginTransaction();
+        Fragment prev = getFragmentManager().findFragmentByTag("dialog");
+        if (prev != null) {
+            ft.remove(prev);
+        }
+        ft.addToBackStack(null);
+
+        // Create and show the dialog.
+        DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID);
+        newFragment.show(ft, "dialog");
     }
 
 
@@ -61,7 +91,8 @@ public class ListViewMobileFragment extends Fragment {
 
     @Subscribe(sticky = true)
     public void onRealmResult(RealmResultsEvent event) {
-        mListView.setAdapter(new ClimbListAdapter(getContext(), event.realmResults));
+        mClimbType = event.climbType;
+        mListView.setAdapter(new ClimbListAdapter(event.realmResults));
     }
 
     @Override
@@ -83,8 +114,8 @@ public class ListViewMobileFragment extends Fragment {
             TextView date;
         }
 
-        public ClimbListAdapter(@NonNull Context context, @Nullable OrderedRealmCollection<Climb> data) {
-            super(context, data);
+        public ClimbListAdapter(@Nullable OrderedRealmCollection<Climb> data) {
+            super(data);
         }
 
         @Override
@@ -105,9 +136,9 @@ public class ListViewMobileFragment extends Fragment {
             int gradeInd = climb.getGrade();
             Shared.ClimbType type = Shared.ClimbType.values()[climb.getType()];
 
-
-            viewHolder.grade.setText(type.grades.get(gradeInd));
-
+            if(gradeInd>-1) { // TODO: take this out, this was because I have some incorrectly created climbs
+                viewHolder.grade.setText(type.grades.get(gradeInd));
+            }
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
             viewHolder.date.setText(sdf.format(climb.getDate()));
 

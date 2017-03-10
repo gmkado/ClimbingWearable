@@ -22,11 +22,40 @@
             android:paddingTop="4dp"
             android:paddingBottom="4dp" />
     </android.support.v4.view.ViewPager>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <ImageButton
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:src="@android:drawable/ic_media_previous"
+            android:background="@drawable/button_pressed"
+            android:id="@+id/prev_imagebutton" />
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="6"
+            android:text="Monday"
+            android:textAlignment="gravity"
+            android:layout_gravity="center_horizontal"
+            android:gravity="center"
+            android:textSize="18sp"
+            tools:textColor="@color/wallet_link_text_light"
+            android:id="@+id/currentdate_textview" />
+        <ImageButton
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:src="@android:drawable/ic_media_next"
+            android:background="@drawable/button_pressed"
+            android:id="@+id/next_imagebutton" />
+    </LinearLayout>
     <org.honorato.multistatetogglebutton.MultiStateToggleButton
         android:id="@+id/mstb_daterange"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dip"
         app:mstbPrimaryColor="@color/button_primary_color"
         app:mstbSecondaryColor="@color/button_secondary_color"/>
 </LinearLayout>

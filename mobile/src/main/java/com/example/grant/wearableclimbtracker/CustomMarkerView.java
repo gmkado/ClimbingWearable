@@ -23,7 +23,11 @@ public class CustomMarkerView extends MarkerView {
     @Override
     public void refreshContent(Entry e, Highlight highlight) {
         BarEntry entry = (BarEntry) e;
-        tvContent.setText("" + entry.getYVals()[highlight.getStackIndex()]); // set the entry-value as the display text
+        if(entry.getYVals() == null) {
+            tvContent.setText(String.format("%d", (int)entry.getY()));
+        }else {
+            tvContent.setText(String.format("%d",(int)entry.getYVals()[highlight.getStackIndex()])); // set the entry-value as the display text
+        }
     }
 
     @Override

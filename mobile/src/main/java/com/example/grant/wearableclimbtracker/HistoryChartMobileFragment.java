@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v4.util.Pair;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,19 +20,14 @@ import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
-import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.formatter.AxisValueFormatter;
-import com.github.mikephil.charting.highlight.Highlight;
 import com.github.mikephil.charting.interfaces.datasets.IBarDataSet;
-import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 import com.github.mikephil.charting.utils.ColorTemplate;
 import com.github.mikephil.charting.utils.EntryXComparator;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.threeten.bp.DateTimeUtils;
-import org.threeten.bp.DayOfWeek;
-import org.threeten.bp.Instant;
 import org.threeten.bp.ZoneOffset;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
@@ -39,12 +35,9 @@ import org.threeten.bp.temporal.ChronoUnit;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 
 import io.realm.RealmChangeListener;
@@ -58,9 +51,10 @@ public class HistoryChartMobileFragment extends Fragment  {
     private BarChart mBarChart;
     private RealmResults<Climb> mResult;
     private Shared.ClimbType mClimbType;
-    private Shared.DateRange mDateRange;
+    private ChronoUnit mDateRange;
     private SimpleDateFormat mDateFormat;
     private float mBarWidth;
+    private int mDateOffset;
 
     public HistoryChartMobileFragment() {
 
@@ -105,6 +99,8 @@ public class HistoryChartMobileFragment extends Fragment  {
         mResult = event.realmResults;
         mClimbType = event.climbType;
         mDateRange = event.dateRange;
+        mDateOffset = event.dateOffset;
+
         mResult.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
             @Override
             public void onChange(RealmResults<Climb> element) {
@@ -122,49 +118,10 @@ public class HistoryChartMobileFragment extends Fragment  {
         if (mResult.isEmpty()) {
             mBarChart.setData(null);
         } else {
-            // find the earliest entry
-            ZonedDateTime fromZDT= DateTimeUtils.toInstant(mResult.first().getDate()).atZone(ZoneOffset.UTC);
-            ZonedDateTime toZDT = DateTimeUtils.toInstant(mResult.last().getDate()).atZone(ZoneOffset.UTC);
 
             // setup bins based on daterange
-            final ArrayList<Date> bins;
+            final ArrayList<Date> bins = getBins();
 
-            DateFormat df;
-            if (mDateRange == Shared.DateRange.ALL) {
-                // get the bins based on the oldest date
-                ZonedDateTime toZDTCopy;
-                if(fromZDT.isBefore(toZDT)){
-                    toZDTCopy = toZDT.minus(1, ChronoUnit.WEEKS);
-                    if(fromZDT.isBefore(toZDTCopy)) {
-                        // first date was older than this week
-                        toZDTCopy = toZDT.minus(1, ChronoUnit.MONTHS);
-                        if(fromZDT.isBefore(toZDTCopy)) {
-                            // first date was older than this month
-                            toZDTCopy = toZDT.minus(1, ChronoUnit.YEARS);
-                            if(fromZDT.isBefore(toZDTCopy)) {
-                                // first date was older than this year
-                                bins  = getBinsFromDateRange(Shared.DateRange.ALL, fromZDT, toZDT);
-
-                            }else{
-                                // first date was this year
-                                bins  = getBinsFromDateRange(Shared.DateRange.YEAR, fromZDT, toZDT);
-
-                            }
-                        }else{
-                            // first date was this month
-                            bins  = getBinsFromDateRange(Shared.DateRange.MONTH, fromZDT, toZDT);
-                        }
-                    }else{
-                        bins  = getBinsFromDateRange(Shared.DateRange.WEEK, fromZDT, toZDT);
-                    }
-                }else {
-                    // first date was today
-                    bins  = getBinsFromDateRange(Shared.DateRange.DAY, fromZDT, toZDT);
-                }
-            } else {
-                // everything else has bins determined from that daterange
-                bins = getBinsFromDateRange(mDateRange, fromZDT, toZDT);
-            }
 
             //loop through each bin, query the results for a count or sum of each difficulty, and add to barEntries
             List<BarEntry> barEntries = new ArrayList<>();
@@ -247,15 +204,58 @@ public class HistoryChartMobileFragment extends Fragment  {
         mBarChart.invalidate(); // refresh
     }
 
-    private ArrayList<Date> getBinsFromDateRange(Shared.DateRange dateRange, ZonedDateTime fromZDT, ZonedDateTime toZDT) {
-        if (!dateRange.equals(Shared.DateRange.DAY) && !dateRange.equals(Shared.DateRange.ALL)) {
-            fromZDT = DateTimeUtils.toInstant(Shared.getStartOfDateRange(dateRange)).atZone(ZoneOffset.UTC);
-        }
+    private ArrayList<Date> getBins() {
+        ZonedDateTime fromZDT, toZDT;
+        ChronoUnit displayUnit;
+        if(mDateRange == ChronoUnit.DAYS) {
+            fromZDT =  DateTimeUtils.toInstant(mResult.first().getDate()).atZone(ZoneOffset.UTC);
+            toZDT = DateTimeUtils.toInstant(mResult.last().getDate()).atZone(ZoneOffset.UTC);
+            displayUnit = ChronoUnit.DAYS;
+        }else if(mDateRange == ChronoUnit.FOREVER) {
+            fromZDT =  DateTimeUtils.toInstant(mResult.first().getDate()).atZone(ZoneOffset.UTC);
+            toZDT = DateTimeUtils.toInstant(mResult.last().getDate()).atZone(ZoneOffset.UTC);
 
+            // get the bins based on the oldest date
+            ZonedDateTime toZDTCopy;
+            if(fromZDT.isBefore(toZDT)){
+                toZDTCopy = toZDT.minus(1, ChronoUnit.WEEKS);
+                if(fromZDT.isBefore(toZDTCopy)) {
+                    // first date was older than this week
+                    toZDTCopy = toZDT.minus(1, ChronoUnit.MONTHS);
+                    if(fromZDT.isBefore(toZDTCopy)) {
+                        // first date was older than this month
+                        toZDTCopy = toZDT.minus(1, ChronoUnit.YEARS);
+                        if(fromZDT.isBefore(toZDTCopy)) {
+                            // first date was older than this year
+                            displayUnit = ChronoUnit.FOREVER;
+
+                        }else{
+                            // first date was this year
+                            displayUnit = ChronoUnit.YEARS;
+
+                        }
+                    }else{
+                        // first date was this month
+                        displayUnit = ChronoUnit.MONTHS;
+                    }
+                }else{
+                    displayUnit = ChronoUnit.WEEKS;
+                }
+            }else {
+                // first date was today
+                displayUnit = ChronoUnit.DAYS;
+            }
+        }else{
+            // if forever, get
+            Pair<Date,Date> datePairs = Shared.getDatesFromRange(mDateRange, mDateOffset);
+            fromZDT = DateTimeUtils.toInstant(datePairs.first).atZone(ZoneOffset.UTC);
+            toZDT = DateTimeUtils.toInstant(datePairs.second).atZone(ZoneOffset.UTC);
+            displayUnit = mDateRange;
+        }
         // condition fromCal and toCal, then add Date objects to the resultLIst until fromCal>toCal
         ArrayList<Date> dateList = new ArrayList<>();
-        switch(dateRange) {
-            case DAY:
+        switch(displayUnit) {
+            case DAYS:
                 // use hours as the bins, with the earliest dataentry as the starting hour
                 fromZDT = fromZDT.truncatedTo(ChronoUnit.HOURS);
                 while (fromZDT.isBefore(toZDT)) {
@@ -265,9 +265,7 @@ public class HistoryChartMobileFragment extends Fragment  {
                 mDateFormat = new SimpleDateFormat("hh:mm a");
                 mBarWidth = ChronoUnit.MINUTES.getDuration().toMillis()*30*0.9f;
                 break;
-            case WEEK:
-                toZDT = ZonedDateTime.now(); // this looks better
-                fromZDT = fromZDT.truncatedTo(ChronoUnit.DAYS);
+            case WEEKS:
                 while (fromZDT.isBefore(toZDT)) {
                     dateList.add(DateTimeUtils.toDate(fromZDT.toInstant()));
                     fromZDT = fromZDT.plus(1, ChronoUnit.DAYS);
@@ -275,10 +273,8 @@ public class HistoryChartMobileFragment extends Fragment  {
                 mDateFormat = new SimpleDateFormat("EEE");
                 mBarWidth = ChronoUnit.DAYS.getDuration().toMillis()*0.9f;
                 break;
-            case MONTH:
+            case MONTHS:
                 // each week, ending with this week
-                toZDT = ZonedDateTime.now(); // this looks better
-                fromZDT = fromZDT.truncatedTo(ChronoUnit.DAYS);
                 while (fromZDT.isBefore(toZDT)) {
                     dateList.add(DateTimeUtils.toDate(fromZDT.toInstant()));
                     fromZDT = fromZDT.plus(1, ChronoUnit.WEEKS);
@@ -286,10 +282,8 @@ public class HistoryChartMobileFragment extends Fragment  {
                 mDateFormat = new SimpleDateFormat("MM/dd");
                 mBarWidth = ChronoUnit.WEEKS.getDuration().toMillis()*0.9f;
                 break;
-            case YEAR:
+            case YEARS:
                 // each month, ending with this month
-                toZDT = ZonedDateTime.now(); // this looks better
-                fromZDT = fromZDT.truncatedTo(ChronoUnit.DAYS).withDayOfMonth(1);
                 while (fromZDT.isBefore(toZDT)) {
                     dateList.add(DateTimeUtils.toDate(fromZDT.toInstant()));
                     fromZDT = fromZDT.plus(1, ChronoUnit.MONTHS);
@@ -297,10 +291,8 @@ public class HistoryChartMobileFragment extends Fragment  {
                 mDateFormat = new SimpleDateFormat("MMM");
                 mBarWidth = ChronoUnit.MONTHS.getDuration().toMillis()*0.9f;
                 break;
-            case ALL:
+            case FOREVER:
                 // if we've gotten here, that means the data is older than a year.  use each year, ending with this year
-                toZDT = ZonedDateTime.now(); // this looks better
-                fromZDT = fromZDT.truncatedTo(ChronoUnit.DAYS);
                 while (fromZDT.isBefore(toZDT)) {
                     dateList.add(DateTimeUtils.toDate(fromZDT.toInstant()));
                     fromZDT = fromZDT.plus(1, ChronoUnit.YEARS);
@@ -326,6 +318,7 @@ public class HistoryChartMobileFragment extends Fragment  {
         }
 
         return colors;
+
     }
 
 }

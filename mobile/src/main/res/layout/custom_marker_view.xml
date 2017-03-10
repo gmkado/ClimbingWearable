@@ -3,20 +3,20 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="@color/cast_expanded_controller_ad_label_background_color">
+    android:background="@android:color/darker_gray">
 
     <TextView
         android:id="@+id/tvContent"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
-        android:text="1"
-        android:textSize="14sp"
-        android:textColor="@android:color/white"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:padding="5dp"
+        android:text="1"
         android:textAlignment="center"
-        android:padding="5dp" />
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="@android:color/white"
+        android:textSize="14sp" />
 
 </FrameLayout>

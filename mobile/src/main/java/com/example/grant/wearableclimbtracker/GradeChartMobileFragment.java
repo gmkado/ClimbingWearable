@@ -58,6 +58,12 @@ public class GradeChartMobileFragment extends Fragment {
         //Log.d(TAG, "onCreateView");
         View rootView = inflater.inflate(R.layout.fragment_barchart_mobile, container, false);
         mBarChart = (BarChart)rootView.findViewById(R.id.chart);
+
+        // create a custom MarkerView (extend MarkerView) and specify the layout to use for it
+        CustomMarkerView mv = new CustomMarkerView(getContext(), R.layout.custom_marker_view);
+        mBarChart.setDrawMarkerViews(true);
+        mBarChart.setMarkerView(mv); // Set the marker to the chart
+
         return rootView;
     }
 

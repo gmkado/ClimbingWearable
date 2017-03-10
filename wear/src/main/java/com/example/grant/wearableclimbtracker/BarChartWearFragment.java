@@ -1,9 +1,9 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -60,8 +60,9 @@ public class BarChartWearFragment extends android.app.Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView");
         View rootView = inflater.inflate(R.layout.fragment_barchart_wear, container, false);
-
+        Shared.matchDeviceSizeProgrammatically(getContext(), rootView);
         mBarChart = (BarChart)rootView.findViewById(R.id.gradeBarChart);
 
 

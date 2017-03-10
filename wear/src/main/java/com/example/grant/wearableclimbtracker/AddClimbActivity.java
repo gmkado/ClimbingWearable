@@ -55,30 +55,19 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
         mGradeList = mClimbType.grades;
 
         mRealm = Realm.getDefaultInstance();
-        final WatchViewStub stub = (WatchViewStub) findViewById(R.id.watch_view_stub);
 
-        stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
-            @Override
-            public void onLayoutInflated(WatchViewStub stub) {
-                mListViewLayout = (FrameLayout) findViewById(R.id.listViewLayout);
-                mDelayedViewLayout = (LinearLayout) findViewById(R.id.delayedConfirmationLayout);
+        // setup the listview
+        mListViewLayout = (FrameLayout) findViewById(R.id.listViewLayout);
+        mDelayedViewLayout = (LinearLayout) findViewById(R.id.delayedConfirmationLayout);
 
-                mListView = (ListView)findViewById(R.id.listView);
+        mListView = (ListView)findViewById(R.id.listView);
 
 
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(AddClimbActivity.this, android.R.layout.simple_list_item_1, mGradeList);
-                mListView.setAdapter(adapter);
-                mListView.setOnItemClickListener(AddClimbActivity.this);
-                mDelayedView = (DelayedConfirmationView) findViewById(R.id.delayed_confirm);
-
-
-                setListViewVisible(true);
-            }
-        });
-
-
-
-
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(AddClimbActivity.this, android.R.layout.simple_list_item_1, mGradeList);
+        mListView.setAdapter(adapter);
+        mListView.setOnItemClickListener(AddClimbActivity.this);
+        mDelayedView = (DelayedConfirmationView) findViewById(R.id.delayed_confirm);
+        setListViewVisible(true);
     }
 
     private void setListViewVisible(boolean listViewVisible) {
@@ -106,7 +95,7 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
 
         mDelayedView.setListener(AddClimbActivity.this);
         // Two seconds to cancel the action
-        mDelayedView.setTotalTimeMs(2000);
+        mDelayedView.setTotalTimeMs(3000);
         // Start the timer
         mDelayedView.start();
     }
@@ -121,13 +110,19 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
 
             @Override
             public void execute(Realm realm) {
-                Climb climb = mRealm.createObject(Climb.class);
+                Climb climb = mRealm.createObject(Climb.class, UUID.randomUUID().toString());
 
+                Date now = new Date();
                 // set climb fields
-                climb.setDate(new Date());
+                climb.setDate(now);
+                climb.setLastedit(now);
                 climb.setGrade(mSelectedPosition);
                 climb.setType(mClimbType.ordinal());
-                climb.setId(UUID.randomUUID().toString());
+
+                // set fields based on logic tree in onenote->notes->2/23/2017
+                climb.setDirty(true);
+                climb.setDelete(false);
+                climb.setOnwear(true);
 
             }
         });
@@ -139,6 +134,8 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
         intent.putExtra(ConfirmationActivity.EXTRA_MESSAGE,
                 "Saved");
         startActivity(intent);
+
+        finish();
     }
 
     @Override

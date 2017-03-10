@@ -6,30 +6,29 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:rectLayout="@layout/rect_activity_main"
-    app:roundLayout="@layout/round_activity_main"
     tools:context="com.example.grant.wearableclimbtracker.MainActivity"
     tools:deviceIds="wear">
 
-    <FrameLayout
+    <android.support.v4.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id = "@+id/content_frame">
-        <android.support.wearable.view.GridViewPager
-            xmlns:android="http://schemas.android.com/apk/res/android"
-            android:id="@+id/pager"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-    </FrameLayout>
+        android:layout_height="match_parent">
+        <LinearLayout
+            android:id = "@+id/content_frame"
+            android:orientation="vertical"
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent">
+        </LinearLayout>
+    </android.support.v4.widget.NestedScrollView>
 
     <android.support.wearable.view.drawer.WearableNavigationDrawer
         android:id = "@+id/top_navigation_drawer"
         android:layout_height="match_parent"
         android:layout_width="match_parent"
         android:background="@color/dark_grey"/>
+
     <android.support.wearable.view.drawer.WearableActionDrawer
-        android:layout_height="match_parent"
+        android:id="@+id/bottom_action_drawer"
         android:layout_width="match_parent"
-        android:id = "@+id/bottom_action_drawer"
-        android:background="@color/grey"/>
+        android:layout_height="match_parent"
+        android:background="@color/grey" />
 </android.support.wearable.view.drawer.WearableDrawerLayout>

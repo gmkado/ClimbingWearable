@@ -1,7 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.app.Fragment;
-import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -41,7 +40,11 @@ public class OverviewWearFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView");
         View rootView = inflater.inflate(R.layout.fragment_session_overview, container, false);
+
+        Shared.matchDeviceSizeProgrammatically(getContext(), rootView);
+
         pointsTextView = (TextView) rootView.findViewById(R.id.points_textview);
         countTextView = (TextView) rootView.findViewById(R.id.count_textview);
         maxTextView = (TextView) rootView.findViewById(R.id.max_textView);

@@ -1,11 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.wearable.view.WatchViewStub xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/watch_view_stub"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:rectLayout="@layout/rect_activity_add_climb"
-    app:roundLayout="@layout/round_activity_add_climb"
-    tools:context=".AddClimbActivity"
-    tools:deviceIds="wear"></android.support.wearable.view.WatchViewStub>
+    android:padding="20dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".AddClimbActivity">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/listViewLayout"
+        android:visibility="gone">
+        <ListView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/listView" />
+    </FrameLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:id="@+id/delayedConfirmationLayout">
+
+        <TextView
+            android:id="@+id/saveConfirmationTextView"
+            style="@style/TextAppearance.Wearable.Large"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save Climb?"
+            android:textAlignment="center" />
+
+        <android.support.wearable.view.DelayedConfirmationView
+            android:id="@+id/delayed_confirm"
+            android:layout_gravity="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_full_cancel"
+            app:circle_color="@color/blue"
+            app:circle_border_color="@color/white"
+            app:circle_radius="@dimen/circle_radius"
+            app:circle_radius_pressed="@dimen/circle_radius_pressed"
+            app:circle_padding="@dimen/circle_padding"
+            app:circle_border_width="@dimen/circle_border_normal_width"/>
+
+
+    </LinearLayout>
+
+</android.support.wearable.view.BoxInsetLayout>
