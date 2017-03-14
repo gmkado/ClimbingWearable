@@ -1,6 +1,7 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -17,6 +18,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.mikephil.charting.utils.ColorTemplate;
@@ -28,6 +30,7 @@ import java.text.SimpleDateFormat;
 
 import io.realm.OrderedRealmCollection;
 import io.realm.RealmBaseAdapter;
+import io.realm.Sort;
 
 /**
  * Created by Grant on 10/17/2016.
@@ -37,6 +40,7 @@ public class ListViewMobileFragment extends Fragment {
     private final String TAG = "ListViewMobileFragment";
     private ListView mListView;
     private Shared.ClimbType mClimbType;
+    private ClimbListAdapter mAdapter;
 
     public ListViewMobileFragment() {
 
@@ -47,40 +51,18 @@ public class ListViewMobileFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_listview_mobile, container, false);
         mListView = (ListView)rootView.findViewById(R.id.list);
-        rootView.findViewById(R.id.fab_add_climb).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // add a climb, so open popup
-                showAddClimbDialog(null);
-            }
-        });
         mListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
                 // Create and show the dialog.
-                Climb climb = ((ClimbListAdapter)mListView.getAdapter()).getItem(i);
-                showAddClimbDialog(climb.getId());
+                Climb climb = mAdapter.getItem(i);
+                EventBus.getDefault().post(new EditClimbDialogEvent(EditClimbDialogEvent.DialogActionType.OPEN_REQUEST,climb.getId()));
                 return true;
             }
         });
         return rootView;
     }
 
-    private void showAddClimbDialog(String selectedClimbUUID) {
-        // DialogFragment.show() will take care of adding the fragment
-        // in a transaction.  We also want to remove any currently showing
-        // dialog, so make our own transaction and take care of that here.
-        FragmentTransaction ft = getFragmentManager().beginTransaction();
-        Fragment prev = getFragmentManager().findFragmentByTag("dialog");
-        if (prev != null) {
-            ft.remove(prev);
-        }
-        ft.addToBackStack(null);
-
-        // Create and show the dialog.
-        DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID);
-        newFragment.show(ft, "dialog");
-    }
 
 
     @Override
@@ -92,7 +74,8 @@ public class ListViewMobileFragment extends Fragment {
     @Subscribe(sticky = true)
     public void onRealmResult(RealmResultsEvent event) {
         mClimbType = event.climbType;
-        mListView.setAdapter(new ClimbListAdapter(event.realmResults));
+        mAdapter = new ClimbListAdapter(event.realmResults);
+        mListView.setAdapter(mAdapter);
     }
 
     @Override
@@ -106,6 +89,7 @@ public class ListViewMobileFragment extends Fragment {
         super.onStart();
         EventBus.getDefault().register(this);
     }
+
 
 
     private class ClimbListAdapter extends RealmBaseAdapter<Climb> implements ListAdapter {

@@ -4,4 +4,12 @@
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_settings">Settings</string>
+
+    <!-- Strings related to Settings -->
+    <string name="pref_title_enable_wear">Enable wear</string>
+    <string name="pref_description_enable_wear">Use android wearable to track climbs</string>
+
+    <string name="pref_description_enable_warmup">Hide higher difficulties until you\'ve properly warmed up</string>
+    <string name="pref_title_enable_warmup">Enable warm-up</string>
 </resources>

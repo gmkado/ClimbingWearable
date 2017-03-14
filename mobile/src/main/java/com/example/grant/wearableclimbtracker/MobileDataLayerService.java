@@ -22,6 +22,6 @@ public class MobileDataLayerService extends WearableListenerService {
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.d(TAG, "onMessageReceived");  // this is just a check if service is working but ondatachanged isn't
-        EventBus.getDefault().postSticky(new WearMessageEvent(messageEvent)); // send it to ALL subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().post(new WearMessageEvent(messageEvent)); // send it to ALL subscribers. post sticky so this result stays until we set it again
     }
 }

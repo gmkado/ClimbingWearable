@@ -4,58 +4,91 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.grant.wearableclimbtracker.MainActivity"
-    android:orientation="vertical">
-    <android.support.v4.view.ViewPager
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/pager"
+    android:orientation="vertical"
+    tools:context="com.example.grant.wearableclimbtracker.MainActivity">
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
-        <android.support.v4.view.PagerTitleStrip
-            android:id="@+id/pager_title_strip"
+        android:layout_weight="1"
+        >
+        <android.support.v4.view.ViewPager
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            android:id="@+id/pager"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top"
-            android:background="#33b5e5"
-            android:textColor="#fff"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp" />
-    </android.support.v4.view.ViewPager>
+            android:layout_height="match_parent">
+            <android.support.v4.view.PagerTitleStrip
+                android:id="@+id/pager_title_strip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:background="#33b5e5"
+                android:textColor="#fff"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+        </android.support.v4.view.ViewPager>
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/fab_add_climb"
+            android:layout_width="wrap_content"
+            android:layout_height="50dp"
+            android:layout_gravity="bottom|right"
+            android:layout_marginBottom="16dp"
+            android:layout_marginRight="16dp"
+            android:src="@drawable/fab_add" />
+
+    </FrameLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <ImageButton
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:src="@android:drawable/ic_media_previous"
-            android:background="@drawable/button_pressed"
-            android:id="@+id/prev_imagebutton" />
-        <TextView
-            android:layout_width="0dp"
+        android:background="@android:color/black"
+        android:orientation="vertical"
+        android:paddingTop="1dp">
+
+        <org.honorato.multistatetogglebutton.MultiStateToggleButton
+            android:id="@+id/mstb_daterange"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="6"
-            android:text="Monday"
-            android:textAlignment="gravity"
-            android:layout_gravity="center_horizontal"
-            android:gravity="center"
-            android:textSize="18sp"
-            tools:textColor="@color/wallet_link_text_light"
-            android:id="@+id/currentdate_textview" />
-        <ImageButton
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:src="@android:drawable/ic_media_next"
-            android:background="@drawable/button_pressed"
-            android:id="@+id/next_imagebutton" />
+            app:mstbPrimaryColor="@color/button_primary_color"
+            app:mstbSecondaryColor="@color/button_secondary_color">
+
+        </org.honorato.multistatetogglebutton.MultiStateToggleButton>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/prev_imagebutton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/button_pressed"
+                android:src="@android:drawable/ic_media_previous" />
+
+            <TextView
+                android:id="@+id/currentdate_textview"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_horizontal"
+                android:layout_weight="6"
+                android:background="@android:color/white"
+                android:gravity="center"
+                android:text="Monday"
+                android:textAlignment="gravity"
+                android:textSize="18sp" />
+
+            <ImageButton
+                android:id="@+id/next_imagebutton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/button_pressed"
+                android:src="@android:drawable/ic_media_next" />
+        </LinearLayout>
+
     </LinearLayout>
-    <org.honorato.multistatetogglebutton.MultiStateToggleButton
-        android:id="@+id/mstb_daterange"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:mstbPrimaryColor="@color/button_primary_color"
-        app:mstbSecondaryColor="@color/button_secondary_color"/>
+
+
 </LinearLayout>

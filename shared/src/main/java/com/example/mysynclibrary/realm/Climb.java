@@ -15,15 +15,26 @@ public class Climb extends RealmObject {
     private int type;
     @Required private Date date;
     @PrimaryKey private String id;
-    private boolean dirty;
     private boolean delete;
-    private boolean onwear;
     private Date lastedit;
+    private boolean onwear;
+
+    public boolean isOnwear() {
+        return onwear;
+    }
+
+    public void setOnwear(boolean onwear) {
+        this.onwear = onwear;
+    }
 
     // Let your IDE generate getters and setters for you!
     // Or if you like you can even have public fields and no accessors! See Dog.java and Cat.java
     public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public Date getLastedit() {
@@ -34,32 +45,12 @@ public class Climb extends RealmObject {
         this.lastedit = lastedit;
     }
 
-    public boolean isDirty() {
-        return dirty;
-    }
-
-    public boolean isOnwear() {
-        return onwear;
-    }
-
-    public void setOnwear(boolean onwear) {
-        this.onwear = onwear;
-    }
-
-    public void setDirty(boolean dirty) {
-        this.dirty = dirty;
-    }
-
     public boolean isDelete() {
         return delete;
     }
 
     public void setDelete(boolean delete) {
         this.delete = delete;
-    }
-
-    public void setId(String id) {
-        this.id = id;
     }
 
     public int getGrade() {

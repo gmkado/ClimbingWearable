@@ -9,12 +9,4 @@
         android:id = "@+id/list"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
-    <com.github.clans.fab.FloatingActionButton
-        android:id="@+id/fab_add_climb"
-        android:layout_width="wrap_content"
-        android:layout_gravity="bottom|right"
-        android:layout_marginBottom="8dp"
-        android:layout_marginRight="8dp"
-        tools:src="@drawable/fab_add"
-        android:layout_height="50dp" />
 </FrameLayout>

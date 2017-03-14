@@ -49,6 +49,7 @@ import org.threeten.bp.temporal.ChronoUnit;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -296,106 +297,36 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
     }
 
-    @Subscribe(sticky = true, threadMode = MAIN) // need to do this in the same thread that realm was created
+    @Subscribe(threadMode = MAIN) // need to do this in the same thread that realm was created
     public void onMobileMessageEvent(WearMessageEvent event) {
-        final String tagSub;
+        final Gson gson = Shared.getGson();
         switch(event.messageEvent.getPath()) {
             case Shared.REALM_SYNC_PATH:
-                tagSub = "Step2: ";
-
-                // received the sync data
-                String data = new String(event.messageEvent.getData(), StandardCharsets.UTF_8);
-                Log.d(TAG, tagSub+"command received, got message = " + data);
-
                 //get the start of DAY of last data sync
-                final Gson gson = Shared.getGson();
-                final Climb[] climbList = gson.fromJson(data, Climb[].class);
+                List<Climb> allClimbs = mRealm.where(Climb.class).findAll();
+                List<Climb> allClimbsCopy = mRealm.copyFromRealm(allClimbs);
 
-                mRealm.executeTransactionAsync(new Realm.Transaction() {
-                    @Override
-                    public void execute(Realm realm) {
-                        if(climbList != null) {
-                            for (final Climb mobileClimb : climbList) {
-                                // get the climb on the wearable
-                                Climb wearClimb = realm.where(Climb.class).equalTo("id", mobileClimb.getId()).findFirst();
-
-                                if (wearClimb != null) {
-                                    //TODO this is just to check that our logic is correct, can remove if not an issue
-                                    if (!mobileClimb.isOnwear()) {
-                                        Log.w(TAG, tagSub+"mobile climb onwear = false, but is on the wearable");
-                                    }
-
-                                    if (mobileClimb.isDelete()) {
-                                        // delete climb
-                                        wearClimb.deleteFromRealm();
-                                    } else if (!wearClimb.isDelete()) {
-                                        if (wearClimb.isDirty()) {
-                                            if (mobileClimb.getLastedit().after(wearClimb.getLastedit())) {
-                                                mobileClimb.setDirty(false);
-                                                realm.copyToRealmOrUpdate(mobileClimb);
-                                            }
-                                        } else {
-                                            // mobile climb is dirty and wear climb isn't, so update wear climb
-                                            mobileClimb.setDirty(false);
-                                            realm.copyToRealmOrUpdate(mobileClimb);
-                                        }
-                                    }
-                                } else {
-                                    //TODO this is just to check that our logic is correct, can remove if not an issue
-                                    if (mobileClimb.isOnwear()) {
-                                        Log.w(TAG, tagSub+"mobile climb onwear = true, but not actually on the wearable");
-                                    }
-                                    // climb doesn't exist yet on wear, add the climb
-                                    mobileClimb.setDirty(false);
-                                    realm.copyToRealm(mobileClimb); // this should not exist in wear
-                                }
-                            }
-                        }
-                        Log.d(TAG, tagSub+"trying to query dirty or delete objects");
-                        // Query [dirty=true] or [delete = true] and send to mobile
-                        List<Climb> allClimbs = realm.where(Climb.class).equalTo("dirty", true).or().equalTo("delete", true).findAll();
-                        List<Climb> allClimbsCopy = realm.copyFromRealm(allClimbs);
-
-                        Log.d(TAG, tagSub+"got climb list of size = " + Integer.toString(allClimbs.size()));
-                        // copy the results into a string format
-                        String json = gson.toJson(allClimbsCopy);
-                        Log.d(TAG, tagSub+"Finished syncing mobile data, sending json:" + json);
-
-                        sendMessageToRealmDisplayer(Shared.REALM_SYNC_PATH, json.getBytes(StandardCharsets.UTF_8));
-                    }
-
-                }, new Realm.Transaction.OnError(){
-
-                    @Override
-                    public void onError(Throwable error) {
-                        Log.e(TAG, "Failed to sync mobile data: "+error.getMessage());
-                    }
-                });
-
-
+                // copy the results into a string format
+                String json = gson.toJson(allClimbsCopy);
+                Log.d(TAG, "Sending json:" + json);
+                sendMessageToRealmDisplayer(Shared.REALM_SYNC_PATH, json.getBytes(StandardCharsets.UTF_8));
                 break;
             case Shared.REALM_ACK_PATH:
-                tagSub = "Step4: ";
-                Log.d(TAG, tagSub+"ACK received");
+                String data = new String(event.messageEvent.getData(), StandardCharsets.UTF_8);
+                Log.d(TAG, "ACK received: " + data);
+                final Climb[] climbList = gson.fromJson(data, Climb[].class);
+
                 // the data was received on the other end, so anything older than a day or marked for deletion can be deleted from the wearable
                 mRealm.executeTransactionAsync(new Realm.Transaction() {
                     @Override
                     public void execute(Realm realm) {
-                        RealmResults<Climb> results = realm.where(Climb.class)
-                                .lessThan("date", Shared.getStartofDate(null))
-                                .or().equalTo("delete", true).findAll();
-                        results.deleteAllFromRealm();
-
-                        // turn all dirty climbs clean
-                        RealmResults<Climb> nowClean = realm.where(Climb.class).equalTo("dirty", true).findAll();
-                        for (Climb climb : nowClean) {
-                            climb.setDirty(false);
-                        }
+                        realm.deleteAll();
+                        realm.copyToRealm(Arrays.asList(climbList));
                     }
                 }, new Realm.Transaction.OnError() {
                     @Override
                     public void onError(Throwable error) {
-                        Log.e(TAG, tagSub+"Failed deleting old and tagged climbs: " + error.getMessage());
+                        Log.e(TAG, "failed adding updated climblist: " + error.getMessage());
                     }
                 });
                 break;

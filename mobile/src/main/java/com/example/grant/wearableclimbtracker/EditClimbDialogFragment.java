@@ -1,25 +1,30 @@
 package com.example.grant.wearableclimbtracker;
 
+import android.app.Activity;
+import android.content.DialogInterface;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CalendarView;
 import android.widget.DatePicker;
 import android.widget.ListView;
 import android.widget.TabHost;
 import android.widget.TimePicker;
 
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.realm.Climb;
 
-import org.threeten.bp.DateTimeUtils;
-import org.threeten.bp.Instant;
-import org.threeten.bp.temporal.ChronoUnit;
+import org.greenrobot.eventbus.EventBus;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -33,11 +38,15 @@ public class EditClimbDialogFragment extends DialogFragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_CLIMBTYPE = "climbtype";
     private static final String ARG_CLIMBUUID = "climbUUID";
+    private static final String TAG = "EditClimbDialogFragment";
 
     // TODO: Rename and change types of parameters
     private Shared.ClimbType mClimbType;
     private String mClimbUUID;
     private Realm mRealm;
+    private Integer mGrade;
+    private ListView mListView;
+    private Button mSaveButton;
 
     public EditClimbDialogFragment() {
         // Required empty public constructor
@@ -51,7 +60,6 @@ public class EditClimbDialogFragment extends DialogFragment {
      * @param climbUuid String uuid of climb (if editing a climb.
      * @return A new instance of fragment EditClimbDialogFragment.
      */
-    // TODO: Rename and change types and number of parameters
     public static EditClimbDialogFragment newInstance(int climbType, String climbUuid) {
         EditClimbDialogFragment fragment = new EditClimbDialogFragment();
         Bundle args = new Bundle();
@@ -87,8 +95,9 @@ public class EditClimbDialogFragment extends DialogFragment {
         spec.setIndicator("GRADE");
         host.addTab(spec);
         // set the listview to the climbtype grades
-        final ListView lv = (ListView) v.findViewById(R.id.grade_listview);
-        lv.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, mClimbType.grades));
+        mListView = (ListView) v.findViewById(R.id.grade_listview);
+        mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimbType.grades));
+
 
         //Tab 2
         spec = host.newTabSpec("DATE");
@@ -102,76 +111,55 @@ public class EditClimbDialogFragment extends DialogFragment {
         spec.setIndicator("TIME");
         host.addTab(spec);
 
-        final DatePicker dp = (DatePicker) v.findViewById(R.id.datePicker);
-        final TimePicker tp = (TimePicker) v.findViewById(R.id.timePicker);
+
+
+
         Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         deleteButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
-                Realm realm = Realm.getDefaultInstance();
-                try{
-                    Climb climb = getClimbFromThread(realm);
-                    // if this climb is on the wearable too, mark for deletion, otherwise delete climb
-                    if(climb.isOnwear()){
-                        realm.executeTransactionAsync(new Realm.Transaction() {
-                            @Override
-                            public void execute(Realm realm) {
-                                Climb climb = getClimbFromThread(realm);
-                                climb.setDelete(true);
-                            }
-                        }, new Realm.Transaction.OnSuccess(){
-
-                            @Override
-                            public void onSuccess() {
-                                dismiss();
-                            }
-                        });
-                    }else {
-                        realm.executeTransactionAsync(new Realm.Transaction() {
-                            @Override
-                            public void execute(Realm realm) {
-                                Climb climb = getClimbFromThread(realm);
-                                climb.deleteFromRealm();
-                            }
-                        }, new Realm.Transaction.OnSuccess() {
-                            @Override
-                            public void onSuccess() {
-                                dismiss();
-                            }
-                        });
+            Realm realm = Realm.getDefaultInstance();
+            try{
+                realm.executeTransactionAsync(new Realm.Transaction() {
+                    @Override
+                    public void execute(Realm realm) {
+                        Climb climb = getClimbFromRealm(realm);
+                        if(climb.isOnwear()) {
+                            // this climb is on the wearable, so we need to keep track of it until we sync
+                            climb.setDelete(true);
+                        }else {
+                            climb.deleteFromRealm();
+                        }
                     }
-                }finally {
-                    realm.close();
-                }
+                }, new Realm.Transaction.OnSuccess(){
+
+                    @Override
+                    public void onSuccess() {
+                        dismiss();
+                    }
+                });
+            }finally {
+                realm.close();
+            }
             }
         });
 
+        // setup date and time pickers.  If editing a climb, set this to the climbs date/time
+        final DatePicker dp = (DatePicker) v.findViewById(R.id.datePicker);
+        final TimePicker tp = (TimePicker) v.findViewById(R.id.timePicker);
+
         // try to get the climb
-        final Climb climb = getClimbFromThread(mRealm);
+        final Climb climb = getClimbFromRealm(mRealm);
+        Calendar cal = Calendar.getInstance();
         if(climb != null) {
             // grab values from climb and update GUI
 
-            // annoying hack to get selection to update http://stackoverflow.com/questions/7018921/setselection-not-changing-listview-position
-            // TODO: doesn't stay selected, might need radio button hack: http://stackoverflow.com/questions/3111354/android-listview-stay-selected
-            lv.clearFocus();
-            lv.post(new Runnable() {
-                @Override
-                public void run() {
-                    lv.requestFocusFromTouch();
-                    lv.setSelection(climb.getGrade());
-                    lv.setItemChecked(climb.getGrade(), true);
-                    lv.requestFocus();
-                }
-            });
+            mGrade = climb.getGrade();
+            mListView.setItemChecked(mGrade, true);
 
-            Calendar cal = Calendar.getInstance();
             cal.setTime(climb.getDate());
 
-            dp.updateDate(cal.get(Calendar.YEAR),
-                    cal.get(Calendar.MONTH),
-                    cal.get(Calendar.DAY_OF_MONTH));
-
+            // update the time
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 tp.setHour(cal.get(Calendar.HOUR));
                 tp.setMinute(cal.get(Calendar.MINUTE));
@@ -187,23 +175,34 @@ public class EditClimbDialogFragment extends DialogFragment {
             deleteButton.setVisibility(View.GONE);
         }
 
-        final Button savebutton = (Button)v.findViewById(R.id.save_button);
-        if(lv.isSelected()) {
-            // enable save button
-            savebutton.setEnabled(true);
-        }else {
-            // disable save button
-            savebutton.setEnabled(false);
-        }
+        // stupid workaround since there is no dp.setOnDateChangedListener()
+        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), new DatePicker.OnDateChangedListener() {
 
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                savebutton.setEnabled(true);
+            public void onDateChanged(DatePicker datePicker, int year, int month, int dayOfMonth) {
+                updateSaveButtonEnabled();
             }
         });
 
-        savebutton.setOnClickListener(new View.OnClickListener() {
+        tp.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
+            @Override
+            public void onTimeChanged(TimePicker view, int hourOfDay, int minute) {
+                updateSaveButtonEnabled();
+            }
+        });
+
+
+        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int pos, long l) {
+                mGrade = pos;
+                updateSaveButtonEnabled();
+            }
+        });
+
+        mSaveButton = (Button)v.findViewById(R.id.save_button);
+        mSaveButton.setEnabled(false);
+        mSaveButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // save the climb
@@ -214,12 +213,11 @@ public class EditClimbDialogFragment extends DialogFragment {
                         @Override
                         public void execute(Realm realm) {
                             // set climb fields
-                            Climb climb = getClimbFromThread(realm);
+                            Climb climb = getClimbFromRealm(realm);
                             if (climb == null) {
                                 // this is a new climb, so we need to create it
                                 climb = realm.createObject(Climb.class,  UUID.randomUUID().toString());
                                 climb.setType(mClimbType.ordinal());
-                                climb.setOnwear(false);
                             }
 
                             // get the date/time from pickers
@@ -237,25 +235,11 @@ public class EditClimbDialogFragment extends DialogFragment {
                                 cal.set(Calendar.HOUR_OF_DAY, tp.getCurrentHour());
                                 cal.set(Calendar.MINUTE, tp.getCurrentMinute());
                             }
-                            Date date = cal.getTime();
 
-                            // se fields based on logic tree in onenote->notes->2/23/2017
-                            if (climb.isOnwear()) {
-                                // if it is on the wearable, no matter what the date
-                                climb.setDirty(true);
-                            } else {
-                                // if this climb was done today, mark as dirty
-                                Date startOfDay = Shared.getStartofDate(null);
-                                if (date.after(startOfDay)) {
-                                    climb.setDirty(true);
-                                } else {
-                                    climb.setDirty(false);
-                                }
-                            }
-
+                            climb.setOnwear(false);
                             climb.setDelete(false);
-                            climb.setDate(date);
-                            climb.setGrade(lv.getCheckedItemPosition());
+                            climb.setDate(cal.getTime());
+                            climb.setGrade(mGrade);
                         }
                     }, new Realm.Transaction.OnSuccess() {
                         @Override
@@ -271,7 +255,15 @@ public class EditClimbDialogFragment extends DialogFragment {
         return v;
     }
 
-    private Climb getClimbFromThread(Realm realm) {
+    private void updateSaveButtonEnabled() {
+        // this only gets called when datepicker, timepicker, or grade is clicked, indicating a change
+        if(mGrade!=null) {
+            // check this in case we're adding a climb and grade hasn't been selected yet
+            mSaveButton.setEnabled(true);
+        }
+    }
+
+    private Climb getClimbFromRealm(Realm realm) {
         // try to get the climb
         if(mClimbUUID !=null) {
             return realm.where(Climb.class).equalTo("id", mClimbUUID).findFirst();
@@ -287,6 +279,10 @@ public class EditClimbDialogFragment extends DialogFragment {
         mRealm.close();
     }
 
-
-
+    @Override
+    public void onDismiss(DialogInterface dialog) {
+        Log.d(TAG, "onDismiss");
+        super.onDismiss(dialog);
+        EventBus.getDefault().post(new EditClimbDialogEvent(EditClimbDialogEvent.DialogActionType.DISMISSED, null));
+    }
 }

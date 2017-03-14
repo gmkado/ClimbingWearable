@@ -72,9 +72,8 @@ public class Shared {
 
         // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
         RealmConfiguration config = new RealmConfiguration.Builder()
-                .schemaVersion(2)
+                .deleteRealmIfMigrationNeeded()
                 .modules(new ClimbingModule()) // this is necessary for library modules
-                .migration(new MyMigration())
                 .build();
 
         Realm.setDefaultConfiguration(config);

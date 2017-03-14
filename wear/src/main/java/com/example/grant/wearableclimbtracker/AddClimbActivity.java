@@ -118,11 +118,8 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
                 climb.setLastedit(now);
                 climb.setGrade(mSelectedPosition);
                 climb.setType(mClimbType.ordinal());
-
-                // set fields based on logic tree in onenote->notes->2/23/2017
-                climb.setDirty(true);
                 climb.setDelete(false);
-                climb.setOnwear(true);
+
 
             }
         });

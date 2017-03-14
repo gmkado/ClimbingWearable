@@ -1,11 +1,16 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.support.annotation.NonNull;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.util.Pair;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
@@ -21,14 +26,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
+import com.github.clans.fab.FloatingActionButton;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.tasks.RuntimeExecutionException;
 import com.google.android.gms.wearable.CapabilityApi;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
@@ -40,8 +46,6 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.honorato.multistatetogglebutton.MultiStateToggleButton;
 import org.honorato.multistatetogglebutton.ToggleButton;
-import org.threeten.bp.DateTimeUtils;
-import org.threeten.bp.Instant;
 import org.threeten.bp.temporal.ChronoUnit;
 
 import java.nio.charset.StandardCharsets;
@@ -57,9 +61,8 @@ import io.realm.Realm;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import io.realm.Sort;
-import io.realm.internal.IOException;
 
-public class MainActivity extends AppCompatActivity{
+public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
@@ -79,6 +82,7 @@ public class MainActivity extends AppCompatActivity{
     private List<String> mDateRangeLabels = Arrays.asList("DAY", "WEEK", "MONTH", "YEAR", "ALL");
     private List<ChronoUnit> mDateRanges = Arrays.asList(ChronoUnit.DAYS, ChronoUnit.WEEKS, ChronoUnit.MONTHS, ChronoUnit.YEARS, ChronoUnit.FOREVER);
     private TextView mDateTextView;
+    private FloatingActionButton mAddButton;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -111,34 +115,14 @@ public class MainActivity extends AppCompatActivity{
         //Log.d(TAG, "onOptionsItemSelected");
         switch (item.getItemId()) {
             case R.id.sync_db:
-                final String tagSub = "Step 1: ";
-
                 // start sync process
-                // Query [dirty = true], [onwear=false], [date=not today] and set [dirty = false] (day changed before sync)
-
-                mRealm.executeTransactionAsync(new Realm.Transaction() {
-                    @Override
-                    public void execute(Realm realm) {
-                        Date startOfDay = Shared.getStartofDate(null);
-                        RealmResults<Climb> removeDirtyResults = realm.where(Climb.class).lessThan("date", startOfDay).equalTo("dirty", true).findAll();
-
-                        for(Climb climb:removeDirtyResults) {
-                            climb.setDirty(false);
-                        }
-                        // Query [dirty = true] or [delete = true] and send to wear
-                        List<Climb> allClimbs = realm.where(Climb.class).equalTo("dirty", true).or().equalTo("delete", true).findAll();
-
-
-                        // copy the results into a string format
-                        Gson gson = Shared.getGson();
-                        String json = gson.toJson(realm.copyFromRealm(allClimbs));
-
-                        Log.d(TAG, tagSub+"sending json of length:" + json.length());
-                        sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, json.getBytes(StandardCharsets.UTF_8));
-                    }
-                });
-
-
+                Log.d(TAG, "requesting sync");
+                sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
+                return true;
+            case R.id.settings:
+                // open settings
+                Intent intent = new Intent(this, SettingsActivity.class);
+                startActivity(intent);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -183,6 +167,26 @@ public class MainActivity extends AppCompatActivity{
         ViewPager pager = (ViewPager) findViewById(R.id.pager);
         pager.setAdapter(mChartPagerAdapter);
         pager.setCurrentItem(1); // start in overview fragment
+        pager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+            @Override
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
+            }
+
+            @Override
+            public void onPageSelected(int position) {
+                if(position == 0 || position == 1) {
+                    mAddButton.show(true);
+                }else {
+                    mAddButton.hide(true);
+                }
+            }
+
+            @Override
+            public void onPageScrollStateChanged(int state) {
+
+            }
+        });
 
         // get the shared preferences for type and date range
         SharedPreferences pref = getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE);
@@ -193,11 +197,11 @@ public class MainActivity extends AppCompatActivity{
         getSupportActionBar().setSubtitle("Last sync: " + pref.getString(PREF_LASTSYNC, "never").replace("\"", ""));
 
         // setup date toggle button
-        MultiStateToggleButton button = (MultiStateToggleButton)findViewById(R.id.mstb_daterange);
-        button.setElements(mDateRangeLabels);
-        button.setValue(mDateRanges.indexOf(mDateRange));
+        final MultiStateToggleButton dateRangeButton = (MultiStateToggleButton)findViewById(R.id.mstb_daterange);
+        dateRangeButton.setElements(mDateRangeLabels);
+        dateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
 
-        button.setOnValueChangedListener(new ToggleButton.OnValueChangedListener(){
+        dateRangeButton.setOnValueChangedListener(new ToggleButton.OnValueChangedListener(){
 
             @Override
             public void onValueChanged(int position) {
@@ -262,6 +266,29 @@ public class MainActivity extends AppCompatActivity{
         });
         mDateTextView = (TextView)findViewById(R.id.currentdate_textview);
 
+        mAddButton = (FloatingActionButton) findViewById(R.id.fab_add_climb);
+        mAddButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // add a climb, so open popup
+                showAddClimbDialog(null);
+            }
+        });
+
+        TextView currentDateView = (TextView) findViewById(R.id.currentdate_textview);
+        currentDateView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // toggle view of dateranges
+                if(dateRangeButton.getVisibility() == View.GONE) {
+                    dateRangeButton.setVisibility(View.VISIBLE);
+                }else {
+                    dateRangeButton.setVisibility(View.GONE);
+                }
+            }
+        });
+        dateRangeButton.setVisibility(View.GONE);
+
         invalidateRealmResult();
 
     }
@@ -313,16 +340,15 @@ public class MainActivity extends AppCompatActivity{
         });
     }
 
-    @Subscribe (sticky = true, threadMode = ThreadMode.MAIN)
+    @Subscribe (threadMode = ThreadMode.MAIN)
     public void onWearMessageReceived(WearMessageEvent event) {
         switch(event.messageEvent.getPath()) {
             case Shared.REALM_SYNC_PATH:
-                final String tagSub = "Step 3: ";
                 // received the sync data
                 final SharedPreferences settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 String data = new String(event.messageEvent.getData(), StandardCharsets.UTF_8);
 
-                Log.d(TAG, tagSub + "got message = " + data);
+                Log.d(TAG, "got message = " + data);
 
                 //get the start of DAY of last data sync
                 final Gson gson = Shared.getGson();
@@ -334,37 +360,28 @@ public class MainActivity extends AppCompatActivity{
                     @Override
                     public void execute(Realm realm) {
                         for (Climb wearClimb : climbList) {
-                            // get the climb on the wearable
+                            // get the climb on mobile
                             Climb mobileClimb = realm.where(Climb.class).equalTo("id", wearClimb.getId()).findFirst();
-                            if (wearClimb.isDelete()) {
-                                if (mobileClimb != null) {
-                                    // delete the climb from mobile
+                            if(wearClimb.isDelete() && mobileClimb!=null) {
+                                // wear climb marked for deletion which takes precedence over mobile climb
+                                mobileClimb.deleteFromRealm();
+                            }else if(mobileClimb!=null){
+                                if(mobileClimb.isDelete()) {
+                                    // mobile climb marked for deletion, which takes precedence over wear climb
                                     mobileClimb.deleteFromRealm();
+                                }else if (wearClimb.getLastedit().after(mobileClimb.getLastedit())) {
+                                    // use wear climb if it was edited last, otherwise keep mobile
+                                    realm.copyToRealmOrUpdate(wearClimb);
                                 }
-                            } else {
-                                // add or update climb
-                                realm.copyToRealmOrUpdate(wearClimb);
+                            }else {
+                                // climb doesn't exist on mobile, so add it
+                                realm.copyToRealm(wearClimb);
                             }
                         }
                         // query all marked for deletion and delete
                         RealmResults<Climb> deleteClimbs = realm.where(Climb.class).equalTo("delete", true).findAll();
                         deleteClimbs.deleteAllFromRealm();
 
-                        //Query [dirty=true] and set [dirty=false]
-                        RealmResults<Climb> dirtyResults = realm.where(Climb.class).equalTo("dirty", true).findAll();
-                        for (Climb climb : dirtyResults) {
-                            climb.setDirty(false);
-                        }
-                        //Query [date = today] and [onwear = false] and set [onwear = true]
-                        RealmResults<Climb> nowOnWear = realm.where(Climb.class).equalTo("onwear", false).greaterThanOrEqualTo("date", Shared.getStartofDate(null)).findAll();
-                        for (Climb climb : nowOnWear) {
-                            climb.setOnwear(true);
-                        }
-                        //Query [date = not today] and [onwear = true] and set [onwear = false]
-                        RealmResults<Climb> nowOffWear = realm.where(Climb.class).equalTo("onwear", true).lessThan("date", Shared.getStartofDate(null)).findAll();
-                        for (Climb climb : nowOffWear) {
-                            climb.setOnwear(false);
-                        }
 
                         //set today as the new last sync date
                         SharedPreferences.Editor editor = settings.edit();
@@ -378,15 +395,28 @@ public class MainActivity extends AppCompatActivity{
                                 getSupportActionBar().setSubtitle("Last sync: " + newSyncDate.replace("\"", ""));
                             }
                         });
+                        List<Climb> nonWear = realm.where(Climb.class).lessThan("date",Shared.getStartofDate(null)).equalTo("onwear", true).findAll();
+                        for (Climb climb: nonWear) {
+                            climb.setOnwear(false);
+                        }
 
-                        // send back acknowledge message
-                        Log.d(TAG, tagSub + "sending sync ack");
-                        sendMessageToRealmCreator(Shared.REALM_ACK_PATH, null);
+                        List<Climb> todaysClimbs = realm.where(Climb.class).greaterThanOrEqualTo("date",Shared.getStartofDate(null)).findAll();
+
+                        //set onwear to true
+                        for (Climb climb: todaysClimbs) {
+                            climb.setOnwear(true);
+                        }
+                        List<Climb> todaysClimbsCopy = realm.copyFromRealm(todaysClimbs);
+
+                        // copy the results into a string format
+                        String json = gson.toJson(todaysClimbsCopy);
+                        Log.d(TAG, "Sending ACK:" + json);
+                        sendMessageToRealmCreator(Shared.REALM_ACK_PATH, json.getBytes(StandardCharsets.UTF_8));
                     }
                 }, new Realm.Transaction.OnError() {
                     @Override
                     public void onError(Throwable error) {
-                        Log.e(TAG, tagSub + "Failed merging wear data with mobile: " + error.getMessage());
+                        Log.e(TAG, "Failed merging wear data with mobile: " + error.getMessage());
                     }
                 });
                 break;
@@ -396,6 +426,19 @@ public class MainActivity extends AppCompatActivity{
         }
 
     }
+
+    @Subscribe
+    public void onEditClimbDialogEvent(EditClimbDialogEvent event) {
+        switch (event.type) {
+            case OPEN_REQUEST:
+                showAddClimbDialog(event.climbUUID);
+                break;
+            case DISMISSED:
+                invalidateRealmResult();
+                break;
+        }
+    }
+
 
     public void invalidateRealmResult() {
         //Log.d(TAG, "setClimbRealmResult");
@@ -489,6 +532,7 @@ public class MainActivity extends AppCompatActivity{
 
         @Override
         public Fragment getItem(int position) {
+            // hide fab button for graph views
             return mFragmentList.get(position).second;
         }
 
@@ -504,6 +548,25 @@ public class MainActivity extends AppCompatActivity{
 
 
     }
+
+
+
+    private void showAddClimbDialog(String selectedClimbUUID) {
+        // DialogFragment.show() will take care of adding the fragment
+        // in a transaction.  We also want to remove any currently showing
+        // dialog, so make our own transaction and take care of that here.
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        Fragment prev = getSupportFragmentManager().findFragmentByTag("dialog");
+        if (prev != null) {
+            ft.remove(prev);
+        }
+        ft.addToBackStack(null);
+
+        // Create and show the dialog.
+        DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID);
+        newFragment.show(ft, "dialog");
+    }
+
 
 
 }

@@ -20,7 +20,7 @@ public class  WearDataLayerService extends WearableListenerService {
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.d(TAG, "onMessageReceived");
-        EventBus.getDefault().postSticky(new WearMessageEvent(messageEvent)); // send it to ALL subscribers. post sticky so this result stays until we set it again
+        EventBus.getDefault().post(new WearMessageEvent(messageEvent)); // send it to ALL subscribers. post sticky so this result stays until we set it again
     }
 }
 

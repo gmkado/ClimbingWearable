@@ -245,8 +245,11 @@ public class HistoryChartMobileFragment extends Fragment  {
                 // first date was today
                 displayUnit = ChronoUnit.DAYS;
             }
+            // truncate from date to appropriate date
+            Pair<Date,Date> datePairs = Shared.getDatesFromRange(displayUnit, 0);
+            fromZDT = DateTimeUtils.toInstant(datePairs.first).atZone(ZoneOffset.UTC);
+
         }else{
-            // if forever, get
             Pair<Date,Date> datePairs = Shared.getDatesFromRange(mDateRange, mDateOffset);
             fromZDT = DateTimeUtils.toInstant(datePairs.first).atZone(ZoneOffset.UTC);
             toZDT = DateTimeUtils.toInstant(datePairs.second).atZone(ZoneOffset.UTC);

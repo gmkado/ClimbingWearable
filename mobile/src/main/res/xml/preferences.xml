@@ -1,0 +1,32 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="wear_enabled_switch"
+        android:summary="@string/pref_description_enable_wear"
+        android:title="@string/pref_title_enable_wear" />
+
+
+    <PreferenceCategory
+        android:title = "Warm-up">
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="warmup_enabled_switch"
+            android:summary="@string/pref_description_enable_warmup"
+            android:title="@string/pref_title_enable_warmup" />
+        <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
+             dismiss it. -->
+        <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
+        <ListPreference
+            android:defaultValue="-1"
+            android:key="maxgrade_boulder_list"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
+            android:title="Hide climb difficulties above " />
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="numclimbs_boulder_numpicker"
+            android:title="While number of climbs is below"
+            android:defaultValue="0"/>
+
+    </PreferenceCategory>
+</PreferenceScreen>

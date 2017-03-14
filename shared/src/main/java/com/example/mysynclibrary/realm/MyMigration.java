@@ -27,15 +27,16 @@ public class MyMigration implements RealmMigration {
         // Migrate to version 2: Add onwear field to Climb
         if(oldVersion == 1) {
             schema.get("Climb")
-                    .addField("onwear", boolean.class);
+                    .addField("onwear", boolean.class)
+                    .addField("lastedit", Date.class);
             oldVersion++;
         }
 
-
-        // Migrate to version 3: Add lastedit field to Climb
+        // Migrate to version 4: Remove onwear and dirty from Climb
         if(oldVersion == 2) {
             schema.get("Climb")
-                    .addField("lastedit", Date.class);
+                    .removeField("onwear")
+                    .removeField("dirty");
             oldVersion++;
         }
 
