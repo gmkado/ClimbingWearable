@@ -1,34 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.wearable.view.drawer.WearableDrawerLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/drawer_layout"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="com.example.grant.wearableclimbtracker.MainActivity"
-    tools:deviceIds="wear">
-
-    <android.support.v4.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-        <LinearLayout
-            android:id = "@+id/content_frame"
-            android:orientation="vertical"
-            android:layout_height="wrap_content"
-            android:layout_width="match_parent">
-        </LinearLayout>
-    </android.support.v4.widget.NestedScrollView>
-
-    <android.support.wearable.view.drawer.WearableNavigationDrawer
-        android:id = "@+id/top_navigation_drawer"
-        android:layout_height="match_parent"
-        android:layout_width="match_parent"
-        android:background="@color/dark_grey"/>
-
-    <android.support.wearable.view.drawer.WearableActionDrawer
-        android:id="@+id/bottom_action_drawer"
+<android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:tools="http://schemas.android.com/tools"
+android:layout_width="match_parent"
+android:layout_height="match_parent">
+    <TextView
+        android:id="@+id/notenabled_textview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/grey" />
-</android.support.wearable.view.drawer.WearableDrawerLayout>
+        android:gravity="center"
+        android:text="Wear not enabled, change setting on phone" />
+    <android.support.wearable.view.drawer.WearableDrawerLayout
+        android:id="@+id/drawer_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context="com.example.grant.wearableclimbtracker.MainActivity"
+        tools:deviceIds="wear">
+        <android.support.v4.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <LinearLayout
+                android:id = "@+id/content_frame"
+                android:orientation="vertical"
+                android:layout_height="wrap_content"
+                android:layout_width="match_parent">
+            </LinearLayout>
+        </android.support.v4.widget.NestedScrollView>
+
+        <android.support.wearable.view.drawer.WearableNavigationDrawer
+            android:id = "@+id/top_navigation_drawer"
+            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            android:background="@color/dark_grey"/>
+
+        <android.support.wearable.view.drawer.WearableActionDrawer
+            android:id="@+id/bottom_action_drawer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/grey" />
+    </android.support.wearable.view.drawer.WearableDrawerLayout>
+</android.support.wearable.view.BoxInsetLayout>

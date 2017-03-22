@@ -3,30 +3,24 @@ package com.example.grant.wearableclimbtracker;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
-import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.SwitchPreference;
-import android.support.annotation.Nullable;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.support.v7.app.AppCompatActivity;
-import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.support.v4.app.NavUtils;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.NumberPicker;
-import android.widget.Switch;
 
 import com.example.mysynclibrary.Shared;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import static android.R.attr.entryValues;
+import static com.example.mysynclibrary.Shared.KEY_MAXGRADE_BOULDER;
+import static com.example.mysynclibrary.Shared.KEY_MAXGRADE_ROPES;
+import static com.example.mysynclibrary.Shared.KEY_NUMCLIMBS_BOULDER;
+import static com.example.mysynclibrary.Shared.KEY_NUMCLIMBS_ROPES;
+import static com.example.mysynclibrary.Shared.KEY_WARMUP_ENABLED;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings. On
@@ -73,11 +67,6 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public static class SettingsFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
-        public final String KEY_WEAR_ENABLED = "wear_enabled_switch";
-        public final String KEY_WARMUP_ENABLED = "warmup_enabled_switch";
-        public final String KEY_MAXGRADE_BOULDER = "maxgrade_boulder_list";
-        public final String KEY_NUMCLIMBS_BOULDER = "numclimbs_boulder_numpicker";
-
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -86,10 +75,10 @@ public class SettingsActivity extends AppCompatActivity {
             addPreferencesFromResource(R.xml.preferences);
 
             // populate lists
-            ListPreference maxGradePref = (ListPreference)findPreference(KEY_MAXGRADE_BOULDER);
-            populateListPref(maxGradePref, Shared.ClimbType.bouldering.grades, 0);
+            populateListPref((ListPreference)findPreference(KEY_MAXGRADE_BOULDER), Shared.ClimbType.bouldering.grades, 0);
+            populateListPref((ListPreference)findPreference(KEY_MAXGRADE_ROPES), Shared.ClimbType.ropes.grades, 0);
 
-            updateBoulderWarmupCategory();
+            updateWarmupCategory();
 
 
         }
@@ -123,30 +112,82 @@ public class SettingsActivity extends AppCompatActivity {
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
             switch(key) {
                 case KEY_MAXGRADE_BOULDER:
-                    ListPreference pref = (ListPreference) findPreference(key);
-                    pref.setSummary("Max warmup bouldering grade: " + pref.getEntry());
+                    updateWarmupSummary(key);
                     break;
                 case KEY_NUMCLIMBS_BOULDER:
-                    NumberPickerPreference numPref = (NumberPickerPreference) findPreference(key);
-                    numPref.setSummary("Minimum warmup bouldering climbs: " + Integer.toString(numPref.getValue()));
+                    updateWarmupSummary(key);
                     break;
+                case KEY_MAXGRADE_ROPES:
+                    updateWarmupSummary(key);
+                    break;
+                case KEY_NUMCLIMBS_ROPES:
+                    updateWarmupSummary(key);
+                    break;
+
                 case KEY_WARMUP_ENABLED:
-                    updateBoulderWarmupCategory();
+                    updateWarmupCategory();
                     break;
 
             }
         }
 
-        private void updateBoulderWarmupCategory() {
+        private void updateWarmupSummary(String key) {
+            switch(key) {
+                case KEY_MAXGRADE_BOULDER:
+                    ListPreference maxGradeBoulders = (ListPreference) findPreference(key);
+                    if(maxGradeBoulders.isEnabled()) {
+                        maxGradeBoulders.setSummary(getString(R.string.pref_summary_maxbouldergrade) + ": " + maxGradeBoulders.getEntry());
+                    }else {
+                        maxGradeBoulders.setSummary("");
+                    }
+                    break;
+                case KEY_NUMCLIMBS_BOULDER:
+                    NumberPickerPreference numBoulderClimbs = (NumberPickerPreference) findPreference(key);
+                    if(numBoulderClimbs.isEnabled()) {
+                        numBoulderClimbs.setSummary(getString(R.string.pref_summary_numboulder) + ": " + Integer.toString(numBoulderClimbs.getValue()));
+                    }else {
+                        numBoulderClimbs.setSummary("");
+                    }
+                    break;
+                case KEY_MAXGRADE_ROPES:
+                    ListPreference maxGradeRopes = (ListPreference) findPreference(key);
+                    if(maxGradeRopes.isEnabled()) {
+                        maxGradeRopes.setSummary(getString(R.string.pref_summary_maxropesgrade) + ": " + maxGradeRopes.getEntry());
+                    }else {
+                        maxGradeRopes.setSummary("");
+                    }
+                    break;
+                case KEY_NUMCLIMBS_ROPES:
+                    NumberPickerPreference numRopeClimbs = (NumberPickerPreference) findPreference(key);
+                    if(numRopeClimbs.isEnabled()) {
+                        numRopeClimbs.setSummary(getString(R.string.pref_summary_numropes) + ": " + Integer.toString(numRopeClimbs.getValue()));
+                    }else {
+                        numRopeClimbs.setSummary("");
+                    }
+                    break;
+            }
+        }
+
+        private void updateWarmupCategory() {
             // check warmup pref and set category appropriately
             if(((SwitchPreference)findPreference(KEY_WARMUP_ENABLED)).isChecked()) {
                 findPreference(KEY_MAXGRADE_BOULDER).setEnabled(true);
                 findPreference(KEY_NUMCLIMBS_BOULDER).setEnabled(true);
+                findPreference(KEY_MAXGRADE_ROPES).setEnabled(true);
+                findPreference(KEY_NUMCLIMBS_ROPES).setEnabled(true);
             }else {
                 findPreference(KEY_MAXGRADE_BOULDER).setEnabled(false);
                 findPreference(KEY_NUMCLIMBS_BOULDER).setEnabled(false);
+                findPreference(KEY_MAXGRADE_ROPES).setEnabled(false);
+                findPreference(KEY_NUMCLIMBS_ROPES).setEnabled(false);
             }
+            updateWarmupSummary(KEY_MAXGRADE_BOULDER);
+            updateWarmupSummary(KEY_NUMCLIMBS_BOULDER);
+            updateWarmupSummary(KEY_MAXGRADE_ROPES);
+            updateWarmupSummary(KEY_NUMCLIMBS_ROPES);
         }
+
+
     }
 
 }

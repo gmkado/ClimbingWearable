@@ -2,8 +2,10 @@ package com.example.grant.wearableclimbtracker;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.support.wearable.activity.ConfirmationActivity;
 import android.support.wearable.view.DelayedConfirmationView;
 import android.support.wearable.view.WatchViewStub;
@@ -19,13 +21,14 @@ import android.widget.TextView;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 import io.realm.Realm;
 
-public class AddClimbActivity extends Activity implements AdapterView.OnItemClickListener, DelayedConfirmationView.DelayedConfirmationListener {
+public class AddClimbActivity extends Activity implements AdapterView.OnItemClickListener, DelayedConfirmationView.DelayedConfirmationListener{
     private static final String TAG = "AddClimbActivity";
     private Shared.ClimbType mClimbType;
     private List<String> mGradeList;
@@ -61,13 +64,45 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
         mDelayedViewLayout = (LinearLayout) findViewById(R.id.delayedConfirmationLayout);
 
         mListView = (ListView)findViewById(R.id.listView);
-
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(AddClimbActivity.this, android.R.layout.simple_list_item_1, mGradeList);
-        mListView.setAdapter(adapter);
         mListView.setOnItemClickListener(AddClimbActivity.this);
+        setGradeListAdapter();
+
         mDelayedView = (DelayedConfirmationView) findViewById(R.id.delayed_confirm);
         setListViewVisible(true);
+    }
+
+    public void setGradeListAdapter() {
+        // get the appropriate climb type preferences and grade lists
+        String maxGradeKey;
+        String numClimbsKey;
+
+        if (mClimbType == Shared.ClimbType.bouldering) {
+            maxGradeKey = Shared.KEY_MAXGRADE_BOULDER;
+            numClimbsKey = Shared.KEY_NUMCLIMBS_BOULDER;
+        }else {
+            maxGradeKey = Shared.KEY_MAXGRADE_ROPES;
+            numClimbsKey = Shared.KEY_NUMCLIMBS_ROPES;
+        }
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean warmupEnabled = pref.getBoolean(Shared.KEY_WARMUP_ENABLED, false);
+
+        //	if warmup enabled && date = today
+        if(warmupEnabled) {
+            // get all climbs from today
+            long numClimbs = mRealm.where(Climb.class).equalTo("type", mClimbType.ordinal()).greaterThanOrEqualTo("date", Shared.getStartofDate(null)).count();
+            if (numClimbs < pref.getInt(numClimbsKey, 0)) {
+                // TODO: check here is we actually need to update the list, keep track of state
+                // New Listadapter (shortlist)
+                List<String> gradeList = mClimbType.grades;
+                int maxGradeInd = gradeList.indexOf(pref.getString(maxGradeKey, gradeList.get(0)));
+                mListView.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_activated_1, gradeList.subList(0, maxGradeInd+1)));
+
+                return;
+            }
+        }
+        // TODO: check here is we actually need to update the list, keep track of state
+        // otherwise continue and update with full list
+        mListView.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_activated_1, mClimbType.grades));
     }
 
     private void setListViewVisible(boolean listViewVisible) {
@@ -154,4 +189,5 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
             }
         }, 50);
     }
+
 }

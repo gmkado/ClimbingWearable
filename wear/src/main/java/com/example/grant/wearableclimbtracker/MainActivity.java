@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.widget.NestedScrollView;
@@ -24,6 +25,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.TextView;
 
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
@@ -59,7 +61,7 @@ import io.realm.RealmResults;
 
 import static org.greenrobot.eventbus.ThreadMode.MAIN;
 
-public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener {
+public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
     private static final String TAG = "MainActivity";
     public static final String EXTRA_CLIMBTYPE = "ClimbType";
@@ -131,6 +133,8 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         Log.d(TAG, "onCreate()");
 
         setContentView(R.layout.activity_main);
+
+        updateLayoutBasedOnPreference();
         setAmbientEnabled();
 
         mClimbType = Shared.ClimbType.values()[
@@ -168,6 +172,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                         Log.d(TAG, "onConnected: " + connectionHint);
                         // Now you can use the Data Layer API
                     }
+
                     @Override
                     public void onConnectionSuspended(int cause) {
                         Log.d(TAG, "onConnectionSuspended: " + cause);
@@ -184,6 +189,31 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 .build();
 
         invalidateRealmResult();
+
+
+    }
+
+    private void updateLayoutBasedOnPreference() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if(preferences.getBoolean(Shared.KEY_WEAR_ENABLED, false)) {
+            findViewById(R.id.notenabled_textview).setVisibility(View.GONE);
+            findViewById(R.id.drawer_layout).setVisibility(View.VISIBLE);
+        }else{
+            findViewById(R.id.notenabled_textview).setVisibility(View.VISIBLE);
+            findViewById(R.id.drawer_layout).setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this);
     }
 
     private void setupFragments() {
@@ -209,19 +239,33 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     @Override
     protected void onStop() {
         super.onStop();
-
-        mGoogleApiClient.disconnect();
-        EventBus.getDefault().unregister(this);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if(preferences.getBoolean(Shared.KEY_WEAR_ENABLED, false)) {
+            mGoogleApiClient.disconnect();
+            EventBus.getDefault().unregister(this);
+        }
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        mGoogleApiClient.connect();
-        EventBus.getDefault().register(this);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if(preferences.getBoolean(Shared.KEY_WEAR_ENABLED, false)) {
+
+            mGoogleApiClient.connect();
+            EventBus.getDefault().register(this);
+        }
     }
 
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        switch(key) {
+            case Shared.KEY_WEAR_ENABLED:
+                updateLayoutBasedOnPreference();
+                break;
 
+        }
+    }
 
 
     private class NavigationAdapter extends WearableNavigationDrawer.WearableNavigationDrawerAdapter {

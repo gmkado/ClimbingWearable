@@ -37,10 +37,19 @@ import io.realm.RealmConfiguration;
 
 
 public class Shared {
-    public static final String REALM_SYNC_PATH = "/sync-data"; // changes here need to be changed in mobile manifest
-    public static final String DB_DATA_KEY = "com.example.key.data"; // key for realm data json string
-    public static final String REALM_ACK_PATH = "/sync-ack";
     private static final String TAG = "Shared";
+
+    //message api paths
+    public static final String REALM_SYNC_PATH = "/sync-data"; // changes here need to be changed in mobile manifest
+    public static final String REALM_ACK_PATH = "/sync-ack";
+
+    // shared preference keys
+    public static final String KEY_WEAR_ENABLED = "wear_enabled_switch";
+    public static final String KEY_WARMUP_ENABLED = "warmup_enabled_switch";
+    public static final String KEY_MAXGRADE_BOULDER = "maxgrade_boulder_list";
+    public static final String KEY_NUMCLIMBS_BOULDER = "numclimbs_boulder_numpicker";
+    public static final String KEY_MAXGRADE_ROPES = "maxgrade_ropes_list";
+    public static final String KEY_NUMCLIMBS_ROPES= "numclimbs_ropes_numpicker";
 
     public static Gson getGson() {
         return new Gson();

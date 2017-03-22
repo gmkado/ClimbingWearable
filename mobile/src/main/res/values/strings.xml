@@ -12,4 +12,12 @@
 
     <string name="pref_description_enable_warmup">Hide higher difficulties until you\'ve properly warmed up</string>
     <string name="pref_title_enable_warmup">Enable warm-up</string>
+    <string name="pref_title_maxbouldergrade">Max boulder warmup</string>
+    <string name="pref_summary_maxbouldergrade">No bouldering above this grade</string>
+    <string name="pref_title_numboulder">Number of boulder problems</string>
+    <string name="pref_summary_numboulder">Until you\'ve done this many boulder problems</string>
+    <string name="pref_title_maxropesgrade">Max ropes warmup</string>
+    <string name="pref_summary_maxropesgrade">No rope climbs above this grade</string>
+    <string name="pref_title_numropes">Number of ropes problems </string>
+    <string name="pref_summary_numropes">Until you\'ve done this many climbs</string>
 </resources>

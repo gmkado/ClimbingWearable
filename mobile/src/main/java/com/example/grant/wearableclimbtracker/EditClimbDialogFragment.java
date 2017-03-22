@@ -1,12 +1,11 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.app.Activity;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
+import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,7 +13,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CalendarView;
 import android.widget.DatePicker;
 import android.widget.ListView;
 import android.widget.TabHost;
@@ -28,6 +26,7 @@ import org.greenrobot.eventbus.EventBus;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import io.realm.Realm;
@@ -47,6 +46,7 @@ public class EditClimbDialogFragment extends DialogFragment {
     private Integer mGrade;
     private ListView mListView;
     private Button mSaveButton;
+    private DatePicker mDatePicker;
 
     public EditClimbDialogFragment() {
         // Required empty public constructor
@@ -88,7 +88,6 @@ public class EditClimbDialogFragment extends DialogFragment {
         TabHost host = (TabHost)v.findViewById(R.id.tab_host);
         host.setup();
 
-
         //Tab 1
         TabHost.TabSpec spec = host.newTabSpec("GRADE");
         spec.setContent(R.id.tab1);
@@ -96,8 +95,6 @@ public class EditClimbDialogFragment extends DialogFragment {
         host.addTab(spec);
         // set the listview to the climbtype grades
         mListView = (ListView) v.findViewById(R.id.grade_listview);
-        mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimbType.grades));
-
 
         //Tab 2
         spec = host.newTabSpec("DATE");
@@ -110,8 +107,6 @@ public class EditClimbDialogFragment extends DialogFragment {
         spec.setContent(R.id.tab3);
         spec.setIndicator("TIME");
         host.addTab(spec);
-
-
 
 
         Button deleteButton = (Button) v.findViewById(R.id.delete_button);
@@ -145,7 +140,7 @@ public class EditClimbDialogFragment extends DialogFragment {
         });
 
         // setup date and time pickers.  If editing a climb, set this to the climbs date/time
-        final DatePicker dp = (DatePicker) v.findViewById(R.id.datePicker);
+        mDatePicker = (DatePicker) v.findViewById(R.id.datePicker);
         final TimePicker tp = (TimePicker) v.findViewById(R.id.timePicker);
 
         // try to get the climb
@@ -155,8 +150,6 @@ public class EditClimbDialogFragment extends DialogFragment {
             // grab values from climb and update GUI
 
             mGrade = climb.getGrade();
-            mListView.setItemChecked(mGrade, true);
-
             cal.setTime(climb.getDate());
 
             // update the time
@@ -175,22 +168,22 @@ public class EditClimbDialogFragment extends DialogFragment {
             deleteButton.setVisibility(View.GONE);
         }
 
-        // stupid workaround since there is no dp.setOnDateChangedListener()
-        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), new DatePicker.OnDateChangedListener() {
+        // stupid workaround since there is no mDatePicker.setOnDateChangedListener()
+        mDatePicker.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), new DatePicker.OnDateChangedListener() {
 
             @Override
             public void onDateChanged(DatePicker datePicker, int year, int month, int dayOfMonth) {
+                setGradeListAdapter();
                 updateSaveButtonEnabled();
             }
         });
 
-        tp.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
+        /*tp.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
             @Override
             public void onTimeChanged(TimePicker view, int hourOfDay, int minute) {
                 updateSaveButtonEnabled();
             }
-        });
-
+        });*/
 
         mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -225,9 +218,9 @@ public class EditClimbDialogFragment extends DialogFragment {
                             // this will reflect the current time, so use it to set "lastedit"
                             climb.setLastedit(cal.getTime());
 
-                            cal.set(Calendar.YEAR, dp.getYear());
-                            cal.set(Calendar.MONTH, dp.getMonth());
-                            cal.set(Calendar.DAY_OF_MONTH, dp.getDayOfMonth());
+                            cal.set(Calendar.YEAR, mDatePicker.getYear());
+                            cal.set(Calendar.MONTH, mDatePicker.getMonth());
+                            cal.set(Calendar.DAY_OF_MONTH, mDatePicker.getDayOfMonth());
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                 cal.set(Calendar.HOUR_OF_DAY, tp.getHour());
                                 cal.set(Calendar.MINUTE, tp.getMinute());
@@ -252,6 +245,8 @@ public class EditClimbDialogFragment extends DialogFragment {
                 }
             }
         });
+
+        setGradeListAdapter();  // NOTE: this must come after mDatePicker is initialized and mGrade is retrieved from climb
         return v;
     }
 
@@ -262,6 +257,70 @@ public class EditClimbDialogFragment extends DialogFragment {
             mSaveButton.setEnabled(true);
         }
     }
+
+    public void setGradeListAdapter() {
+        // get the date/time from pickers
+        Calendar cal = Calendar.getInstance();
+
+        cal.set(Calendar.YEAR, mDatePicker.getYear());
+        cal.set(Calendar.MONTH, mDatePicker.getMonth());
+        cal.set(Calendar.DAY_OF_MONTH, mDatePicker.getDayOfMonth());
+
+        Date pickedDate = cal.getTime();
+
+        // get the appropriate climb type preferences and grade lists
+        String maxGradeKey;
+        String numClimbsKey;
+
+        if (mClimbType == Shared.ClimbType.bouldering) {
+            maxGradeKey = Shared.KEY_MAXGRADE_BOULDER;
+            numClimbsKey = Shared.KEY_NUMCLIMBS_BOULDER;
+        }else {
+            maxGradeKey = Shared.KEY_MAXGRADE_ROPES;
+            numClimbsKey = Shared.KEY_NUMCLIMBS_ROPES;
+        }
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getContext());
+        boolean warmupEnabled = pref.getBoolean(Shared.KEY_WARMUP_ENABLED, false);
+
+
+        //	if warmup enabled && date = today
+        if(warmupEnabled && pickedDate.after(Shared.getStartofDate(null))) {
+            // get all climbs from today
+            long numClimbs = mRealm.where(Climb.class).equalTo("type", mClimbType.ordinal()).greaterThanOrEqualTo("date", Shared.getStartofDate(null)).count();
+
+            if (numClimbs < pref.getInt(numClimbsKey, 0)) {
+                // TODO: check here is we actually need to update the list, keep track of state
+                // New Listadapter (shortlist)
+                List<String> gradeList = mClimbType.grades;
+                int maxGradeInd = gradeList.indexOf(pref.getString(maxGradeKey, gradeList.get(0)));
+                mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, gradeList.subList(0, maxGradeInd+1)));
+
+                //    If grade is set
+                if(mGrade !=null) {
+                    //    If  grade > warmup max climb
+                    if (mGrade > maxGradeInd) {
+                        //    Deselect and update save button
+                        mGrade = null;
+                        updateSaveButtonEnabled();
+                    } else {
+                        //    Select grade
+                        mListView.setItemChecked(mGrade, true);
+                    }
+                }
+                return;
+            }
+        }
+        // TODO: check here is we actually need to update the list, keep track of state
+        // otherwise continue and update with full list
+        mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimbType.grades));
+        // If grade is set
+        if (mGrade != null) {
+            //    Select grade
+            mListView.setItemChecked(mGrade, true);
+        }
+    }
+
+
 
     private Climb getClimbFromRealm(Realm realm) {
         // try to get the climb

@@ -38,4 +38,5 @@ dependencies {
     compile 'com.github.clans:fab:1.6.4'
     compile 'com.android.support:support-v4:25.2.0'
     testCompile 'junit:junit:4.12'
+    compile 'me.denley.wearprefs:WearPrefs:1.1.3'
 }

@@ -5,6 +5,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -36,8 +37,11 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.CapabilityApi;
+import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
 
@@ -66,7 +70,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
-    private static final String PREFS_NAME = "MyPrefsFile";
     private static final String PREF_LASTSYNC = "prefLastSync";
     private static final String PREF_TYPE = "prefType";
     private static final String PREF_DATERANGE = "prefDateRange";
@@ -98,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 mClimbType = isChecked? Shared.ClimbType.bouldering: Shared.ClimbType.ropes;
-                SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit();
                 // save this in shared pref.edit();
                 editor.putInt(PREF_TYPE, mClimbType.ordinal());
                 editor.commit();
@@ -106,6 +109,18 @@ public class MainActivity extends AppCompatActivity {
                 invalidateRealmResult();
             }
         });
+
+        // if wear preference is turned off, hide sync button
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean wearEnabled = sharedPref.getBoolean(Shared.KEY_WEAR_ENABLED, false);
+        if(wearEnabled) {
+            menu.findItem(R.id.sync_db).setVisible(true);
+            getSupportActionBar().setSubtitle("Last sync: " + sharedPref.getString(PREF_LASTSYNC, "never").replace("\"", ""));
+        }else {
+            menu.findItem(R.id.sync_db).setVisible(false);
+            getSupportActionBar().setSubtitle("");
+        }
+
         return true;
     }
 
@@ -189,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // get the shared preferences for type and date range
-        SharedPreferences pref = getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE);
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
         mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_TYPE, Shared.ClimbType.bouldering.ordinal())];
         mDateRange = ChronoUnit.values()[pref.getInt(PREF_DATERANGE, ChronoUnit.FOREVER.ordinal())];
 
@@ -212,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
                 mDateOffset = 0;
 
                 // save this in shared pref
-                SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit();
                 editor.putInt(PREF_DATERANGE, mDateRange.ordinal());
                 editor.commit();
                 invalidateRealmResult();
@@ -227,8 +242,7 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "onConnected: " + connectionHint);
 
                         // Now request a sync
-                        Log.d(TAG, "requesting sync");
-                        sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
+                        //sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
                     }
                     @Override
                     public void onConnectionSuspended(int cause) {
@@ -345,7 +359,7 @@ public class MainActivity extends AppCompatActivity {
         switch(event.messageEvent.getPath()) {
             case Shared.REALM_SYNC_PATH:
                 // received the sync data
-                final SharedPreferences settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                final SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
                 String data = new String(event.messageEvent.getData(), StandardCharsets.UTF_8);
 
                 Log.d(TAG, "got message = " + data);
@@ -502,6 +516,8 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+
+
     private class ChartPagerAdapter extends FragmentPagerAdapter{
         private final MainActivity mMainActivity;
         private ArrayList<Pair<String,Fragment>> mFragmentList; // <title, fragment>
@@ -566,7 +582,6 @@ public class MainActivity extends AppCompatActivity {
         DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID);
         newFragment.show(ft, "dialog");
     }
-
 
 
 }
