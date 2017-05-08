@@ -1,8 +1,11 @@
 package com.example.mysynclibrary.realm;
 
+import com.example.mysynclibrary.Shared;
+
 import java.util.Date;
 
 import io.realm.RealmObject;
+import io.realm.annotations.Index;
 import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.Required;
 
@@ -11,10 +14,23 @@ import io.realm.annotations.Required;
 public class Climb extends RealmObject {
 
     // All fields are by default persisted.
-    private int grade;
+    @Index private int grade;
     private int type;
-    @Required private Date date;
+    @Required private Date date;  // datetime of send
     @PrimaryKey private String id;
+
+    // project fields
+    // TODO: fall detection https://github.com/BharadwajS/Fall-detection-in-Android/blob/master/Android/SenseFall/SenseFall/src/com/example/sensefall/DisplayMessageActivity.java
+    // - http://stackoverflow.com/questions/22093572/android-sensor-listening-when-app-in-background
+    // - http://stackoverflow.com/questions/4848490/android-how-to-approach-fall-detection-algorithm
+    /*private boolean project; // is a project
+    private int color; // integer representation of color
+    private String area; // area name
+    private Date setdate;  // datetime of set
+    private boolean completed;
+    private int attempts;*/
+
+    // sync fields
     private boolean delete;
     private Date lastedit;
     private boolean onwear;
@@ -79,4 +95,12 @@ public class Climb extends RealmObject {
     }
 
 
+    public static String[] getTitleRow() {
+        return new String[] {"Date", "StatType", "Grade"};
+    }
+
+    public String[] toStringArray() {
+        Shared.ClimbType type = Shared.ClimbType.values()[getType()];
+        return new String[] {getDate().toString(), type.title, type.grades.get(getGrade())};
+    }
 }

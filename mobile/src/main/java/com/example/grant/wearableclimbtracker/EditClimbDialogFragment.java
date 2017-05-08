@@ -33,13 +33,10 @@ import io.realm.Realm;
 
 
 public class EditClimbDialogFragment extends DialogFragment {
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_CLIMBTYPE = "climbtype";
     private static final String ARG_CLIMBUUID = "climbUUID";
     private static final String TAG = "EditClimbDialogFragment";
 
-    // TODO: Rename and change types of parameters
     private Shared.ClimbType mClimbType;
     private String mClimbUUID;
     private Realm mRealm;
@@ -47,6 +44,7 @@ public class EditClimbDialogFragment extends DialogFragment {
     private ListView mListView;
     private Button mSaveButton;
     private DatePicker mDatePicker;
+    private int mCurrentMaxGradeInd;
 
     public EditClimbDialogFragment() {
         // Required empty public constructor
@@ -246,6 +244,7 @@ public class EditClimbDialogFragment extends DialogFragment {
             }
         });
 
+        mCurrentMaxGradeInd = -1; // ensure list adapter is created, even if maxGradeInd = 0
         setGradeListAdapter();  // NOTE: this must come after mDatePicker is initialized and mGrade is retrieved from climb
         return v;
     }
@@ -261,63 +260,67 @@ public class EditClimbDialogFragment extends DialogFragment {
     public void setGradeListAdapter() {
         // get the date/time from pickers
         Calendar cal = Calendar.getInstance();
-
         cal.set(Calendar.YEAR, mDatePicker.getYear());
         cal.set(Calendar.MONTH, mDatePicker.getMonth());
         cal.set(Calendar.DAY_OF_MONTH, mDatePicker.getDayOfMonth());
-
         Date pickedDate = cal.getTime();
 
-        // get the appropriate climb type preferences and grade lists
-        String maxGradeKey;
-        String numClimbsKey;
+        List<String> gradeList = mClimbType.grades;
 
-        if (mClimbType == Shared.ClimbType.bouldering) {
-            maxGradeKey = Shared.KEY_MAXGRADE_BOULDER;
-            numClimbsKey = Shared.KEY_NUMCLIMBS_BOULDER;
-        }else {
-            maxGradeKey = Shared.KEY_MAXGRADE_ROPES;
-            numClimbsKey = Shared.KEY_NUMCLIMBS_ROPES;
-        }
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getContext());
         boolean warmupEnabled = pref.getBoolean(Shared.KEY_WARMUP_ENABLED, false);
 
 
         //	if warmup enabled && date = today
         if(warmupEnabled && pickedDate.after(Shared.getStartofDate(null))) {
+            // get the appropriate climb type preferences
+            String maxGradeKey;
+            String numClimbsKey;
+
+            if (mClimbType == Shared.ClimbType.bouldering) {
+                maxGradeKey = Shared.KEY_WARMUP_MAXGRADE_BOULDER;
+                numClimbsKey = Shared.KEY_WARMUP_NUMCLIMBS_BOULDER;
+            }else {
+                maxGradeKey = Shared.KEY_WARMUP_MAXGRADE_ROPES;
+                numClimbsKey = Shared.KEY_WARMUP_NUMCLIMBS_ROPES;
+            }
+
             // get all climbs from today
             long numClimbs = mRealm.where(Climb.class).equalTo("type", mClimbType.ordinal()).greaterThanOrEqualTo("date", Shared.getStartofDate(null)).count();
-
             if (numClimbs < pref.getInt(numClimbsKey, 0)) {
-                // TODO: check here is we actually need to update the list, keep track of state
                 // New Listadapter (shortlist)
-                List<String> gradeList = mClimbType.grades;
                 int maxGradeInd = gradeList.indexOf(pref.getString(maxGradeKey, gradeList.get(0)));
-                mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, gradeList.subList(0, maxGradeInd+1)));
+                if(maxGradeInd != mCurrentMaxGradeInd) {
+                    mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, gradeList.subList(0, maxGradeInd + 1)));
 
-                //    If grade is set
-                if(mGrade !=null) {
-                    //    If  grade > warmup max climb
-                    if (mGrade > maxGradeInd) {
-                        //    Deselect and update save button
-                        mGrade = null;
-                        updateSaveButtonEnabled();
-                    } else {
-                        //    Select grade
-                        mListView.setItemChecked(mGrade, true);
+                    //    If grade is set
+                    if (mGrade != null) {
+                        //    If  grade > warmup max climb
+                        if (mGrade > maxGradeInd) {
+                            //    Deselect and update save button
+                            mGrade = null;
+                            updateSaveButtonEnabled();
+                        } else {
+                            //    Select grade
+                            mListView.setItemChecked(mGrade, true);
+                        }
                     }
+                    mCurrentMaxGradeInd = maxGradeInd;
                 }
                 return;
             }
         }
-        // TODO: check here is we actually need to update the list, keep track of state
         // otherwise continue and update with full list
-        mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimbType.grades));
-        // If grade is set
-        if (mGrade != null) {
-            //    Select grade
-            mListView.setItemChecked(mGrade, true);
+        if(gradeList.size()-1 != mCurrentMaxGradeInd) {
+            mListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, gradeList));
+            // If grade is set
+            if (mGrade != null) {
+                //    Select grade
+                mListView.setItemChecked(mGrade, true);
+            }
+            mCurrentMaxGradeInd = gradeList.size() -1;
         }
+
     }
 
 

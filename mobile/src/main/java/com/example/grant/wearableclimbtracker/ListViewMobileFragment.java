@@ -1,13 +1,8 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.content.Context;
-import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +12,7 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
@@ -30,17 +26,15 @@ import java.text.SimpleDateFormat;
 
 import io.realm.OrderedRealmCollection;
 import io.realm.RealmBaseAdapter;
-import io.realm.Sort;
 
 /**
  * Created by Grant on 10/17/2016.
- * // TODO: add ability to add/edit/delete climbs, keep track if edits were made today, so watch can be updated
  */
 public class ListViewMobileFragment extends Fragment {
     private final String TAG = "ListViewMobileFragment";
     private ListView mListView;
-    private Shared.ClimbType mClimbType;
     private ClimbListAdapter mAdapter;
+    private ClimbStats mClimbStat;
 
     public ListViewMobileFragment() {
 
@@ -72,9 +66,9 @@ public class ListViewMobileFragment extends Fragment {
     }
 
     @Subscribe(sticky = true)
-    public void onRealmResult(RealmResultsEvent event) {
-        mClimbType = event.climbType;
-        mAdapter = new ClimbListAdapter(event.realmResults);
+    public void onRealmResultEvent(RealmResultsEvent event) {
+        mClimbStat = event.climbstats;
+        mAdapter = new ClimbListAdapter(mClimbStat.getRealmResult());
         mListView.setAdapter(mAdapter);
     }
 
@@ -120,19 +114,18 @@ public class ListViewMobileFragment extends Fragment {
             int gradeInd = climb.getGrade();
             Shared.ClimbType type = Shared.ClimbType.values()[climb.getType()];
 
-            if(gradeInd>-1) { // TODO: take this out, this was because I have some incorrectly created climbs
-                viewHolder.grade.setText(type.grades.get(gradeInd));
-            }
+            viewHolder.grade.setText(type.grades.get(gradeInd));
+
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
             viewHolder.date.setText(sdf.format(climb.getDate()));
 
             // set font color based on difficulty
             int fontColor;
-            if(gradeInd<=type.getMaxGradeInd(Shared.ClimbLevel.beginner)) {
+            if(gradeInd<=type.getIndexOfMaxGradeForLevel(Shared.ClimbLevel.beginner)) {
                 fontColor = ColorTemplate.MATERIAL_COLORS[0];
-            }else if(gradeInd<=type.getMaxGradeInd(Shared.ClimbLevel.intermediate)) {
+            }else if(gradeInd<=type.getIndexOfMaxGradeForLevel(Shared.ClimbLevel.intermediate)) {
                 fontColor = ColorTemplate.MATERIAL_COLORS[1];
-            }else if(gradeInd<=type.getMaxGradeInd(Shared.ClimbLevel.advanced)) {
+            }else if(gradeInd<=type.getIndexOfMaxGradeForLevel(Shared.ClimbLevel.advanced)) {
                 fontColor = ColorTemplate.MATERIAL_COLORS[2];
             }else {
                 fontColor = ColorTemplate.MATERIAL_COLORS[3];

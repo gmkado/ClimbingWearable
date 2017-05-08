@@ -19,27 +19,70 @@
         <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
         <ListPreference
             android:defaultValue="0"
-            android:key="maxgrade_boulder_list"
+            android:key="warmup_maxgrade_boulder"
             android:negativeButtonText="@null"
             android:positiveButtonText="@null"
             android:title= "@string/pref_title_maxbouldergrade"
             android:summary="@string/pref_summary_maxbouldergrade"/>
         <com.example.grant.wearableclimbtracker.NumberPickerPreference
-            android:key="numclimbs_boulder_numpicker"
+            android:key="warmup_numclimbs_boulder"
             android:title="@string/pref_title_numboulder"
             android:summary="@string/pref_summary_numboulder"
             android:defaultValue="0"/>
         <ListPreference
             android:defaultValue="0"
-            android:key="maxgrade_ropes_list"
+            android:key="warmup_maxgrade_ropes"
             android:negativeButtonText="@null"
             android:positiveButtonText="@null"
             android:title= "@string/pref_title_maxropesgrade"
             android:summary="@string/pref_summary_maxropesgrade"/>
         <com.example.grant.wearableclimbtracker.NumberPickerPreference
-            android:key="numclimbs_ropes_numpicker"
+            android:key="warmup_numclimbs_ropes"
             android:title="@string/pref_title_numropes"
             android:summary="@string/pref_summary_numropes"
+            android:defaultValue="0"/>
+    </PreferenceCategory>
+    <PreferenceCategory
+        android:title = "Bouldering Goals">
+
+        <ListPreference
+            android:defaultValue="0"
+            android:key="goal_grade_boulder"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
+            android:title= "@string/pref_title_goalGradeBoulder"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="goal_numclimbs_boulder"
+            android:title="@string/pref_title_goalNumclimbsBoulder"
+            android:defaultValue="0"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="goal_vpoints_boulder"
+            android:title="@string/pref_title_goalVpointsBoulder"
+            android:defaultValue="0"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="goal_numsessions_boulder"
+            android:title="@string/pref_title_goalNumsessionsBoulder"
+            android:defaultValue="0"/>
+    </PreferenceCategory>
+    <PreferenceCategory
+        android:title="Rope Goals">
+        <ListPreference
+            android:defaultValue="0"
+            android:key="goal_grade_ropes"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
+            android:title= "@string/pref_title_goalGradeRopes"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="goal_numclimbs_ropes"
+            android:title="@string/pref_title_goalNumclimbsRopes"
+            android:defaultValue="0"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="goal_vpoints_ropes"
+            android:title="@string/pref_title_goalVpointsRopes"
+            android:defaultValue="0"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="goal_numsessions_ropes"
+            android:title="@string/pref_title_goalNumsessionsRopes"
             android:defaultValue="0"/>
     </PreferenceCategory>
 </PreferenceScreen>

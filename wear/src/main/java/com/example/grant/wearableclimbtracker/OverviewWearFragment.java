@@ -11,7 +11,6 @@ import android.widget.TextView;
 
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -78,7 +77,7 @@ public class OverviewWearFragment extends Fragment {
     public void onStop() {
         super.onStop();
         if(mResult!=null) {
-            mResult.removeChangeListeners();
+            mResult.removeAllChangeListeners();
         }
         EventBus.getDefault().unregister(this);
     }

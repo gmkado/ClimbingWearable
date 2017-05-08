@@ -1,41 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-xmlns:tools="http://schemas.android.com/tools"
-android:layout_width="match_parent"
-android:layout_height="match_parent">
-    <TextView
-        android:id="@+id/notenabled_textview"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="Wear not enabled, change setting on phone" />
-    <android.support.wearable.view.drawer.WearableDrawerLayout
-        android:id="@+id/drawer_layout"
+        android:id="@+id/main_layout">
+        <TextView
+            android:id="@+id/notenabled_textview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Wear not enabled, change setting on phone"
+            android:visibility="visible" />
+        <android.support.wearable.view.drawer.WearableDrawerLayout
+            android:id="@+id/drawer_layout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            tools:context="com.example.grant.wearableclimbtracker.MainActivity"
+            tools:deviceIds="wear">
+            <android.support.v4.widget.NestedScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+                <LinearLayout
+                    android:id = "@+id/content_frame"
+                    android:orientation="vertical"
+                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent">
+                </LinearLayout>
+            </android.support.v4.widget.NestedScrollView>
+
+            <android.support.wearable.view.drawer.WearableNavigationDrawer
+                android:id = "@+id/top_navigation_drawer"
+                android:layout_height="match_parent"
+                android:layout_width="match_parent"
+                android:background="@color/dark_grey"/>
+
+            <android.support.wearable.view.drawer.WearableActionDrawer
+                android:id="@+id/bottom_action_drawer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/grey" />
+        </android.support.wearable.view.drawer.WearableDrawerLayout>
+    </FrameLayout>
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:context="com.example.grant.wearableclimbtracker.MainActivity"
-        tools:deviceIds="wear">
-        <android.support.v4.widget.NestedScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-            <LinearLayout
-                android:id = "@+id/content_frame"
-                android:orientation="vertical"
-                android:layout_height="wrap_content"
-                android:layout_width="match_parent">
-            </LinearLayout>
-        </android.support.v4.widget.NestedScrollView>
+        android:orientation="vertical"
+        android:id="@+id/deleteConfirmationLayout">
 
-        <android.support.wearable.view.drawer.WearableNavigationDrawer
-            android:id = "@+id/top_navigation_drawer"
-            android:layout_height="match_parent"
+        <TextView
+            android:id="@+id/deleteConfirmationTextView"
+            style="@style/TextAppearance.Wearable.Large"
             android:layout_width="match_parent"
-            android:background="@color/dark_grey"/>
+            android:layout_height="wrap_content"
+            android:text="Delete Climb?"
+            android:textAlignment="center" />
 
-        <android.support.wearable.view.drawer.WearableActionDrawer
-            android:id="@+id/bottom_action_drawer"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/grey" />
-    </android.support.wearable.view.drawer.WearableDrawerLayout>
+        <android.support.wearable.view.DelayedConfirmationView
+            android:id="@+id/deleteDelayedConfirmationView"
+            android:layout_gravity="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_full_cancel"
+            app:circle_color="@color/blue"
+            app:circle_border_color="@color/white"
+            app:circle_radius="@dimen/circle_radius"
+            app:circle_radius_pressed="@dimen/circle_radius_pressed"
+            app:circle_padding="@dimen/circle_padding"
+            app:circle_border_width="@dimen/circle_border_normal_width"/>
+    </LinearLayout>
+
 </android.support.wearable.view.BoxInsetLayout>

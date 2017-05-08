@@ -1,5 +1,6 @@
 package com.example.mysynclibrary.eventbus;
 
+import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
 
@@ -12,15 +13,15 @@ import io.realm.RealmResults;
  */
 
 public class RealmResultsEvent {
-    public final RealmResults<Climb> realmResults;
+    public ClimbStats climbstats;
     public final Shared.ClimbType climbType;
     public ChronoUnit dateRange;
     public int dateOffset;
 
-    public RealmResultsEvent(RealmResults<Climb> realmResults, Shared.ClimbType climbType, ChronoUnit dateRange, int dateOffset){
-        this.realmResults = realmResults;
-        this.climbType = climbType;
-        this.dateRange = dateRange;
+    public RealmResultsEvent(ClimbStats stat, int dateOffset){
+        this.climbstats = stat;
+        this.climbType = stat.getClimbType();
+        this.dateRange = stat.getDateRange();
         this.dateOffset = dateOffset;
     }
 }

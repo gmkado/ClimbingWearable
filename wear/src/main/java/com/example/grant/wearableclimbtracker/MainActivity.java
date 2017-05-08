@@ -11,27 +11,25 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.view.GestureDetectorCompat;
-import android.support.v4.widget.NestedScrollView;
 import android.support.wearable.activity.WearableActivity;
+import android.support.wearable.view.DelayedConfirmationView;
 import android.support.wearable.view.FragmentGridPagerAdapter;
 import android.support.wearable.view.GridViewPager;
 import android.support.wearable.view.drawer.WearableActionDrawer;
 import android.support.wearable.view.drawer.WearableDrawerLayout;
 import android.support.wearable.view.drawer.WearableNavigationDrawer;
 import android.util.Log;
-import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -44,15 +42,10 @@ import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
-import org.threeten.bp.DateTimeUtils;
-import org.threeten.bp.Instant;
-import org.threeten.bp.ZonedDateTime;
-import org.threeten.bp.temporal.ChronoUnit;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
@@ -105,21 +98,55 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                         .equalTo("delete", false)
                         .findAllSorted("date");
 
-                mRealm.executeTransaction(new Realm.Transaction() {
-                    @Override
-                    public void execute(Realm realm) {
-                        results.last().setDelete(true);
-                    }
-                });
+                if(results.size()>0) {
+                    // show delayed confirmation
+                    setDelayedViewVisible(true);
+                    final DelayedConfirmationView delayedView = (DelayedConfirmationView) findViewById(R.id.deleteDelayedConfirmationView);
+                    delayedView.setListener(new DelayedConfirmationView.DelayedConfirmationListener() {
+                        @Override
+                        public void onTimerFinished(View view) {
+                            setDelayedViewVisible(false);
+                            mRealm.executeTransaction(new Realm.Transaction() {
+                                @Override
+                                public void execute(Realm realm) {
+                                    results.last().setDelete(true);
+                                }
+                            });
+                        }
 
-                // TODO: delayed confirmation
-                mDrawerLayout.closeDrawer(Gravity.BOTTOM);
+                        @Override
+                        public void onTimerSelected(View view) {
+                            delayedView.setPressed(true);
+
+                            // Prevent onTimerFinished from being heard.
+                            delayedView.setListener(null);
+                            setDelayedViewVisible(false);
+                        }
+                    });
+                    // Two seconds to cancel the action
+                    delayedView.setTotalTimeMs(3000);
+                    // Start the timer
+                    delayedView.start();
+                    mDrawerLayout.closeDrawer(Gravity.BOTTOM);
+                }else {
+                    Toast.makeText(MainActivity.this, "No climbs found", Toast.LENGTH_LONG).show();
+                }
                 return true;
         }
         return false;
     }
 
+    private void setDelayedViewVisible(boolean delayedViewVisible) {
+        Log.d(TAG, String.format("setDelayedViewVisible(%b)",delayedViewVisible));
+        if(delayedViewVisible){
+            findViewById(R.id.main_layout).setVisibility(View.GONE);
+            findViewById(R.id.deleteConfirmationLayout).setVisibility(View.VISIBLE);
+        }else{
 
+            findViewById(R.id.main_layout).setVisibility(View.VISIBLE);
+            findViewById(R.id.deleteConfirmationLayout).setVisibility(View.GONE);
+        }
+    }
 
     @Override
     protected void onDestroy() {
@@ -190,6 +217,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
         invalidateRealmResult();
 
+        setDelayedViewVisible(false);
 
     }
 
@@ -320,8 +348,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
             fragment = new BarChartWearFragment();
             mFragmentList.add(fragment);
-
-           //TODO: add historyfragment
         }
 
         @Override

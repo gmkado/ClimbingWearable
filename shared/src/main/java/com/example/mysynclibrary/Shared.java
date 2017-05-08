@@ -43,13 +43,27 @@ public class Shared {
     public static final String REALM_SYNC_PATH = "/sync-data"; // changes here need to be changed in mobile manifest
     public static final String REALM_ACK_PATH = "/sync-ack";
 
-    // shared preference keys
+    // ********** shared preference keys ***********//
     public static final String KEY_WEAR_ENABLED = "wear_enabled_switch";
+    // warmup preferences
     public static final String KEY_WARMUP_ENABLED = "warmup_enabled_switch";
-    public static final String KEY_MAXGRADE_BOULDER = "maxgrade_boulder_list";
-    public static final String KEY_NUMCLIMBS_BOULDER = "numclimbs_boulder_numpicker";
-    public static final String KEY_MAXGRADE_ROPES = "maxgrade_ropes_list";
-    public static final String KEY_NUMCLIMBS_ROPES= "numclimbs_ropes_numpicker";
+    public static final String KEY_WARMUP_MAXGRADE_BOULDER = "warmup_maxgrade_boulder";
+    public static final String KEY_WARMUP_NUMCLIMBS_BOULDER = "warmup_numclimbs_boulder";
+    public static final String KEY_WARMUP_MAXGRADE_ROPES = "warmup_maxgrade_ropes";
+    public static final String KEY_WARMUP_NUMCLIMBS_ROPES = "warmup_numclimbs_ropes";
+    // bouldering goal preference
+    public static final String KEY_GOAL_GRADE_BOULDER = "goal_grade_boulder";
+    public static final String KEY_GOAL_NUMCLIMBS_BOULDER = "goal_numclimbs_boulder";
+    public static final String KEY_GOAL_VPOINTS_BOULDER = "goal_vpoints_boulder";
+    public static final String KEY_GOAL_NUMSESSIONS_BOULDER = "goal_numsessions_boulder";
+    // rope goal preferences
+    public static final String KEY_GOAL_GRADE_ROPES = "goal_grade_ropes";
+    public static final String KEY_GOAL_NUMCLIMBS_ROPES = "goal_numclimbs_ropes";
+    public static final String KEY_GOAL_VPOINTS_ROPES = "goal_vpoints_ropes";
+    public static final String KEY_GOAL_NUMSESSIONS_ROPES = "goal_numsessions_ropes";
+
+
+
 
     public static Gson getGson() {
         return new Gson();
@@ -81,6 +95,8 @@ public class Shared {
 
         // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
         RealmConfiguration config = new RealmConfiguration.Builder()
+                //.schemaVersion(0)
+                //.migration(new MyMigration())
                 .deleteRealmIfMigrationNeeded()
                 .modules(new ClimbingModule()) // this is necessary for library modules
                 .build();
@@ -88,12 +104,22 @@ public class Shared {
         Realm.setDefaultConfiguration(config);
     }
 
+    /* Datetime utils*/
+    public static Date ZDTToDate(ZonedDateTime zdt) {
+        return DateTimeUtils.toDate(zdt.toInstant());
+    }
+
+    public static ZonedDateTime DateToZDT(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        return DateTimeUtils.toZonedDateTime(cal);
+
+    }
+
     public static Date getStartofDate(Date date) {
         ZonedDateTime startZDT;
         if(date != null) {
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(date);
-            startZDT = DateTimeUtils.toZonedDateTime(cal);
+            startZDT = DateToZDT(date);
 
         }else {
             startZDT = ZonedDateTime.now();
@@ -148,7 +174,7 @@ public class Shared {
         startZDT = startZDT.plus(dateOffset, dateRange);
         ZonedDateTime endZDT = startZDT.plus(1, dateRange);
 
-        return new Pair<> (DateTimeUtils.toDate(startZDT.toInstant()),DateTimeUtils.toDate(endZDT.toInstant()));
+        return new Pair<> (ZDTToDate(startZDT),ZDTToDate(endZDT));
     }
 
     public static void matchDeviceSizeProgrammatically(Context context, View rootView) {
@@ -178,10 +204,15 @@ public class Shared {
     }*/
 
     public enum ClimbLevel{
-        beginner,
-        intermediate,
-        advanced,
-        expert
+        beginner("Beginner"),
+        intermediate("Intermediate"),
+        advanced("Advanced"),
+        expert("Expert");
+
+        public String title;
+        ClimbLevel(String title) {
+            this.title = title;
+        }
     }
 
     public enum ClimbType {
@@ -232,8 +263,19 @@ public class Shared {
             }
         }
 
-        public int getMaxGradeInd(ClimbLevel level) {
+        public int getIndexOfMaxGradeForLevel(ClimbLevel level) {
             return indMaxGradeForLevel.get(level.ordinal());
+        }
+
+        public String getLabelForLevel(ClimbLevel level) {
+            int startInd;
+            if(level.ordinal() == 0) {
+                startInd = 0;
+            }else {
+                startInd = getIndexOfMaxGradeForLevel(level.values()[level.ordinal()-1])+1;
+            }
+            int endInd = getIndexOfMaxGradeForLevel(level);
+            return level.title + " (" + grades.get(startInd) + " to " +grades.get(endInd) + ")";
         }
     }
 

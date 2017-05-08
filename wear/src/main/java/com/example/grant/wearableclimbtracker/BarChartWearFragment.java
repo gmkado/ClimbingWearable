@@ -10,7 +10,6 @@ import android.view.ViewGroup;
 
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.components.AxisBase;
 import com.github.mikephil.charting.components.XAxis;
@@ -48,7 +47,7 @@ public class BarChartWearFragment extends android.app.Fragment {
     public void onStop() {
         super.onStop();
         if(mResult!=null) {
-            mResult.removeChangeListeners();  // TODO: does this get added again somehow?
+            mResult.removeAllChangeListeners();
         }
         EventBus.getDefault().unregister(this);
     }

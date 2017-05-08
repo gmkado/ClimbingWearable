@@ -123,17 +123,17 @@
     <dimen name="abc_control_corner_material">2dp</dimen>
     <dimen name="abc_control_inset_material">4dp</dimen>
     <dimen name="abc_control_padding_material">4dp</dimen>
-    <item name="abc_dialog_fixed_height_major" type="dimen">80%</item>
-    <item name="abc_dialog_fixed_height_minor" type="dimen">100%</item>
-    <item name="abc_dialog_fixed_width_major" type="dimen">320dp</item>
-    <item name="abc_dialog_fixed_width_minor" type="dimen">320dp</item>
+    <item name="abc_dialog_fixed_height_major" statType="dimen">80%</item>
+    <item name="abc_dialog_fixed_height_minor" statType="dimen">100%</item>
+    <item name="abc_dialog_fixed_width_major" statType="dimen">320dp</item>
+    <item name="abc_dialog_fixed_width_minor" statType="dimen">320dp</item>
     <dimen name="abc_dialog_list_padding_vertical_material">8dp</dimen>
-    <item name="abc_dialog_min_width_major" type="dimen">65%</item>
-    <item name="abc_dialog_min_width_minor" type="dimen">95%</item>
+    <item name="abc_dialog_min_width_major" statType="dimen">65%</item>
+    <item name="abc_dialog_min_width_minor" statType="dimen">95%</item>
     <dimen name="abc_dialog_padding_material">24dp</dimen>
     <dimen name="abc_dialog_padding_top_material">18dp</dimen>
-    <item format="float" name="abc_disabled_alpha_material_dark" type="dimen">0.30</item>
-    <item format="float" name="abc_disabled_alpha_material_light" type="dimen">0.26</item>
+    <item format="float" name="abc_disabled_alpha_material_dark" statType="dimen">0.30</item>
+    <item format="float" name="abc_disabled_alpha_material_light" statType="dimen">0.26</item>
     <dimen name="abc_dropdownitem_icon_width">32dip</dimen>
     <dimen name="abc_dropdownitem_text_padding_left">8dip</dimen>
     <dimen name="abc_dropdownitem_text_padding_right">8dip</dimen>
@@ -166,24 +166,24 @@
     <dimen name="abc_text_size_subtitle_material_toolbar">16dp</dimen>
     <dimen name="abc_text_size_title_material">20sp</dimen>
     <dimen name="abc_text_size_title_material_toolbar">20dp</dimen>
-    <item format="float" name="disabled_alpha_material_dark" type="dimen">0.30</item>
-    <item format="float" name="disabled_alpha_material_light" type="dimen">0.26</item>
-    <item format="float" name="highlight_alpha_material_colored" type="dimen">0.26</item>
-    <item format="float" name="highlight_alpha_material_dark" type="dimen">0.20</item>
-    <item format="float" name="highlight_alpha_material_light" type="dimen">0.12</item>
+    <item format="float" name="disabled_alpha_material_dark" statType="dimen">0.30</item>
+    <item format="float" name="disabled_alpha_material_light" statType="dimen">0.26</item>
+    <item format="float" name="highlight_alpha_material_colored" statType="dimen">0.26</item>
+    <item format="float" name="highlight_alpha_material_dark" statType="dimen">0.20</item>
+    <item format="float" name="highlight_alpha_material_light" statType="dimen">0.12</item>
     <dimen name="notification_large_icon_height">64dp</dimen>
     <dimen name="notification_large_icon_width">64dp</dimen>
     <dimen name="notification_subtext_size">12dp</dimen>
     <drawable name="notification_template_icon_bg">#3333B5E5</drawable>
-    <item name="action_bar_activity_content" type="id"/>
-    <item name="action_bar_spinner" type="id"/>
-    <item name="action_menu_divider" type="id"/>
-    <item name="action_menu_presenter" type="id"/>
-    <item name="home" type="id"/>
-    <item name="progress_circular" type="id"/>
-    <item name="progress_horizontal" type="id"/>
-    <item name="split_action_bar" type="id"/>
-    <item name="up" type="id"/>
+    <item name="action_bar_activity_content" statType="id"/>
+    <item name="action_bar_spinner" statType="id"/>
+    <item name="action_menu_divider" statType="id"/>
+    <item name="action_menu_presenter" statType="id"/>
+    <item name="home" statType="id"/>
+    <item name="progress_circular" statType="id"/>
+    <item name="progress_horizontal" statType="id"/>
+    <item name="split_action_bar" statType="id"/>
+    <item name="up" statType="id"/>
     <integer name="abc_config_activityDefaultDur">220</integer>
     <integer name="abc_config_activityShortDur">150</integer>
     <integer name="abc_max_action_buttons">2</integer>

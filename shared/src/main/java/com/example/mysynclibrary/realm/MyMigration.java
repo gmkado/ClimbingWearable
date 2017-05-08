@@ -16,31 +16,13 @@ public class MyMigration implements RealmMigration {
         // DynamicRealm exposes an editable schema
         RealmSchema schema = realm.getSchema();
 
-        // Migrate to version 1: Add dirty and delete fields to Climb
+        // Migrate to version 1: Add project fields
         if (oldVersion == 0) {
             schema.get("Climb")
                     .addField("dirty", boolean.class)
                     .addField("delete", boolean.class);
             oldVersion++;
         }
-
-        // Migrate to version 2: Add onwear field to Climb
-        if(oldVersion == 1) {
-            schema.get("Climb")
-                    .addField("onwear", boolean.class)
-                    .addField("lastedit", Date.class);
-            oldVersion++;
-        }
-
-        // Migrate to version 4: Remove onwear and dirty from Climb
-        if(oldVersion == 2) {
-            schema.get("Climb")
-                    .removeField("onwear")
-                    .removeField("dirty");
-            oldVersion++;
-        }
-
-
 
     }
 
