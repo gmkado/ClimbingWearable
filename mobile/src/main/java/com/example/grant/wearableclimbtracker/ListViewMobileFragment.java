@@ -7,7 +7,9 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
+import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -15,6 +17,7 @@ import android.widget.TextView;
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
+import com.example.mysynclibrary.eventbus.ListScrollEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.mikephil.charting.utils.ColorTemplate;
@@ -22,6 +25,7 @@ import com.github.mikephil.charting.utils.ColorTemplate;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
 import io.realm.OrderedRealmCollection;
@@ -54,6 +58,31 @@ public class ListViewMobileFragment extends Fragment {
                 return true;
             }
         });
+        mListView.setOnScrollListener(new AbsListView.OnScrollListener() {
+            private int mLastFirstVisibleItem;
+
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+                if(mLastFirstVisibleItem<firstVisibleItem)
+                {
+                    Log.i("SCROLLING DOWN","TRUE");
+                    EventBus.getDefault().post(new ListScrollEvent(ListScrollEvent.ScrollType.down));
+                }
+                if(mLastFirstVisibleItem>firstVisibleItem)
+                {
+                    Log.i("SCROLLING UP","TRUE");
+                    EventBus.getDefault().post(new ListScrollEvent(ListScrollEvent.ScrollType.up));
+                }
+                mLastFirstVisibleItem=firstVisibleItem;
+
+            }
+        });
+
         return rootView;
     }
 
@@ -90,6 +119,7 @@ public class ListViewMobileFragment extends Fragment {
         private class ViewHolder {
             TextView grade;
             TextView date;
+            ImageView goalimg;
         }
 
         public ClimbListAdapter(@Nullable OrderedRealmCollection<Climb> data) {
@@ -104,7 +134,7 @@ public class ListViewMobileFragment extends Fragment {
                 viewHolder = new ViewHolder();
                 viewHolder.grade = (TextView) convertView.findViewById(R.id.grade_textview);
                 viewHolder.date = (TextView) convertView.findViewById(R.id.date_textview);
-
+                viewHolder.goalimg = (ImageView) convertView.findViewById(R.id.goal_imageView);
                 convertView.setTag(viewHolder);
             }else {
                 viewHolder = (ViewHolder) convertView.getTag();
@@ -114,10 +144,15 @@ public class ListViewMobileFragment extends Fragment {
             int gradeInd = climb.getGrade();
             Shared.ClimbType type = Shared.ClimbType.values()[climb.getType()];
 
+            if(gradeInd < mClimbStat.getmPrefTargetGrade()) {
+                viewHolder.goalimg.setVisibility(View.INVISIBLE);
+            }else {
+                viewHolder.goalimg.setVisibility(View.VISIBLE);
+            }
             viewHolder.grade.setText(type.grades.get(gradeInd));
 
-            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
-            viewHolder.date.setText(sdf.format(climb.getDate()));
+            DateFormat df = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+            viewHolder.date.setText(df.format(climb.getDate()));
 
             // set font color based on difficulty
             int fontColor;
@@ -131,7 +166,7 @@ public class ListViewMobileFragment extends Fragment {
                 fontColor = ColorTemplate.MATERIAL_COLORS[3];
             }
             viewHolder.grade.setTextColor(fontColor);
-            viewHolder.date.setTextColor(fontColor);
+            //viewHolder.date.setTextColor(fontColor);
 
             return convertView;
         }

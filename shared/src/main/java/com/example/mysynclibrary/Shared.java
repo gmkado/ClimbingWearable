@@ -148,7 +148,6 @@ public class Shared {
         ZonedDateTime startZDT = ZonedDateTime.now();
         startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
 
-        TemporalField tf = WeekFields.of(Locale.getDefault()).dayOfWeek();
         switch(dateRange) {
             case DAYS:
                 break;
@@ -182,6 +181,16 @@ public class Shared {
         int width = displayMetrics.widthPixels;
         int height = displayMetrics.heightPixels;
         rootView.setLayoutParams(new ViewGroup.LayoutParams(width, height));
+    }
+
+    // return the offset that encompasses date based on the date range (e.g. today = 5/9/17, date = 5/8/17, dateRange = DAYS, return -1
+    public static int getOffsetFromDate(Date date, ChronoUnit mDateRange) {
+        ZonedDateTime startZDT = ZonedDateTime.now();
+        startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
+        ZonedDateTime endZDT = DateToZDT(date);
+        endZDT = endZDT.truncatedTo(ChronoUnit.DAYS);
+
+        return (int) mDateRange.between(startZDT, endZDT);
     }
 
 

@@ -27,7 +27,9 @@ import android.widget.Toast;
 
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.DaySelectedEvent;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
+import com.example.mysynclibrary.eventbus.ListScrollEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
@@ -90,6 +92,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     private List<ChronoUnit> mDateRanges = Arrays.asList(ChronoUnit.DAYS, ChronoUnit.WEEKS, ChronoUnit.MONTHS, ChronoUnit.YEARS, ChronoUnit.FOREVER);
     private TextView mDateTextView;
     private FloatingActionButton mAddButton;
+    private MultiStateToggleButton mDateRangeButton;
+
     private int mShowCaseIndex;
     private ShowcaseView mShowCaseView;
     private Menu mActionBarMenu;
@@ -275,11 +279,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         getSupportActionBar().setSubtitle("Last sync: " + pref.getString(PREF_LASTSYNC, "never"));
 
         // setup date toggle button
-        final MultiStateToggleButton dateRangeButton = (MultiStateToggleButton)findViewById(R.id.mstb_daterange);
-        dateRangeButton.setElements(mDateRangeLabels);
-        dateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
+        mDateRangeButton = (MultiStateToggleButton)findViewById(R.id.mstb_daterange);
+        mDateRangeButton.setElements(mDateRangeLabels);
+        mDateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
 
-        dateRangeButton.setOnValueChangedListener(new ToggleButton.OnValueChangedListener(){
+        mDateRangeButton.setOnValueChangedListener(new ToggleButton.OnValueChangedListener(){
 
             @Override
             public void onValueChanged(int position) {
@@ -357,14 +361,14 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             @Override
             public void onClick(View v) {
                 // toggle view of dateranges
-                if(dateRangeButton.getVisibility() == View.GONE) {
-                    dateRangeButton.setVisibility(View.VISIBLE);
+                if(mDateRangeButton.getVisibility() == View.GONE) {
+                    mDateRangeButton.setVisibility(View.VISIBLE);
                 }else {
-                    dateRangeButton.setVisibility(View.GONE);
+                    mDateRangeButton.setVisibility(View.GONE);
                 }
             }
         });
-        dateRangeButton.setVisibility(View.GONE);
+        mDateRangeButton.setVisibility(View.GONE);
 
         invalidateRealmResult();
 
@@ -418,6 +422,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         });
     }
 
+    /**************** EVENT BUS LISTENERS ***************************/
     @Subscribe (threadMode = ThreadMode.MAIN)
     public void onWearMessageReceived(WearMessageEvent event) {
         switch(event.messageEvent.getPath()) {
@@ -521,7 +526,27 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 break;
         }
     }
+    @Subscribe
+    public void onListScrollEvent(ListScrollEvent event) {
+        switch (event.type) {
+            case up:
+                mAddButton.show(true);
+                break;
+            case down:
+                mAddButton.hide(true);
+                break;
+        }
+    }
 
+    @Subscribe
+    public void onDaySelectedEvent(DaySelectedEvent event) {
+        mDateRange = ChronoUnit.DAYS;
+        mDateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
+
+        mDateOffset = Shared.getOffsetFromDate(event.date, mDateRange);
+
+        invalidateRealmResult();
+    }
 
     public void invalidateRealmResult() {
         //Log.d(TAG, "setClimbRealmResult");

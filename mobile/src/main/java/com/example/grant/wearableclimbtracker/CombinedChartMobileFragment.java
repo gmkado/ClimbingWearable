@@ -16,6 +16,7 @@ import android.widget.TextView;
 
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.DaySelectedEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.github.mikephil.charting.charts.CombinedChart;
 import com.github.mikephil.charting.components.AxisBase;
@@ -23,7 +24,10 @@ import com.github.mikephil.charting.components.LimitLine;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.CombinedData;
+import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.formatter.AxisValueFormatter;
+import com.github.mikephil.charting.highlight.Highlight;
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -108,8 +112,6 @@ public class CombinedChartMobileFragment extends Fragment  {
 
             CombinedData data = new CombinedData();
 
-
-
             XAxis xAxis = mCombinedChart.getXAxis();
             xAxis.resetAxisMaxValue(); // reset the axis first so it can be calculated from the data
             xAxis.resetAxisMinValue();
@@ -131,6 +133,21 @@ public class CombinedChartMobileFragment extends Fragment  {
                 }else {
                     df = SimpleDateFormat.getDateInstance(DateFormat.SHORT);
                 }
+
+                // add chartlistener to zoom to day if clicked
+                mCombinedChart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+                    @Override
+                    public void onValueSelected(Entry e, Highlight h) {
+                        // get the date
+                        Date selectedDate = mClimbStat.XValueToDate(e.getX());
+                        EventBus.getDefault().post(new DaySelectedEvent(selectedDate));
+                    }
+
+                    @Override
+                    public void onNothingSelected() {
+
+                    }
+                });
             }
             data.setData(mClimbStat.getScatterData());
             AxisValueFormatter formatter = new AxisValueFormatter() {

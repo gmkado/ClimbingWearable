@@ -6,23 +6,31 @@
 
     <TextView
         android:text="TextView"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
         android:id="@+id/date_textview"
-        android:layout_weight="1"
-        tools:text="2/21/2017 12:20 PM"
+        android:layout_weight="3"
+        tools:text="2/21/17 12:20 PM"
         android:textAlignment="gravity"
         android:textSize="18sp"
         android:gravity="center_vertical" />
 
     <TextView
-        android:text="V6"
+        android:id="@+id/grade_textview"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/grade_textview"
         android:layout_weight="1"
-        android:textSize="30sp"
+        android:padding="10dp"
+        android:text="V6"
         android:textAlignment="textEnd"
-        android:padding="10dp" />
+        android:textSize="24sp" />
+
+    <ImageView
+        android:id="@+id/goal_imageView"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:src="@drawable/goal_reached"
+        android:visibility="visible" />
 
 </LinearLayout>
