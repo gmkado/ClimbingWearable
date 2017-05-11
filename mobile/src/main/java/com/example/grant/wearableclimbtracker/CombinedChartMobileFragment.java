@@ -16,7 +16,7 @@ import android.widget.TextView;
 
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.DaySelectedEvent;
+import com.example.mysynclibrary.eventbus.ChartEntrySelected;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.github.mikephil.charting.charts.CombinedChart;
 import com.github.mikephil.charting.components.AxisBase;
@@ -121,6 +121,7 @@ public class CombinedChartMobileFragment extends Fragment  {
             mYAxisLeftLabel.setText(getYLeftLabelText());
             mYAxisRightLabel.setText(getYRightLabelText());
             final DateFormat df;
+            data.setData(mClimbStat.getScatterData()); // Add this before
             if(mDateRange == ChronoUnit.DAYS) {
                 data.setData(mClimbStat.getLineData());
                 df = SimpleDateFormat.getTimeInstance(DateFormat.SHORT);
@@ -138,9 +139,30 @@ public class CombinedChartMobileFragment extends Fragment  {
                 mCombinedChart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
                     @Override
                     public void onValueSelected(Entry e, Highlight h) {
-                        // get the date
-                        Date selectedDate = mClimbStat.XValueToDate(e.getX());
-                        EventBus.getDefault().post(new DaySelectedEvent(selectedDate));
+                        if(mDateRange!=ChronoUnit.DAYS && e.getY()!=0) {
+                            ChronoUnit newDateRange = null;
+                        /*switch(mDateRange) {
+                            case DAYS:
+                                return;
+                            case WEEKS:
+                                newDateRange = ChronoUnit.DAYS;
+                                break;
+                            case MONTHS:
+                                newDateRange = ChronoUnit.WEEKS;
+                                break;
+                            case YEARS:
+                                newDateRange = ChronoUnit.MONTHS;
+                                break;
+                            case FOREVER:
+                                newDateRange = ChronoUnit.YEARS;
+                                break;
+                        }*/
+                            newDateRange = ChronoUnit.DAYS;
+
+                            // get the date
+                            Date selectedDate = mClimbStat.XValueToDate(e.getX());
+                            EventBus.getDefault().post(new ChartEntrySelected(selectedDate, newDateRange));
+                        }
                     }
 
                     @Override
@@ -149,7 +171,6 @@ public class CombinedChartMobileFragment extends Fragment  {
                     }
                 });
             }
-            data.setData(mClimbStat.getScatterData());
             AxisValueFormatter formatter = new AxisValueFormatter() {
                 @Override
                 public String getFormattedValue(float value, AxisBase axis) {
@@ -231,7 +252,13 @@ public class CombinedChartMobileFragment extends Fragment  {
             mCombinedChart.setDescription("");
             mCombinedChart.getLegend().setEnabled(false);
             mCombinedChart.setData(data);
-            if(mDateRange!= ChronoUnit.FOREVER && mDateRange!=ChronoUnit.DAYS) {
+
+            /*************** FIX UP AXIS LIMITS *****************/
+            if(mDateRange == ChronoUnit.DAYS) {
+                float buffer = 0.1f*xAxis.mAxisRange;
+                xAxis.setAxisMinValue(xAxis.getAxisMinimum() - buffer);
+                xAxis.setAxisMaxValue(xAxis.getAxisMaximum()+ buffer);
+            }else if(mDateRange!= ChronoUnit.FOREVER) {
                 // show the full range of week/month/year
                 Pair<Date, Date> xrange = Shared.getDatesFromRange(mDateRange, mDateOffset);
                 xAxis.setAxisMinValue(mClimbStat.dateToXValue(xrange.first));
@@ -239,6 +266,8 @@ public class CombinedChartMobileFragment extends Fragment  {
             }
 
             mCombinedChart.fitScreen(); // zoom out
+            mCombinedChart.getOnTouchListener().setLastHighlighted(null);  // unselect everything
+            mCombinedChart.highlightValues(null); // clear highlight
         }
         if(mDateRange == ChronoUnit.DAYS) {
             mCombinedChart.animateY(500);

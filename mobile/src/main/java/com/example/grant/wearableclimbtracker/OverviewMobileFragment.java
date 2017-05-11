@@ -32,14 +32,10 @@ import io.realm.RealmResults;
  * Created by Grant on 10/17/2016.
  */
 public class OverviewMobileFragment extends Fragment implements OnChartGestureListener {
-    private TextView pointsTextView;
+    private TextView overallStatsTextView;
     private final String TAG = "OverviewMobileFragment";
     private TextView typeTextView;
-    private TextView countTextView;
-    private TextView maxTextView;
-    private RealmResults<Climb> mResult;
     private Shared.ClimbType mClimbType;
-    private TextView ppsAvgTextView;
     private ChronoUnit mDateRange;
     private View mSessionLayout;
     private View mNonSessionLayout;
@@ -85,10 +81,7 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
         setupPieChart(mPieChartMiddle, metrics.widthPixels - 2*widthPixels, widthPixels-bufferPixels);
         setupPieChart(mPieChartInner, metrics.widthPixels - 4*widthPixels, widthPixels-bufferPixels);
 
-        pointsTextView = (TextView) rootView.findViewById(R.id.points_textview);
-        ppsAvgTextView = (TextView) rootView.findViewById(R.id.ppsavg_textview);
-        countTextView = (TextView) rootView.findViewById(R.id.count_textview);
-        maxTextView = (TextView) rootView.findViewById(R.id.max_textview);
+        overallStatsTextView = (TextView) rootView.findViewById(R.id.overallStatsTextView);
         typeTextView = (TextView) rootView.findViewById(R.id.title_textview);
 
         return rootView;
@@ -156,11 +149,6 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
     }
 
     public void updatePointsView() {
-        /* TODO: look into changing this fragment into a javascript page with concentric rings:
-        - http://pablomolnar.github.io/radial-progress-chart/
-        - https://developer.android.com/guide/webapps/webview.html
-        - https://d3js.org/
-         */
         Log.d(TAG, "updatePointsView()");
         typeTextView.setText(mClimbType.title);
 
@@ -199,29 +187,7 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
             mSessionLayout.setVisibility(View.GONE);
             mNonSessionLayout.setVisibility(View.VISIBLE);
 
-            //TODO: implement this part
-            /*float avgPPS = 0;
-            if (mNumClimbs != 0) {
-                // loop through to get the number of unique days in the result
-                HashSet<Date> dates = new HashSet<>(); // use set to get only unique dates
-                for (Climb climb : mResult) {
-                    dates.add(Shared.getStartofDate(climb.getDate()));
-                }
-                avgPPS = mNumPoints / dates.size();
-            }
-
-            if (mMaxGrade == null) {
-                maxTextView.setVisibility(View.GONE);
-            } else {
-                maxTextView.setVisibility(View.VISIBLE);
-                List<String> gradeList = mClimbType.grades;
-
-                maxTextView.setText(String.format("MAX: %s", gradeList.get(mMaxGrade.intValue())));
-            }
-
-            pointsTextView.setText(String.format("POINTS: %d", mNumPoints));
-            countTextView.setText(String.format("CLIMBS: %d", mNumClimbs));
-            ppsAvgTextView.setText(String.format("PPS AVG: %.1f", avgPPS));*/
+            overallStatsTextView.setText(mClimbStats.getCenterText(mCurrentStat));
         }
     }
 

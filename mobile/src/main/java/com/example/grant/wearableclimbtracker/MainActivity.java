@@ -27,7 +27,7 @@ import android.widget.Toast;
 
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.DaySelectedEvent;
+import com.example.mysynclibrary.eventbus.ChartEntrySelected;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.ListScrollEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
@@ -368,7 +368,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 }
             }
         });
-        mDateRangeButton.setVisibility(View.GONE);
+        // TODO: show this or not on startup?  mDateRangeButton.setVisibility(View.GONE);
 
         invalidateRealmResult();
 
@@ -539,8 +539,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     }
 
     @Subscribe
-    public void onDaySelectedEvent(DaySelectedEvent event) {
-        mDateRange = ChronoUnit.DAYS;
+    public void onChartEntrySelectedEvent(ChartEntrySelected event) {
+        mDateRange = event.daterange;
         mDateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
 
         mDateOffset = Shared.getOffsetFromDate(event.date, mDateRange);
@@ -549,6 +549,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     }
 
     public void invalidateRealmResult() {
+        // TODO: something crashes when i go from ALL -> YEAR in rope type as of 5/10/17.  Chart label out of bounds.  Suspect sticky event is redrawing before correct data is queries because the chart draws twice
         //Log.d(TAG, "setClimbRealmResult");
         RealmQuery<Climb> realmQuery =  mRealm.where(Climb.class)
                 .equalTo("delete", false)
@@ -721,9 +722,9 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         // update the preferences in the stats object
-        //TODO: this is inefficient, essentially redrawing the entire app whenever a pref is changed
-        mClimbStat.updatePreferences(sharedPreferences);
-        postRealmResult();
+        if(mClimbStat.updatePreference(sharedPreferences, key)) {
+            postRealmResult();
+        }
     }
 
     enum MenuDescription {

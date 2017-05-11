@@ -41,6 +41,10 @@ import java.util.concurrent.TimeUnit;
 
 import io.realm.RealmResults;
 
+import static com.example.mysynclibrary.ClimbStats.StatType.CLIMBS;
+import static com.example.mysynclibrary.ClimbStats.StatType.GRADE;
+import static com.example.mysynclibrary.ClimbStats.StatType.POINTS;
+
 /**
  * Created by Grant on 4/21/2017.
  */
@@ -140,18 +144,72 @@ public class ClimbStats {
         calculateStats();
     }
 
+    // update a single preference instead of all preferences, returns true if preference was updated
+    public boolean updatePreference(SharedPreferences sharedPref, String key) {
+        List<String> gradeList = mClimbType.grades;
+        if (mClimbType == Shared.ClimbType.bouldering) {
+            switch(key) {
+                case Shared.KEY_GOAL_NUMSESSIONS_BOULDER:
+                    mPrefSessionsPerWeek = sharedPref.getInt(Shared.KEY_GOAL_NUMSESSIONS_BOULDER, 0);
+                    break;
+                case Shared.KEY_GOAL_NUMCLIMBS_BOULDER:
+                    mPrefNumClimbs = sharedPref.getInt(Shared.KEY_GOAL_NUMCLIMBS_BOULDER, 0);
+                    break;
+                case Shared.KEY_GOAL_VPOINTS_BOULDER:
+                    mPrefNumpoints = sharedPref.getInt(Shared.KEY_GOAL_VPOINTS_BOULDER, 0);
+                    break;
+                case Shared.KEY_GOAL_GRADE_BOULDER:
+                    mPrefTargetGrade = gradeList.indexOf(sharedPref.getString(Shared.KEY_GOAL_GRADE_BOULDER, gradeList.get(0)));
+                    break;
+                default:
+                    return false;  // not a relevant preference
+            }
+        }else {
+            switch(key) {
+                case Shared.KEY_GOAL_NUMSESSIONS_ROPES:
+                    mPrefSessionsPerWeek = sharedPref.getInt(Shared.KEY_GOAL_NUMSESSIONS_ROPES, 0);
+                    break;
+                case Shared.KEY_GOAL_NUMCLIMBS_ROPES:
+                    mPrefNumClimbs = sharedPref.getInt(Shared.KEY_GOAL_NUMCLIMBS_ROPES, 0);
+                    break;
+                case Shared.KEY_GOAL_VPOINTS_ROPES:
+                    mPrefNumpoints = sharedPref.getInt(Shared.KEY_GOAL_VPOINTS_ROPES, 0);
+                    break;
+                case Shared.KEY_GOAL_GRADE_ROPES:
+                    mPrefTargetGrade = gradeList.indexOf(sharedPref.getString(Shared.KEY_GOAL_GRADE_ROPES, gradeList.get(0)));
+                    break;
+                default:
+                    return false; // not a relevant pref
+            }
+        }
+        // if we've gotten here then a preference was changed, so recalculate stats
+        calculateStats();
+        return true;
+    }
+
+    public SpannableString getWearCenterText() {
+        SpannableString span =  new SpannableString(TextUtils.concat(
+                getSingleStatString(POINTS.abbr, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), POINTS.color), "\n",
+                getSingleStatString(CLIMBS.abbr, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), CLIMBS.color), "\n",
+                getSingleStatString(StatType.GRADE.abbr, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), StatType.GRADE.color)));
+        span.setSpan(new RelativeSizeSpan(0.8f), 0, span.length(), 0); // reduce size for wearable
+        return span;
+    }
+
 
     public enum StatType {
-        POINTS ("# Points", Color.RED),
-        CLIMBS("# Climbs", Color.GREEN),
-        GRADE("Max Grade", Color.BLUE);
+        POINTS ("Points", "Pts", Color.RED),
+        CLIMBS("Climbs", "Clmb", Color.GREEN),
+        GRADE("Max Grade","Grd", Color.BLUE);
 
         String title;
         public int color;
+        String abbr;
 
-        StatType(String title, int color) {
+        StatType(String title, String abbr, int color) {
             this.title = title;
             this.color = color;
+            this.abbr = abbr;
         }
 
         public int getSoftColor(){
@@ -251,39 +309,68 @@ public class ClimbStats {
         }
     }
 
-    public SpannableString getCenterText(StatType statStatType) {
+    public SpannableString getCenterText(StatType statType) {
         // set the center text
         if(mDateRange == ChronoUnit.DAYS) {
             // show all three stat types at once
             return new SpannableString(TextUtils.concat(
-                    getSingleStatString(StatType.POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), StatType.POINTS.color), "\n",
-                    getSingleStatString(StatType.CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), StatType.CLIMBS.color), "\n",
+                    getSingleStatString(POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), POINTS.color), "\n",
+                    getSingleStatString(CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), CLIMBS.color), "\n",
                     getSingleStatString(StatType.GRADE.title, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), StatType.GRADE.color)));
-        }else {
-            SpannableString title = new SpannableString(statStatType.title);
-            title.setSpan(new ForegroundColorSpan(statStatType.color), 0, title.length(), 0);
+        }else if(mDateRange == ChronoUnit.FOREVER) {
+            statType = POINTS;
+            SpannableString title = new SpannableString(statType.title);
+            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
             title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
-            switch(statStatType) {
+            SpannableString result = new SpannableString(TextUtils.concat(
+                            title, "\n",
+                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statType.color), "\n",
+                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statType.color), "\n",
+                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), null, statType.color)));
+            statType = CLIMBS;
+            title = new SpannableString(statType.title);
+            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
+            title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            result = new SpannableString(TextUtils.concat(result,"\n\n",
+                            title, "\n",
+                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statType.color), "\n",
+                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statType.color), "\n",
+                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), null, statType.color)));
+            statType = GRADE;
+            title = new SpannableString(statType.title);
+            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
+            title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            result = new SpannableString(TextUtils.concat(result,"\n\n",
+                            title, "\n",
+                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statType.color), "\n",
+                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statType.color), "\n",
+                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), null, statType.color)));
+            return result;
+        }else {
+            SpannableString title = new SpannableString(statType.title);
+            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
+            title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            switch(statType) {
                 case POINTS:
                     return new SpannableString(TextUtils.concat(
                             title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statStatType.color), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statStatType.color), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), Integer.toString(mPrefNumpoints * getGoalMultiplier()), statStatType.color),"\n",
+                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statType.color), "\n",
+                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statType.color), "\n",
+                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), Integer.toString(mPrefNumpoints * getGoalMultiplier()), statType.color),"\n",
                             getPageIndicatorString(0, 3)));
                 case CLIMBS:
                     return new SpannableString(TextUtils.concat(
                             title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statStatType.color), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statStatType.color), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), Integer.toString(mPrefNumClimbs * getGoalMultiplier()), statStatType.color), "\n",
+                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statType.color), "\n",
+                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statType.color), "\n",
+                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), Integer.toString(mPrefNumClimbs * getGoalMultiplier()), statType.color), "\n",
                             getPageIndicatorString(1, 3)));
                 case GRADE:
                     return new SpannableString(TextUtils.concat(
                             title, "\n",
-                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statStatType.color), "\n",
-                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statStatType.color), "\n",
-                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), Integer.toString(getGoalMultiplier()), statStatType.color), "\n",
+                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statType.color), "\n",
+                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statType.color), "\n",
+                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), Integer.toString(getGoalMultiplier()), statType.color), "\n",
                             getPageIndicatorString(2, 3)));
                 default:
                     return null;
@@ -450,22 +537,22 @@ public class ClimbStats {
 
         LineData data = new LineData();
         LineDataSet dataSet = new LineDataSet(climbEntries, "climbs");
-        dataSet.setColors(new int[] {StatType.CLIMBS.getBoldColor()});
+        dataSet.setColors(new int[] {CLIMBS.getBoldColor()});
         dataSet.setDrawValues(false);
         dataSet.setDrawCircles(false);
         dataSet.setDrawFilled(true);
-        dataSet.setFillColor(StatType.CLIMBS.getSoftColor());
+        dataSet.setFillColor(CLIMBS.getSoftColor());
         dataSet.setLineWidth(3f);
         dataSet.setMode(LineDataSet.Mode.LINEAR );
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
         data.addDataSet(dataSet);
 
         dataSet = new LineDataSet(pointsEntries, "points");
-        dataSet.setColors(new int[] {StatType.POINTS.getBoldColor()});
+        dataSet.setColors(new int[] {POINTS.getBoldColor()});
         dataSet.setDrawValues(false);
         dataSet.setDrawCircles(false);
         dataSet.setDrawFilled(true); // TODO: there is a bug where this doesnt work with cubic mode: https://github.com/PhilJay/MPAndroidChart/issues/2028
-        dataSet.setFillColor(StatType.POINTS.getSoftColor());
+        dataSet.setFillColor(POINTS.getSoftColor());
         dataSet.setLineWidth(3f);
         dataSet.setMode(LineDataSet.Mode.LINEAR);
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
@@ -522,13 +609,13 @@ public class ClimbStats {
 
         BarData data = new BarData();
         BarDataSet dataSet = new BarDataSet(climbEntries, "climbs");
-        dataSet.setColors(new int[] {StatType.CLIMBS.getBoldColor()});
+        dataSet.setColors(new int[] {CLIMBS.getBoldColor()});
         dataSet.setDrawValues(false);
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
         data.addDataSet(dataSet);
 
         dataSet = new BarDataSet(pointsEntries, "points");
-        dataSet.setColors(new int[] {StatType.POINTS.getBoldColor()});
+        dataSet.setColors(new int[] {POINTS.getBoldColor()});
         dataSet.setDrawValues(false);
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
         data.addDataSet(dataSet);
