@@ -15,7 +15,6 @@ import android.widget.TextView;
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
-import com.example.mysynclibrary.realm.Climb;
 import com.github.mikephil.charting.animation.Easing;
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.data.PieData;
@@ -25,8 +24,6 @@ import com.github.mikephil.charting.listener.OnChartGestureListener;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.threeten.bp.temporal.ChronoUnit;
-
-import io.realm.RealmResults;
 
 /**
  * Created by Grant on 10/17/2016.
@@ -158,19 +155,19 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
 
 
             // Setup data for the outer chart -- POINTS
-            PieData data = mClimbStats.getPieData(ClimbStats.StatType.POINTS);
+            PieData data = mClimbStats.getPieData(ClimbStats.StatType.POINTS, false);
             data.setDrawValues(false);
             mPieChartOuter.setData(data);
             mPieChartOuter.highlightValue(1, 0, false); // highlight the current value
 
             // Setup data for the middle chart -- NUMBER OF CLIMBS
-            data = mClimbStats.getPieData(ClimbStats.StatType.CLIMBS);
+            data = mClimbStats.getPieData(ClimbStats.StatType.CLIMBS, false);
             data.setDrawValues(false);
             mPieChartMiddle.setData(data);
             mPieChartMiddle.highlightValue(1, 0, false);
 
             // Setup data for the inner chart -- MAX GRADE
-            data = mClimbStats.getPieData(ClimbStats.StatType.GRADE);
+            data = mClimbStats.getPieData(ClimbStats.StatType.GRADE, false);
             data.setDrawValues(false);
             mPieChartInner.setData(data);
             mPieChartInner.highlightValue(1, 0, false);
@@ -220,7 +217,7 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
         }else {
             mCurrentStat = ClimbStats.StatType.values()[mCurrentStat.ordinal() + 1];
         }
-        mPieChartInner.setCenterText(mClimbStats.getCenterText(mCurrentStat));
+        mPieChartInner.setCenterText(mClimbStats.getWearCenterText(true));
         mPieChartInner.invalidate();
     }
 

@@ -60,6 +60,7 @@ import static org.greenrobot.eventbus.ThreadMode.MAIN;
 
 public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
+
     private static final String TAG = "MainActivity";
     public static final String EXTRA_CLIMBTYPE = "ClimbType";
     private static final String PREF_TYPE = "prefClimbType";
@@ -275,8 +276,9 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         if(preferences.getBoolean(Shared.KEY_WEAR_ENABLED, false)) {
             mGoogleApiClient.disconnect();
-            EventBus.getDefault().unregister(this);
+
         }
+        EventBus.getDefault().unregister(this);
     }
 
     @Override
@@ -286,8 +288,9 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         if(preferences.getBoolean(Shared.KEY_WEAR_ENABLED, false)) {
 
             mGoogleApiClient.connect();
-            EventBus.getDefault().register(this);
         }
+
+        EventBus.getDefault().register(this);
     }
 
     @Override
@@ -464,6 +467,24 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
             }
         });
+    }
+
+    @Override
+    public void onExitAmbient() {
+        super.onExitAmbient();
+        // Make appropriate UI changes
+        Log.d(TAG, "exiting ambient");
+        EventBus.getDefault().post(new AmbientEvent(false));
+
+    }
+
+    @Override
+    public void onEnterAmbient(Bundle ambientDetails) {
+        super.onEnterAmbient(ambientDetails);
+        Log.d(TAG, "entering ambient");
+        // Make appropriate UI changes
+        EventBus.getDefault().post(new AmbientEvent(true));
+
     }
 
 

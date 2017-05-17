@@ -1,10 +1,8 @@
 package com.example.mysynclibrary;
 
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.preference.PreferenceManager;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
@@ -29,15 +27,14 @@ import com.github.mikephil.charting.data.ScatterData;
 import com.github.mikephil.charting.data.ScatterDataSet;
 import com.github.mikephil.charting.utils.EntryXComparator;
 
-import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
+import org.w3c.dom.Text;
 
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import io.realm.RealmResults;
 
@@ -51,9 +48,12 @@ import static com.example.mysynclibrary.ClimbStats.StatType.POINTS;
 
 public class ClimbStats {
     private static final String TAG = "ClimbStats";
+    private static final String NULL_GRADE_STR = "--";
     private final Shared.ClimbType mClimbType;
     private final ChronoUnit mDateRange;
 
+    private List<String> mDateRangeLabels = Arrays.asList("DAY", "WEEK", "MONTH", "YEAR", "ALL");
+    private List<ChronoUnit> mDateRanges = Arrays.asList(ChronoUnit.DAYS, ChronoUnit.WEEKS, ChronoUnit.MONTHS, ChronoUnit.YEARS, ChronoUnit.FOREVER);
 
 
     private float mTimeStampScale;
@@ -74,6 +74,11 @@ public class ClimbStats {
     private Number mAverageMaxGrade;
 
     private int mNumSessions;
+    private ArrayList<Entry> gradeScatterEntries;
+    private ArrayList<Entry> climbLineEntries;
+    private ArrayList<Entry> pointLineEntries;
+    private ArrayList<BarEntry> pointBarEntries;
+    private ArrayList<BarEntry> climbBarEntries;
 
     public int getmPrefSessionsPerWeek() {
         return mPrefSessionsPerWeek;
@@ -187,46 +192,38 @@ public class ClimbStats {
         return true;
     }
 
-    public SpannableString getWearCenterText() {
-        SpannableString span =  new SpannableString(TextUtils.concat(
-                getSingleStatString(POINTS.abbr, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), POINTS.color), "\n",
-                getSingleStatString(CLIMBS.abbr, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), CLIMBS.color), "\n",
-                getSingleStatString(StatType.GRADE.abbr, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), StatType.GRADE.color)));
+    public SpannableString getWearCenterText(boolean isAmbient) {
+        SpannableString span;
+        if(!isAmbient) {
+            span = new SpannableString(TextUtils.concat(
+                    getSingleStatString(POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), POINTS.basecolor.App), "\n",
+                    getSingleStatString(CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), CLIMBS.basecolor.App), "\n",
+                    getSingleStatString(GRADE.title, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), GRADE.basecolor.App)));
+        }else {
+            span = new SpannableString(TextUtils.concat(
+                    getSingleStatString(POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), Color.WHITE), "\n",
+                    getSingleStatString(CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), Color.WHITE), "\n",
+                    getSingleStatString(GRADE.title, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), Color.WHITE)));
+
+        }
         span.setSpan(new RelativeSizeSpan(0.8f), 0, span.length(), 0); // reduce size for wearable
         return span;
     }
 
 
     public enum StatType {
-        POINTS ("Points", "Pts", Color.RED),
-        CLIMBS("Climbs", "Clmb", Color.GREEN),
-        GRADE("Max Grade","Grd", Color.BLUE);
+        POINTS ("POINTS", "Pts", ColorHelper.BaseColor.RED),
+        CLIMBS("CLIMBS", "Clmb", ColorHelper.BaseColor.BLUE),
+        GRADE("GRADE","Grd", ColorHelper.BaseColor.GREEN);
 
         String title;
-        public int color;
+        public ColorHelper.BaseColor basecolor;
         String abbr;
 
-        StatType(String title, String abbr, int color) {
+        StatType(String title, String abbr, ColorHelper.BaseColor basecolor) {
             this.title = title;
-            this.color = color;
+            this.basecolor = basecolor;
             this.abbr = abbr;
-        }
-
-        public int getSoftColor(){
-            float softSat = 0.2f;
-            float[] hsvVals = new float[3];
-
-            Color.colorToHSV(color, hsvVals);
-            hsvVals[1] = softSat;
-            return Color.HSVToColor(hsvVals);
-        }
-        public int getBoldColor(){
-            float boldSat = 0.6f;
-            float[] hsvVals = new float[3];
-
-            Color.colorToHSV(color, hsvVals);
-            hsvVals[1] = boldSat;
-            return Color.HSVToColor(hsvVals);
         }
     }
 
@@ -244,16 +241,9 @@ public class ClimbStats {
             mTotalClimbs = mResult.size();
             mMaxGrade = mResult.max("grade");
 
-            mMaxPoints = 0;
-            mMaxClimbs = 0;
-            mNumSessionsGradeGoalReached = 0;
-            int runningMaxGradeSum = 0;
-
-            // first get all the unique session dates
+            // -------------- GET ALL UNIQUE SESSIONS IN RESULTS -----------------
             mSessionDates = new ArrayList<>();
-            // make sure results are sorted
-            RealmResults<Climb> sortedResult = mResult.sort("date");
-            for(Climb climb:sortedResult) {
+            for(Climb climb:mResult) {
                 // if day, then don't filter the time out
                 Date sessionDate;
                 if(mDateRange == ChronoUnit.DAYS) {
@@ -274,36 +264,82 @@ public class ClimbStats {
                 mTimeStampScale = 1000*60*60*24; // 1 day per tic
             }
 
-            // loop through all sessions to get session stats
-            for (Date date:mSessionDates) {
-                // Get the climbs in this session
-                RealmResults sessionResult = sortedResult.where().between("date", date,
-                        Shared.ZDTToDate(Shared.DateToZDT(date).plusDays(1))).findAll();
+            // ------------------loop through all sessions to get session stats -------------------
+            mMaxPoints = 0;
+            mMaxClimbs = 0;
+            mNumSessionsGradeGoalReached = 0;
+            int runningMaxGradeSum = 0;
+            gradeScatterEntries = new ArrayList<>();
+            climbLineEntries = new ArrayList<>();
+            pointLineEntries = new ArrayList<>();
+            climbBarEntries = new ArrayList<>();
+            pointBarEntries = new ArrayList<>();
 
-                // ---------------- Max session grade ------------------------
-                int maxSessionGrade = sessionResult.max("grade").intValue();
-                if(maxSessionGrade>=mPrefTargetGrade) {
-                    mNumSessionsGradeGoalReached++;
+            if(mDateRange == ChronoUnit.DAYS) {
+                // ---------------- Overview stats ------------------------
+                runningMaxGradeSum = mResult.max("grade").intValue();
+                mTotalPoints = mResult.sum("grade").intValue();
+                mTotalClimbs = mResult.size();
+
+                // ------------------- Chart stats -----------------------
+                for (Climb climb : mResult) {
+                    float xValue = dateToXValue(climb.getDate());
+                    gradeScatterEntries.add(new Entry(xValue, climb.getGrade()));
+                    pointLineEntries.add(new Entry(xValue, mResult.where().lessThanOrEqualTo("date", climb.getDate()).sum("grade").intValue()));
+                    climbLineEntries.add(new Entry(xValue, mResult.where().lessThanOrEqualTo("date", climb.getDate()).count()));
                 }
-                runningMaxGradeSum += maxSessionGrade;
+            }else {
+                // -------- USE A DIFFERENT DATELIST WITH EVERY DAY IN THE RANGE ----------------------------
+                final List<Date> dateList = new ArrayList<>();
+                Date startDate = mSessionDates.get(0);
+                Date endDate = mSessionDates.get(mSessionDates.size()-1);
 
-                // -------------------- Session points -------------------
-                int sessionPoints = sessionResult.sum("grade").intValue();
-                // check maxes
-                if (sessionPoints > mMaxPoints) {
-                    mMaxPoints = sessionPoints;
+                while (startDate.before(endDate)) {
+                    dateList.add(startDate);
+                    startDate = Shared.ZDTToDate(Shared.DateToZDT(startDate).plusDays(1));
                 }
+                dateList.add(endDate);
 
-                // --------------------- session climbs -----------------
-                int sessionClimbs = sessionResult.size();
-                if (sessionClimbs > mMaxClimbs) {
-                    mMaxClimbs = sessionClimbs;
+                for (Date date : dateList) {
+                    float xValue = dateToXValue(date);
+                    if(mSessionDates.contains(date)) {
+                        // Get the climbs in this session
+                        RealmResults sessionResult = mResult.where().between("date", date,
+                                Shared.ZDTToDate(Shared.DateToZDT(date).plusDays(1))).findAll();
+
+                        // ---------------- Max session grade ------------------------
+                        int maxSessionGrade = sessionResult.max("grade").intValue();
+                        gradeScatterEntries.add(new Entry(xValue + 0.5f, maxSessionGrade)); //put dot in center
+                        if (maxSessionGrade >= mPrefTargetGrade) {
+                            mNumSessionsGradeGoalReached++;
+                        }
+                        runningMaxGradeSum += maxSessionGrade;
+
+                        // -------------------- Session points -------------------
+                        int sessionPoints = sessionResult.sum("grade").intValue();
+                        pointBarEntries.add(new BarEntry(xValue, sessionPoints));
+                        // check maxes
+                        if (sessionPoints > mMaxPoints) {
+                            mMaxPoints = sessionPoints;
+                        }
+
+                        // --------------------- session climbs -----------------
+                        int sessionClimbs = sessionResult.size();
+                        if (sessionClimbs > mMaxClimbs) {
+                            mMaxClimbs = sessionClimbs;
+                        }
+                        climbBarEntries.add(new BarEntry(xValue, sessionClimbs));
+                    }else {
+                        pointBarEntries.add(new BarEntry(xValue, 0));
+                        climbBarEntries.add(new BarEntry(xValue, 0));
+
+                    }
                 }
             }
             mNumSessions = mSessionDates.size();
-            mAverageMaxGrade = runningMaxGradeSum/mNumSessions;
-            mAveragePoints = mTotalPoints/mNumSessions;
-            mAverageClimbs = mTotalClimbs/mNumSessions;
+            mAverageMaxGrade = runningMaxGradeSum / mNumSessions;
+            mAveragePoints = mTotalPoints / mNumSessions;
+            mAverageClimbs = mTotalClimbs / mNumSessions;
         } else {
             // TODO: fill in this case
         }
@@ -311,70 +347,81 @@ public class ClimbStats {
 
     public SpannableString getCenterText(StatType statType) {
         // set the center text
-        if(mDateRange == ChronoUnit.DAYS) {
-            // show all three stat types at once
-            return new SpannableString(TextUtils.concat(
-                    getSingleStatString(POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), POINTS.color), "\n",
-                    getSingleStatString(CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), CLIMBS.color), "\n",
-                    getSingleStatString(StatType.GRADE.title, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), StatType.GRADE.color)));
-        }else if(mDateRange == ChronoUnit.FOREVER) {
+        if(mDateRange == ChronoUnit.FOREVER) {
             statType = POINTS;
             SpannableString title = new SpannableString(statType.title);
-            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
+            title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
             title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
             SpannableString result = new SpannableString(TextUtils.concat(
                             title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statType.color), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statType.color), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), null, statType.color)));
+                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statType.basecolor.App), "\n",
+                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statType.basecolor.App), "\n",
+                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), null, statType.basecolor.App)));
             statType = CLIMBS;
             title = new SpannableString(statType.title);
-            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
+            title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
             title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
             result = new SpannableString(TextUtils.concat(result,"\n\n",
                             title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statType.color), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statType.color), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), null, statType.color)));
+                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statType.basecolor.App), "\n",
+                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statType.basecolor.App), "\n",
+                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), null, statType.basecolor.App)));
             statType = GRADE;
             title = new SpannableString(statType.title);
-            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
+            title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
             title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
             result = new SpannableString(TextUtils.concat(result,"\n\n",
                             title, "\n",
-                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statType.color), "\n",
-                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statType.color), "\n",
-                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), null, statType.color)));
+                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statType.basecolor.App), "\n",
+                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statType.basecolor.App), "\n",
+                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), null, statType.basecolor.App)));
             return result;
         }else {
-            SpannableString title = new SpannableString(statType.title);
-            title.setSpan(new ForegroundColorSpan(statType.color), 0, title.length(), 0);
-            title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
-            switch(statType) {
-                case POINTS:
-                    return new SpannableString(TextUtils.concat(
-                            title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statType.color), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statType.color), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), Integer.toString(mPrefNumpoints * getGoalMultiplier()), statType.color),"\n",
-                            getPageIndicatorString(0, 3)));
-                case CLIMBS:
-                    return new SpannableString(TextUtils.concat(
-                            title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statType.color), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statType.color), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), Integer.toString(mPrefNumClimbs * getGoalMultiplier()), statType.color), "\n",
-                            getPageIndicatorString(1, 3)));
-                case GRADE:
-                    return new SpannableString(TextUtils.concat(
-                            title, "\n",
-                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statType.color), "\n",
-                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statType.color), "\n",
-                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), Integer.toString(getGoalMultiplier()), statType.color), "\n",
-                            getPageIndicatorString(2, 3)));
-                default:
-                    return null;
+            SpannableString goalString;
+            SpannableString percentString;
+            SpannableString remainderString;
+
+            int current = getCurrentForStatType(statType);
+            int goal = getGoalForStatType(statType);
+            int remainder = goal-current < 0 ? 0 : goal-current; // floor at 0
+            int percent = current*100/goal;
+            percentString = new SpannableString(Integer.toString(percent) + "%");
+
+            if(statType != GRADE) {
+                goalString = new SpannableString("SEND " + Integer.toString(goal) + " " + statType.title +
+                        " PER " + mDateRangeLabels.get(mDateRanges.indexOf(mDateRange)));
+                remainderString = new SpannableString(Integer.toString(remainder) + " " + statType.title + " TO GO");
+            }else {
+                if(mDateRange == ChronoUnit.DAYS) {
+                    goalString = new SpannableString("SEND " + getGradeString(mPrefTargetGrade) +
+                            " TODAY");
+                    String gradeStr = getGradeString(mMaxGrade);
+                    percentString = new SpannableString(gradeStr);
+                    if(!gradeStr.equals(NULL_GRADE_STR)) {
+                        remainderString = new SpannableString(Integer.toString(remainder) + " GRADES AWAY");
+                    }else {
+                        remainderString = new SpannableString("YOU CAN DO IT!");
+                    }
+                }else {
+                    goalString = new SpannableString("SEND " + getGradeString(mPrefTargetGrade) +
+                            " IN " + Integer.toString(goal) + " SESSIONS");
+                    remainderString = new SpannableString(Integer.toString(remainder) + " SESSIONS TO GO");
+                }
             }
+
+
+            percentString.setSpan(new RelativeSizeSpan(4), 0, percentString.length(), 0);
+
+            goalString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, goalString.length(), 0);
+            remainderString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, remainderString.length(), 0);
+            percentString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, percentString.length(), 0);
+
+            return new SpannableString(TextUtils.concat(
+                    "\n\n", goalString, "\n",
+                    percentString, "\n",
+                    remainderString, "\n\n",
+                    getPageIndicatorString(statType.ordinal(), StatType.values().length)
+            ));
         }
     }
 
@@ -398,7 +445,7 @@ public class ClimbStats {
 
     private String getGradeString(Number grade) {
         if(grade == null) {
-            return "--";
+            return NULL_GRADE_STR;
         }else {
             return mClimbType.grades.get(grade.intValue());
         }
@@ -423,81 +470,82 @@ public class ClimbStats {
         return s;
     }
 
-    public PieData getPieData(StatType statType) {
+    public PieData getPieData(StatType statType, boolean isWear) {
         // TODO: this should be brought back into overview fragment, only stats related ops should go in this class
         // set the appropriate bar values
-        float current;
-        int goal;
-        switch(statType) {
-            case POINTS:
-                current = mTotalPoints ;
-                goal = mPrefNumpoints * getGoalMultiplier();
-                break;
-            case CLIMBS:
-                current = mTotalClimbs;
-                goal = mPrefNumClimbs * getGoalMultiplier();
-                break;
-            case GRADE:
-                current = mDateRange == ChronoUnit.DAYS?
-                        mMaxGrade==null? 0:mMaxGrade.intValue():  // if mdaterange == DAY
-                        mNumSessionsGradeGoalReached;           // otherwise
-                goal = mDateRange ==    ChronoUnit.DAYS? mPrefTargetGrade:getGoalMultiplier();
-                break;
-            default:
-                // shouldnt get here
-                Log.e(TAG, "Got unexpected climbtype");
-                goal = 0;
-                current = 0;
-                break;
-        }
-        float remainder = goal-current < 0 ? 0 : goal-current; // floor at 0
+        int current = getCurrentForStatType(statType);
+        int goal = getGoalForStatType(statType);
+
+        int remainder = goal-current < 0 ? 0 : goal-current; // floor at 0
         List<PieEntry> entries = new ArrayList<>();
         entries.add(new PieEntry(remainder, "Goal"));
         entries.add(new PieEntry(current, "Current"));
         PieDataSet set = new PieDataSet(entries, "Stats");
 
         ArrayList<Integer> colors = new ArrayList<>();
+        int background;
+        int foreground;
+        if(isWear) {
+            background = statType.basecolor.Dark;
+            foreground = statType.basecolor.Accent;
+        }else {
+            background = statType.basecolor.Soft;
+            foreground = statType.basecolor.Accent;
+        }
         if(current == 0) {
-            colors.add(statType.getSoftColor());
+            colors.add(background);
         } else if(remainder == 0)
         {
-            colors.add(statType.getBoldColor());
+            colors.add(foreground);
         }else {
-            colors.add(statType.getSoftColor());
-            colors.add(statType.getBoldColor());
+            colors.add(background);
+            colors.add(foreground);
         }
         set.setColors(colors);
+        set.setSelectionShift(0f);
         return new PieData(set);
+    }
+
+    private int getGoalForStatType(StatType statType) {
+        switch(statType) {
+            case POINTS:
+                return mPrefNumpoints * getGoalMultiplier();
+            case CLIMBS:
+                return mPrefNumClimbs * getGoalMultiplier();
+            case GRADE:
+                return mDateRange == ChronoUnit.DAYS? mPrefTargetGrade:getGoalMultiplier();
+            default:
+                // shouldnt get here
+                Log.e(TAG, "Got unexpected climbtype");
+                return -1;
+        }
+    }
+
+    private int getCurrentForStatType(StatType statType) {
+        switch(statType) {
+            case POINTS:
+                return mTotalPoints ;
+            case CLIMBS:
+                return mTotalClimbs;
+            case GRADE:
+                return mDateRange == ChronoUnit.DAYS?
+                        mMaxGrade==null? 0:mMaxGrade.intValue():  // if mdaterange == DAY
+                        mNumSessionsGradeGoalReached;           // otherwise
+            default:
+                // shouldnt get here
+                Log.e(TAG, "Got unexpected climbtype");
+                return -1;
+        }
     }
 
     public ScatterData getScatterData() {
         // loop through each climb and add as an entry
         ScatterData data = new ScatterData();
-        ArrayList<Entry> maxGradeEntries = new ArrayList<>();
-        if(mDateRange == ChronoUnit.DAYS) {
-            for (Climb climb : mResult) {
-                maxGradeEntries.add(new Entry(dateToXValue(climb.getDate()), climb.getGrade()));
-            }
-        }else {
-            for (int i = 0; i < mSessionDates.size(); i++) {
-                float xValue = dateToXValue(mSessionDates.get(i));
-                if(mDateRange != ChronoUnit.DAYS) {
-                     xValue += 0.5f; //put dot in center
-                }
-                if (i == mSessionDates.size() - 1) {
-                    // last date entry
-                    maxGradeEntries.add(new Entry(xValue, mResult.where().greaterThan("date", mSessionDates.get(i)).max("grade").intValue()));
-                } else {
-                    maxGradeEntries.add(new Entry(xValue, mResult.where().between("date", mSessionDates.get(i), mSessionDates.get(i + 1)).max("grade").intValue()));
-                }
-            }
-        }
-
-        ScatterDataSet set = new ScatterDataSet(maxGradeEntries, "grades");
+        ScatterDataSet set = new ScatterDataSet(gradeScatterEntries, "grades");
         set.setScatterShapeSize(8f);
         set.setAxisDependency(YAxis.AxisDependency.LEFT);
         set.setScatterShape(ScatterChart.ScatterShape.CIRCLE);
-        set.setColors(new int[] {StatType.GRADE.color});
+        set.setColors(new int[] {GRADE.basecolor.Accent});
         set.setDrawValues(false);
         data.addDataSet(set);
         return data;
@@ -506,53 +554,32 @@ public class ClimbStats {
 
 
     public LineData getLineData() {
-        ArrayList<Entry> climbEntries = new ArrayList<>();
-        ArrayList<Entry> pointsEntries = new ArrayList<>();
-        for(int i = 0; i<mSessionDates.size(); i++) {
-            float xValue =  dateToXValue(mSessionDates.get(i));
-            //if(mDateRange == ChronoUnit.DAYS) {
-            // use cumulative sum
-            if (i== mSessionDates.size() -1) {
-                pointsEntries.add(new Entry(xValue, mResult.where().sum("grade").intValue()));
-                climbEntries.add(new Entry(xValue, mResult.where().count()));
-            }else {
-                pointsEntries.add(new Entry(xValue, mResult.where().lessThan("date", mSessionDates.get(i + 1)).sum("grade").intValue()));
-                climbEntries.add(new Entry(xValue, mResult.where().lessThan("date", mSessionDates.get(i + 1)).count()));
-            }
-
-            /*} else {
-                if (i == mSessionDates.size() - 1) {
-                    // last date entry
-                    climbEntries.add(new Entry(xValue, mResult.where().greaterThan("date", mSessionDates.get(i)).sum("grade").intValue()));
-                    pointsEntries.add(new Entry(xValue, mResult.where().greaterThan("date", mSessionDates.get(i)).count()));
-                } else {
-                    climbEntries.add(new Entry(xValue, mResult.where().between("date", mSessionDates.get(i), mSessionDates.get(i + 1)).sum("grade").intValue()));
-                    pointsEntries.add(new Entry(xValue, mResult.where().between("date", mSessionDates.get(i), mSessionDates.get(i + 1)).count()));
-                }
-            }*/
-        }
         // ensure that they are sorted
-        Collections.sort(climbEntries, new EntryXComparator());
-        Collections.sort(pointsEntries, new EntryXComparator());
+        Collections.sort(climbLineEntries, new EntryXComparator());
+        Collections.sort(pointLineEntries, new EntryXComparator());
 
+        int lineColor = CLIMBS.basecolor.Accent;
+        int fillColor = CLIMBS.basecolor.Soft;
         LineData data = new LineData();
-        LineDataSet dataSet = new LineDataSet(climbEntries, "climbs");
-        dataSet.setColors(new int[] {CLIMBS.getBoldColor()});
+        LineDataSet dataSet = new LineDataSet(climbLineEntries, "climbs");
+        dataSet.setColors(new int[] {lineColor});
         dataSet.setDrawValues(false);
         dataSet.setDrawCircles(false);
         dataSet.setDrawFilled(true);
-        dataSet.setFillColor(CLIMBS.getSoftColor());
+        dataSet.setFillColor(fillColor);
         dataSet.setLineWidth(3f);
         dataSet.setMode(LineDataSet.Mode.LINEAR );
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
         data.addDataSet(dataSet);
 
-        dataSet = new LineDataSet(pointsEntries, "points");
-        dataSet.setColors(new int[] {POINTS.getBoldColor()});
+        lineColor = POINTS.basecolor.Accent;
+        fillColor = POINTS.basecolor.Soft;
+        dataSet = new LineDataSet(pointLineEntries, "points");
+        dataSet.setColors(new int[] {lineColor});
         dataSet.setDrawValues(false);
         dataSet.setDrawCircles(false);
         dataSet.setDrawFilled(true); // TODO: there is a bug where this doesnt work with cubic mode: https://github.com/PhilJay/MPAndroidChart/issues/2028
-        dataSet.setFillColor(POINTS.getSoftColor());
+        dataSet.setFillColor(fillColor);
         dataSet.setLineWidth(3f);
         dataSet.setMode(LineDataSet.Mode.LINEAR);
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
@@ -574,48 +601,19 @@ public class ClimbStats {
 
 
     public BarData getBarData() {
-        List<BarEntry> climbEntries = new ArrayList<>();
-        List<BarEntry> pointsEntries = new ArrayList<>();
-
-        // -------- USE A DIFFERENT DATELIST WITH EVERY DAY IN THE RANGE ----------------------------
-        RealmResults<Climb> subResult =  mResult.sort("date"); // ensure results are sorted with earliest first
-        final List<Date> dateList = new ArrayList<>();
-        ZonedDateTime startZDT;
-        ZonedDateTime endZDT;
-
-        // Get the first day of the subresult and add one to get the limits of the query
-        startZDT = Shared.DateToZDT(subResult.first().getDate()).truncatedTo(ChronoUnit.DAYS);
-        endZDT = Shared.DateToZDT(subResult.last().getDate()).truncatedTo(ChronoUnit.DAYS).plusDays(1);
-        while (startZDT.isBefore(endZDT)) {
-            dateList.add(Shared.ZDTToDate(startZDT));
-            startZDT = startZDT.plusDays(1);
-        }
-
-        // TODO: can this be done in calculateStats()
-        for(int i = 0; i<dateList.size(); i++) {
-            float xValue =  dateToXValue(dateList.get(i));
-            if(i == dateList.size()-1) {
-                // last date entry
-                pointsEntries.add(new BarEntry(xValue, mResult.where().greaterThan("date", dateList.get(i)).sum("grade").intValue()));
-                climbEntries.add(new BarEntry(xValue, mResult.where().greaterThan("date", dateList.get(i)).count()));
-            }else {
-                pointsEntries.add(new BarEntry(xValue, mResult.where().between("date", dateList.get(i), dateList.get(i + 1)).sum("grade").intValue()));
-                climbEntries.add(new BarEntry(xValue, mResult.where().between("date", dateList.get(i), dateList.get(i + 1)).count()));
-            }
-        }
         // ensure that they are sorted
-        Collections.sort(climbEntries, new EntryXComparator());
-        Collections.sort(pointsEntries, new EntryXComparator());
+        Collections.sort(climbBarEntries, new EntryXComparator());
+        Collections.sort(pointBarEntries, new EntryXComparator());
 
         BarData data = new BarData();
-        BarDataSet dataSet = new BarDataSet(climbEntries, "climbs");
-        dataSet.setColors(new int[] {CLIMBS.getBoldColor()});
+        BarDataSet dataSet = new BarDataSet(climbBarEntries, "climbs");
+        dataSet.setColors(new int[] {CLIMBS.basecolor.Accent});
         dataSet.setDrawValues(false);
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
         data.addDataSet(dataSet);
 
-        dataSet = new BarDataSet(pointsEntries, "points");
-        dataSet.setColors(new int[] {POINTS.getBoldColor()});
+        dataSet = new BarDataSet(pointBarEntries, "points");
+        dataSet.setColors(new int[] {POINTS.basecolor.Accent});
         dataSet.setDrawValues(false);
         dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
         data.addDataSet(dataSet);

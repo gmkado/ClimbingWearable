@@ -38,12 +38,14 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import static com.example.mysynclibrary.ClimbStats.StatType.GRADE;
+
 
 /**
  * Created by Grant on 10/17/2016.
  */
 public class CombinedChartMobileFragment extends Fragment  {
-    private static final String TAG = "HistChrtMobFragment";
+    private static final String TAG = "CombChartMobileFragment";
     private CombinedChart mCombinedChart;
     private TextView mYAxisLeftLabel;
     private TextView mYAxisRightLabel;
@@ -75,16 +77,12 @@ public class CombinedChartMobileFragment extends Fragment  {
     @Override
     public void onStart() {
         super.onStart();
-        // subscribe to ClimbRealmResults
-        Log.d(TAG, "registering this");
         EventBus.getDefault().register(this);
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        // unsubscribe from ClimbRealmResults
-        Log.d(TAG, "unregistering this");
         EventBus.getDefault().unregister(this);
 
     }
@@ -201,7 +199,7 @@ public class CombinedChartMobileFragment extends Fragment  {
             }
 
             YAxis yAxis = mCombinedChart.getAxisLeft();
-            yAxis.setTextColor(ClimbStats.StatType.GRADE.color);
+            yAxis.setTextColor(GRADE.basecolor.App);
             yAxis.setGranularity(1f);
             yAxis.setAxisMinValue(0);
             yAxis.setDrawGridLines(false);
@@ -219,9 +217,9 @@ public class CombinedChartMobileFragment extends Fragment  {
 
             yAxis.removeAllLimitLines(); // TODO: adding limit lines should only be done once
             LimitLine ll = new LimitLine(mClimbStat.getmPrefTargetGrade(), "Target Grade");
-            ll.setLineColor(ClimbStats.StatType.GRADE.color);
+            ll.setLineColor(GRADE.basecolor.App);
             //ll.setLineWidth(4f);
-            ll.setTextColor(ClimbStats.StatType.GRADE.color);
+            ll.setTextColor(GRADE.basecolor.App);
             ll.setTextSize(12f);
             ll.setLabelPosition(LimitLine.LimitLabelPosition.LEFT_TOP);
             yAxis.addLimitLine(ll);
@@ -234,17 +232,17 @@ public class CombinedChartMobileFragment extends Fragment  {
 
             yAxis.removeAllLimitLines(); // TODO: adding limit lines should only be done once
             ll = new LimitLine(mClimbStat.getmPrefNumClimbs(), "Target # of climbs");
-            ll.setLineColor(ClimbStats.StatType.CLIMBS.color);
+            ll.setLineColor(ClimbStats.StatType.CLIMBS.basecolor.App);
             //ll.setLineWidth(4f);
-            ll.setTextColor(ClimbStats.StatType.CLIMBS.color);
+            ll.setTextColor(ClimbStats.StatType.CLIMBS.basecolor.App);
             ll.setTextSize(12f);
             ll.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_TOP);
             yAxis.addLimitLine(ll);
 
             ll = new LimitLine(mClimbStat.getmPrefNumpoints(), "Target # of v-points");
-            ll.setLineColor(ClimbStats.StatType.POINTS.color);
+            ll.setLineColor(ClimbStats.StatType.POINTS.basecolor.App);
             //ll.setLineWidth(4f);
-            ll.setTextColor(ClimbStats.StatType.POINTS.color);
+            ll.setTextColor(ClimbStats.StatType.POINTS.basecolor.App);
             ll.setTextSize(12f);
             ll.setLabelPosition(LimitLine.LimitLabelPosition.RIGHT_TOP);
             yAxis.addLimitLine(ll);
@@ -285,8 +283,8 @@ public class CombinedChartMobileFragment extends Fragment  {
             s1 = new SpannableString("Session V-Points");
             s2 = new SpannableString("Session # of climbs");
         }
-        s1.setSpan(new ForegroundColorSpan(ClimbStats.StatType.POINTS.color), 0, s1.length(), 0);
-        s2.setSpan(new ForegroundColorSpan(ClimbStats.StatType.CLIMBS.color), 0, s2.length(), 0);
+        s1.setSpan(new ForegroundColorSpan(ClimbStats.StatType.POINTS.basecolor.App), 0, s1.length(), 0);
+        s2.setSpan(new ForegroundColorSpan(ClimbStats.StatType.CLIMBS.basecolor.App), 0, s2.length(), 0);
         return new SpannableString(TextUtils.concat(s1," ", s2));
     }
 
@@ -297,7 +295,7 @@ public class CombinedChartMobileFragment extends Fragment  {
         }else {
             s = new SpannableString("Max Grade per session");
         }
-        s.setSpan(new ForegroundColorSpan(ClimbStats.StatType.GRADE.color), 0, s.length(), 0);
+        s.setSpan(new ForegroundColorSpan(GRADE.basecolor.App), 0, s.length(), 0);
         return s;
     }
 

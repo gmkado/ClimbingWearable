@@ -4,12 +4,9 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.app.Fragment;
-import android.text.SpannableString;
-import android.text.style.RelativeSizeSpan;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -20,12 +17,9 @@ import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.github.mikephil.charting.animation.Easing;
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.data.PieData;
-import com.github.mikephil.charting.listener.ChartTouchListener;
-import com.github.mikephil.charting.listener.OnChartGestureListener;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
-import org.threeten.bp.temporal.ChronoUnit;
 
 /**
  * Created by Grant on 10/17/2016.
@@ -36,7 +30,6 @@ public class OverviewWearFragment extends Fragment {
     private TextView typeTextView;
     private Shared.ClimbType mClimbType;
     private View mSessionLayout;
-
 
 
     /* Chart handles */
@@ -65,8 +58,10 @@ public class OverviewWearFragment extends Fragment {
         // get the screen width
         DisplayMetrics metrics = new DisplayMetrics();
         getActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        // set height of framelayout to be slightly larger than view
+        mSessionLayout.setMinimumHeight(metrics.heightPixels+1);
         // set text size to be some percentage of the width
-        int textPixels = (int) (0.8 * metrics.widthPixels);
+        int textPixels = (int) (0.7 * metrics.widthPixels);
         int graphPixels = metrics.widthPixels-textPixels;
         int widthPixels = graphPixels/2/3;
         int bufferPixels = (int)(.05*widthPixels);
@@ -90,9 +85,9 @@ public class OverviewWearFragment extends Fragment {
         chart.setDragDecelerationFrictionCoef(0.95f);
 
         chart.setDrawHoleEnabled(true);
-        chart.setHoleColor(Color.WHITE);
+        chart.setHoleColor(Color.BLACK);
 
-        chart.setTransparentCircleColor(Color.WHITE);
+        chart.setTransparentCircleColor(Color.BLACK);
         chart.setTransparentCircleAlpha(110);
 
         float radiusPercent = (diameter-2f*width)/diameter * 100;
@@ -106,6 +101,7 @@ public class OverviewWearFragment extends Fragment {
         chart.setHighlightPerTapEnabled(false);
         chart.setDescription("");
         chart.getLegend().setEnabled(false);
+
 
     }
 
@@ -126,6 +122,13 @@ public class OverviewWearFragment extends Fragment {
         updatePointsView();
     }
 
+    @Subscribe
+    public void onEnterAmbientEvent(AmbientEvent event) {
+        // change font color
+        mPieChartInner.setCenterText(mClimbStats.getWearCenterText(event.isAmbient));
+        mPieChartInner.invalidate();
+    }
+
     @Override
     public void onStop() {
         super.onStop();
@@ -144,32 +147,29 @@ public class OverviewWearFragment extends Fragment {
 
 
         // Setup data for the outer chart -- POINTS
-        PieData data = mClimbStats.getPieData(ClimbStats.StatType.POINTS);
+        PieData data = mClimbStats.getPieData(ClimbStats.StatType.POINTS, true);
         data.setDrawValues(false);
         mPieChartOuter.setData(data);
         mPieChartOuter.highlightValue(1, 0, false); // highlight the current value
 
         // Setup data for the middle chart -- NUMBER OF CLIMBS
-        data = mClimbStats.getPieData(ClimbStats.StatType.CLIMBS);
+        data = mClimbStats.getPieData(ClimbStats.StatType.CLIMBS, true);
         data.setDrawValues(false);
         mPieChartMiddle.setData(data);
         mPieChartMiddle.highlightValue(1, 0, false);
 
         // Setup data for the inner chart -- MAX GRADE
-        data = mClimbStats.getPieData(ClimbStats.StatType.GRADE);
+        data = mClimbStats.getPieData(ClimbStats.StatType.GRADE, true);
         data.setDrawValues(false);
         mPieChartInner.setData(data);
         mPieChartInner.highlightValue(1, 0, false);
 
-        mPieChartInner.setCenterText(mClimbStats.getWearCenterText()); 
+
+        mPieChartInner.setCenterText(mClimbStats.getWearCenterText(false));
 
         // animate the charts
         mPieChartInner.animateY(500, Easing.EasingOption.EaseInOutQuad);
         mPieChartOuter.animateY(500, Easing.EasingOption.EaseInOutQuad);
         mPieChartMiddle.animateY(500, Easing.EasingOption.EaseInOutQuad);
-
-        //mPieChartInner.invalidate(); // refresh
     }
-
-
 }

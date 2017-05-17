@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
@@ -11,6 +12,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.content.FileProvider;
 import android.support.v4.util.Pair;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
@@ -55,6 +57,7 @@ import org.honorato.multistatetogglebutton.MultiStateToggleButton;
 import org.honorato.multistatetogglebutton.ToggleButton;
 import org.threeten.bp.temporal.ChronoUnit;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -88,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     private ChronoUnit mDateRange;
     private int mDateOffset;
 
+
     private List<String> mDateRangeLabels = Arrays.asList("DAY", "WEEK", "MONTH", "YEAR", "ALL");
     private List<ChronoUnit> mDateRanges = Arrays.asList(ChronoUnit.DAYS, ChronoUnit.WEEKS, ChronoUnit.MONTHS, ChronoUnit.YEARS, ChronoUnit.FOREVER);
     private TextView mDateTextView;
@@ -106,6 +110,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             Toast.makeText(MainActivity.this,"No response from wear. Check that wear settings is enabled and app is open on wearable", Toast.LENGTH_LONG).show();
         }
     };
+    private RealmResults<Climb> mResult;
+    private int mId = 0;
 
 
     @Override
@@ -168,8 +174,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             case R.id.export:
                 // query all sends and export to CSV
                 try {
-                    String filename = getExternalFilesDir(null) + "/myclimbs.csv";
-                    CSVWriter writer = new CSVWriter(new FileWriter(filename), ',');
+                    File imagePath = new File(getApplicationContext().getFilesDir(), "exports");
+                    imagePath.mkdirs(); // create the directory if it doesn't exist already
+
+                    File newFile = new File(imagePath, "myclimbs.csv"); // create the csv file
+                    CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
                     writer.writeNext(Climb.getTitleRow());
 
                     RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo("delete", true).findAll();
@@ -177,7 +186,17 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                         writer.writeNext(climb.toStringArray());
                     }
                     writer.close();
-                    Toast.makeText(this, "Saved climbs to " + filename, Toast.LENGTH_LONG).show();
+
+                    Intent intentShareFile = new Intent(Intent.ACTION_SEND);
+                    intentShareFile.setAction(Intent.ACTION_SEND);
+                    Uri contentUri = FileProvider.getUriForFile(getApplicationContext(), "com.example.grant.wearableclimbtracker.fileprovider", newFile);
+                    intentShareFile.putExtra(Intent.EXTRA_STREAM, contentUri);
+                    intentShareFile.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    setResult(100, intentShareFile);
+                    startActivityForResult(intentShareFile, 100);
+
+
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -549,7 +568,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     }
 
     public void invalidateRealmResult() {
-        // TODO: something crashes when i go from ALL -> YEAR in rope type as of 5/10/17.  Chart label out of bounds.  Suspect sticky event is redrawing before correct data is queries because the chart draws twice
         //Log.d(TAG, "setClimbRealmResult");
         RealmQuery<Climb> realmQuery =  mRealm.where(Climb.class)
                 .equalTo("delete", false)
@@ -607,21 +625,33 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }else {
             mDateTextView.setText("Showing all climbs");
         }
-        RealmResults<Climb> result = realmQuery.findAllSorted("date", Sort.ASCENDING);
-        result.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
+
+        // see http://stackoverflow.com/questions/43956135/realmresults-not-being-destroyed-on-new-eventbus-post/43982767#43982767
+        // ADDED THIS TO AVOID CALLING MULTIPLE LISTENERS
+        // When watching memory monitor (Android monitor -> monitors -> Memory), force GC removes additional instances of realm result, so this seems okay
+        if(mResult!=null) {
+            mResult.removeAllChangeListeners();
+        }
+
+        mResult = realmQuery.findAllSorted("date", Sort.ASCENDING);
+        RealmChangeListener listener = new RealmChangeListener<RealmResults<Climb>>() {
+            // NOTE: had to add this in onStart and removed in OnStop to avoid memory leak
+
             @Override
             public void onChange(RealmResults<Climb> element) {
+                Log.d(TAG, "Realmresult onchange");
+
                 mClimbStat = new ClimbStats(element,  mClimbType, mDateRange, PreferenceManager.getDefaultSharedPreferences(MainActivity.this));
-                postRealmResult();
+                EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
             }
-        });
-        mClimbStat = new ClimbStats(result,  mClimbType, mDateRange, PreferenceManager.getDefaultSharedPreferences(this));
-        postRealmResult();
+        };
+        mResult.addChangeListener(listener);
+        mClimbStat = new ClimbStats(mResult,  mClimbType, mDateRange, PreferenceManager.getDefaultSharedPreferences(MainActivity.this));
+        EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
+
     }
 
-    private void postRealmResult() {
-        EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
-    }
+
 
     private void showNextShowCaseView() {
         // iterate to next showcase view and show it
@@ -723,7 +753,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         // update the preferences in the stats object
         if(mClimbStat.updatePreference(sharedPreferences, key)) {
-            postRealmResult();
+            EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
         }
     }
 
