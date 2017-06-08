@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Handler;
-import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
@@ -12,6 +11,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.app.ShareCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v4.util.Pair;
 import android.support.v4.view.ViewPager;
@@ -27,9 +27,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.ChartEntrySelected;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.ListScrollEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
@@ -53,8 +51,7 @@ import com.opencsv.CSVWriter;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
-import org.honorato.multistatetogglebutton.MultiStateToggleButton;
-import org.honorato.multistatetogglebutton.ToggleButton;
+import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
 
 import java.io.File;
@@ -70,38 +67,40 @@ import java.util.List;
 import java.util.Set;
 
 import io.realm.Realm;
-import io.realm.RealmChangeListener;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import io.realm.Sort;
 
-public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREF_LASTSYNC = "prefLastSync";
     private static final String PREF_TYPE = "prefType";
     private static final String PREF_DATERANGE = "prefDateRange";
+    private static final String PREF_SHOWDATERANGE = "prefShowDateRange";
     private static final long SYNC_TIMOUT_MS = 3000; // time to wait for response from wearable
+
+    private static final int MAIN_INTRO_SHOT_ID = 1;
+    private static final int LIST_SHOT_ID = 2;
+    private static final int CHART_SHOT_ID = 3;
+    private static final String FILE_AUTHORITY = "com.example.grant.wearableclimbtracker.fileprovider";
+
     private GoogleApiClient mGoogleApiClient;
     private String mNodeId;
     private Realm mRealm;
     private ChartPagerAdapter mChartPagerAdapter;
+    private ViewPager mViewPager;
     private Switch typeToggle;
     private Shared.ClimbType mClimbType;
-    private ChronoUnit mDateRange;
     private int mDateOffset;
 
-
-    private List<String> mDateRangeLabels = Arrays.asList("DAY", "WEEK", "MONTH", "YEAR", "ALL");
-    private List<ChronoUnit> mDateRanges = Arrays.asList(ChronoUnit.DAYS, ChronoUnit.WEEKS, ChronoUnit.MONTHS, ChronoUnit.YEARS, ChronoUnit.FOREVER);
     private TextView mDateTextView;
-    private FloatingActionButton mAddButton;
-    private MultiStateToggleButton mDateRangeButton;
+    private FloatingActionButton mAddClimbButton;
+    private FloatingActionButton mAddGoalButton;
+
 
     private int mShowCaseIndex;
     private ShowcaseView mShowCaseView;
-    private Menu mActionBarMenu;
-    private ClimbStats mClimbStat;
 
     private Handler mTimerHandler = new Handler();
     private Runnable mTimerRunnable = new Runnable() {
@@ -111,13 +110,10 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }
     };
     private RealmResults<Climb> mResult;
-    private int mId = 0;
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         Log.d(TAG, "onCreateOptionsMenu");
-        mActionBarMenu = menu; // get a handle to the menu for showcaseview
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_menu, menu);
 
@@ -173,41 +169,73 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 return true;
             case R.id.export:
                 // query all sends and export to CSV
-                try {
-                    File imagePath = new File(getApplicationContext().getFilesDir(), "exports");
-                    imagePath.mkdirs(); // create the directory if it doesn't exist already
-
+                File imagePath = new File(getApplicationContext().getFilesDir(), "exports");
+                boolean dirExists = imagePath.exists();
+                if(!dirExists) {
+                    dirExists = imagePath.mkdirs(); // create the directory if it doesn't exist already
+                }
+                if(dirExists) {
                     File newFile = new File(imagePath, "myclimbs.csv"); // create the csv file
-                    CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
-                    writer.writeNext(Climb.getTitleRow());
+                    try {
+                        CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
+                        writer.writeNext(Climb.getTitleRow());
 
-                    RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo("delete", true).findAll();
-                    for(Climb climb: result) {
-                        writer.writeNext(climb.toStringArray());
+                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo("delete", true).findAll();
+                        for (Climb climb : result) {
+                            writer.writeNext(climb.toStringArray());
+                        }
+                        writer.close();
+                    }catch(IOException e) {
+                        Log.e(TAG, "error during csv write:" + e.getMessage());
+                        return true;
                     }
-                    writer.close();
 
                     Intent intentShareFile = new Intent(Intent.ACTION_SEND);
                     intentShareFile.setAction(Intent.ACTION_SEND);
-                    Uri contentUri = FileProvider.getUriForFile(getApplicationContext(), "com.example.grant.wearableclimbtracker.fileprovider", newFile);
-                    intentShareFile.putExtra(Intent.EXTRA_STREAM, contentUri);
-                    intentShareFile.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                    setResult(100, intentShareFile);
-                    startActivityForResult(intentShareFile, 100);
 
+                    // NOTE: using https://medium.com/google-developers/sharing-content-between-android-apps-2e6db9d1368b
+                    Uri contentUri;
+                    try {
+                        contentUri = FileProvider.getUriForFile(this, FILE_AUTHORITY, newFile);
+                    }catch (IllegalArgumentException e){
+                        Log.e(TAG, "The selected file can't be shared: " + newFile.getName());
+                        return true;
+                    }
 
+                    if(contentUri!= null) {
+                        Intent shareIntent = ShareCompat.IntentBuilder.from(this)
+                                .setStream(contentUri)
+                                .setType("text/csv")
+                                .createChooserIntent();
+                        // Provide read access
+                        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        if(shareIntent.resolveActivity(getPackageManager()) != null){
+                            Log.d(TAG, "Successfully created share intent.  starting activity");
+                            startActivity(shareIntent);
+                        }else {
+                            Log.e(TAG, "No activity available to handle MIME type ");
+                        }
+                    }else {
+                        Log.e(TAG, "failed to get content URI");
+                    }
 
-                } catch (IOException e) {
-                    e.printStackTrace();
+                }else {
+                    Log.e(TAG, "Could not create directory");
                 }
-
                 return true;
             case R.id.feedback:
                 intent = new Intent(Intent.ACTION_SENDTO, Uri.fromParts(
-                        "mailto","gkadokura@gmail.com", null));
+                        "mailto","gkadokura+climbapp@gmail.com", null));
                 intent.putExtra(Intent.EXTRA_SUBJECT, "Feedback for climbing app"); // TODO: put correct name here
                 //intent.putExtra(Intent.EXTRA_TEXT, message);
                 startActivity(Intent.createChooser(intent, "Choose an Email client :"));
+                return true;
+            case R.id.showHelp:
+                mShowCaseIndex = 0;
+                resetShot(LIST_SHOT_ID);
+                resetShot(CHART_SHOT_ID);
+                mViewPager.setCurrentItem(1); // start in overview fragment
+                showNextShowCaseView();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -238,19 +266,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         mRealm.close();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // register preference listener
-        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // unregister preference listener
-        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(this);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -263,10 +278,10 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
         // setup viewpager and adapter
         mChartPagerAdapter = new ChartPagerAdapter(this,getSupportFragmentManager());
-        ViewPager pager = (ViewPager) findViewById(R.id.pager);
-        pager.setAdapter(mChartPagerAdapter);
-        pager.setCurrentItem(1); // start in overview fragment
-        pager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+        mViewPager = (ViewPager) findViewById(R.id.pager);
+        mViewPager.setAdapter(mChartPagerAdapter);
+        mViewPager.setCurrentItem(1); // start in overview fragment
+        /*mViewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override
             public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
 
@@ -275,50 +290,30 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             @Override
             public void onPageSelected(int position) {
                 if(position == 0 || position == 1) {
-                    mAddButton.show(true);
+                    mAddClimbButton.show(true);
                 }else {
-                    mAddButton.hide(true);
+                    mAddClimbButton.hide(true);
                 }
+                showPagerShowcase(position);
             }
 
             @Override
             public void onPageScrollStateChanged(int state) {
 
             }
-        });
+        });*/
 
         // get the shared preferences for type and date range
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
         mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_TYPE, Shared.ClimbType.bouldering.ordinal())];
-        mDateRange = ChronoUnit.values()[pref.getInt(PREF_DATERANGE, ChronoUnit.FOREVER.ordinal())];
 
-        showNextShowCaseView();
+        if(!hasShot(MAIN_INTRO_SHOT_ID)) {
+            showNextShowCaseView();
+            storeShot(MAIN_INTRO_SHOT_ID);
+        }
 
         //  set title to last update date
         getSupportActionBar().setSubtitle("Last sync: " + pref.getString(PREF_LASTSYNC, "never"));
-
-        // setup date toggle button
-        mDateRangeButton = (MultiStateToggleButton)findViewById(R.id.mstb_daterange);
-        mDateRangeButton.setElements(mDateRangeLabels);
-        mDateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
-
-        mDateRangeButton.setOnValueChangedListener(new ToggleButton.OnValueChangedListener(){
-
-            @Override
-            public void onValueChanged(int position) {
-                // change the date range
-                mDateRange = mDateRanges.get(position);
-
-                // reset the offset
-                mDateOffset = 0;
-
-                // save this in shared pref
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit();
-                editor.putInt(PREF_DATERANGE, mDateRange.ordinal());
-                editor.commit();
-                invalidateRealmResult();
-            }
-        });
 
         // setup google api
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -345,52 +340,45 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 .addApi(Wearable.API)
                 .build();
 
-
-        // set up date offset
-        mDateOffset = 0;
-        (findViewById(R.id.prev_imagebutton)).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mDateOffset--;
-                invalidateRealmResult();
-            }
-        });
-        (findViewById(R.id.next_imagebutton)).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mDateOffset<0) {
-                    mDateOffset++;
-                }
-                invalidateRealmResult();
-            }
-        });
-        mDateTextView = (TextView)findViewById(R.id.currentdate_textview);
-
-        mAddButton = (FloatingActionButton) findViewById(R.id.fab_add_climb);
-        mAddButton.setOnClickListener(new View.OnClickListener() {
+        mAddClimbButton = (FloatingActionButton) findViewById(R.id.fab_add_climb);
+        mAddClimbButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // add a climb, so open popup
-                showAddClimbDialog(null);
+                showEditClimbDialog(null);
             }
         });
-
-        TextView currentDateView = (TextView) findViewById(R.id.currentdate_textview);
-        currentDateView.setOnClickListener(new View.OnClickListener() {
+        mAddGoalButton = (FloatingActionButton) findViewById(R.id.fab_add_goal);
+        mAddGoalButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
-                // toggle view of dateranges
-                if(mDateRangeButton.getVisibility() == View.GONE) {
-                    mDateRangeButton.setVisibility(View.VISIBLE);
-                }else {
-                    mDateRangeButton.setVisibility(View.GONE);
-                }
+            public void onClick(View view) {
+                // add a climb, so open popup
+                showEditGoalDialog(null);
             }
         });
-        // TODO: show this or not on startup?  mDateRangeButton.setVisibility(View.GONE);
 
         invalidateRealmResult();
 
+    }
+
+    private void showPagerShowcase(int position) {
+        if (position == 0 && !hasShot(LIST_SHOT_ID)) {
+            mShowCaseView = new ShowcaseView.Builder(this)
+                    .setTarget(new ViewTarget(R.id.pager_title_strip, this))
+                    .setContentTitle("List View")
+                    .setContentText("This is a list of climbs within the selected date range.  You can edit and delete climbs by long pressing on them.")
+                    .setStyle(R.style.CustomShowcaseTheme)
+                    .build();
+            storeShot(LIST_SHOT_ID);
+        } else if (position == 2 && !hasShot(CHART_SHOT_ID)) {
+            mShowCaseView = new ShowcaseView.Builder(this)
+                    .setTarget(new ViewTarget(R.id.pager_title_strip, this))
+                    .setContentTitle("Chart View")
+                    .setContentText("This is a chart of session stats within the selected date range.  Click on a bar to see the details of that session.")
+                    .setStyle(R.style.CustomShowcaseTheme)
+                    .build();
+            storeShot(CHART_SHOT_ID);
+        }
     }
 
 
@@ -538,34 +526,26 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     public void onEditClimbDialogEvent(EditClimbDialogEvent event) {
         switch (event.type) {
             case OPEN_REQUEST:
-                showAddClimbDialog(event.climbUUID);
+                showEditClimbDialog(event.climbUUID);
                 break;
             case DISMISSED:
                 invalidateRealmResult();
                 break;
         }
     }
+
     @Subscribe
     public void onListScrollEvent(ListScrollEvent event) {
         switch (event.type) {
             case up:
-                mAddButton.show(true);
+                mAddClimbButton.show(true);
                 break;
             case down:
-                mAddButton.hide(true);
+                mAddClimbButton.hide(true);
                 break;
         }
     }
 
-    @Subscribe
-    public void onChartEntrySelectedEvent(ChartEntrySelected event) {
-        mDateRange = event.daterange;
-        mDateRangeButton.setValue(mDateRanges.indexOf(mDateRange));
-
-        mDateOffset = Shared.getOffsetFromDate(event.date, mDateRange);
-
-        invalidateRealmResult();
-    }
 
     public void invalidateRealmResult() {
         //Log.d(TAG, "setClimbRealmResult");
@@ -573,81 +553,20 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 .equalTo("delete", false)
                 .equalTo("type", mClimbType.ordinal());
 
-        if(mDateRange != ChronoUnit.FOREVER) {
-            Pair<Date, Date> datePair = Shared.getDatesFromRange(mDateRange, mDateOffset);
-            Date startDate = datePair.first;
-            Date endDate = datePair.second;
-            // add the filter
-            realmQuery.between("date",startDate,endDate);
+        ZonedDateTime startZDT = ZonedDateTime.now();
+        startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
+        ZonedDateTime endZDT = startZDT.plus(1, ChronoUnit.DAYS);
 
-            // update textview to show what date range we're looking at
-            SimpleDateFormat sdf;
-            // special text for if we're showing the current day/week/month
-            if(mDateOffset == 0) {
-                switch(mDateRange) {
-                    case DAYS:
-                        mDateTextView.setText("TODAY");
-                        break;
-                    case WEEKS:
-                        mDateTextView.setText("THIS WEEK");
-                        break;
-                    case MONTHS:
-                        mDateTextView.setText("THIS MONTH");
-                        break;
-                    case YEARS:
-                        sdf = new SimpleDateFormat("yyyy");
-                        mDateTextView.setText(sdf.format(startDate));
-                        break;
+        // add the filter
+        realmQuery.between("date",Shared.ZDTToDate(startZDT),Shared.ZDTToDate(endZDT));
 
-                }
-            }else {
-                // show the date range in the right format
-                switch (mDateRange) {
-                    case DAYS:
-                        sdf = new SimpleDateFormat("MM/dd/yyyy");
-                        mDateTextView.setText(sdf.format(startDate));
-                        break;
-                    case WEEKS:
-                        sdf = new SimpleDateFormat("MM/dd/yyyy");
-                        mDateTextView.setText(String.format("%s to %s", sdf.format(startDate), sdf.format(endDate)));
-                        break;
-                    case MONTHS:
-                        sdf = new SimpleDateFormat("MMM yyyy");
-                        mDateTextView.setText(sdf.format(startDate));
-                        break;
-                    case YEARS:
-                        sdf = new SimpleDateFormat("yyyy");
-                        mDateTextView.setText(sdf.format(startDate));
-                        break;
-                }
-            }
-
-        }else {
-            mDateTextView.setText("Showing all climbs");
-        }
 
         // see http://stackoverflow.com/questions/43956135/realmresults-not-being-destroyed-on-new-eventbus-post/43982767#43982767
         // ADDED THIS TO AVOID CALLING MULTIPLE LISTENERS
         // When watching memory monitor (Android monitor -> monitors -> Memory), force GC removes additional instances of realm result, so this seems okay
-        if(mResult!=null) {
-            mResult.removeAllChangeListeners();
-        }
-
         mResult = realmQuery.findAllSorted("date", Sort.ASCENDING);
-        RealmChangeListener listener = new RealmChangeListener<RealmResults<Climb>>() {
-            // NOTE: had to add this in onStart and removed in OnStop to avoid memory leak
 
-            @Override
-            public void onChange(RealmResults<Climb> element) {
-                Log.d(TAG, "Realmresult onchange");
-
-                mClimbStat = new ClimbStats(element,  mClimbType, mDateRange, PreferenceManager.getDefaultSharedPreferences(MainActivity.this));
-                EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
-            }
-        };
-        mResult.addChangeListener(listener);
-        mClimbStat = new ClimbStats(mResult,  mClimbType, mDateRange, PreferenceManager.getDefaultSharedPreferences(MainActivity.this));
-        EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
+        EventBus.getDefault().postSticky(new RealmResultsEvent(mResult));
 
     }
 
@@ -656,47 +575,42 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     private void showNextShowCaseView() {
         // iterate to next showcase view and show it
         View menuView;
+        ShowcaseView.Builder builder;
         switch(mShowCaseIndex) {
             case 0:
-                mShowCaseView = new ShowcaseView.Builder(this)
-                        .setTarget(new ViewTarget(R.id.fab_add_climb, this))
-                        .setContentTitle("Add Climb")
-                        .setContentText("This is for adding new climbs")
-                        .setStyle(R.style.CustomShowcaseTheme)
-                        .setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                showNextShowCaseView();
-                            }
-                        })
-                        .singleShot(1)
-                        .build();
+                String title = "Add Climb";
+                String content = "Click this button to record a new climb";
+                builder = new ShowcaseView.Builder(this)
+                    .setTarget(new ViewTarget(R.id.fab_add_climb, this))
+                    .setContentTitle(title)
+                    .setContentText(content)
+                    .setStyle(R.style.CustomShowcaseTheme)
+                    .setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            showNextShowCaseView();
+                        }
+                    });
+                mShowCaseView = builder.build();
+                mShowCaseView.setButtonText("Next");
                 break;
-            case 1:
-                mShowCaseView.setContentTitle("Date range");
-                mShowCaseView.setContentText("Tap to select a new range");
-                mShowCaseView.setShowcase(new ViewTarget(R.id.layout_daterange, this), true);
-                break;
-            case 2:
-                mShowCaseView.setContentTitle("Previous");
-                mShowCaseView.setContentText("Go back in time");
-                mShowCaseView.setShowcase(new ViewTarget(R.id.prev_imagebutton, this), true);
-                break;
-            case 3:
-                mShowCaseView.setContentTitle("Next");
-                mShowCaseView.setContentText("Go forward in time");
-                mShowCaseView.setShowcase(new ViewTarget(R.id.next_imagebutton, this), true);
-                break;
+
             case 4:
-                mShowCaseView.setContentTitle("Your climb history");
-                mShowCaseView.setContentText("This area shows information of all climbs done in the selected range.  Swipe left and right to see other views.");
+                mShowCaseView.setContentTitle("Your climbing goals");
+                mShowCaseView.setContentText("This area helps you keep track of your goals, which you can change in the settings menu:\n" +
+                        "\u2022 " + "Points*: I want to send 30 points per session\n" +
+                        "\u2022 " + "Climbs: I want to send 10 climbs per session\n" +
+                        "\u2022 " + "Grade: I want to be a V5 climber"+
+                        "\n\n *Harder grades are worth more points. V0/5.6 = 0 pts, V1/5.7 = 1 pt, etc");
+                mShowCaseView.setShowcase(new ViewTarget(R.id.pager_title_strip,this), true);
                 break;
             case 5:
+                EventBus.getDefault().post(new ShowcaseEvent(mShowCaseView, ShowcaseEvent.ShowcaseEventType.goals));
+                break;
+            case 6:
                 mShowCaseView.hide();  // hide the previous views and start showcasing menu items
-
-                ShowcaseView.Builder builder  = new ShowcaseView.Builder(this)
+                builder = new ShowcaseView.Builder(this)
                         .setStyle(R.style.CustomShowcaseTheme)
-                        .singleShot(2)
                         .useDecorViewAsParent();
                 menuView = findViewById(R.id.type_toggle);
                 if (menuView!=null) {
@@ -709,13 +623,14 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                                     showNextShowCaseView();
                                 }
                             }).build();
+                    mShowCaseView.setButtonText("Next");
                 }else{
                     mShowCaseView = builder.setContentTitle(MenuDescription.getCondensedShowcaseTitle())
                             .setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.type))
                             .build();
                 }
                 break;
-            case 6:
+            case 7:
                 // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
                 menuView = findViewById(R.id.settings);
                 if (menuView!=null) {
@@ -727,9 +642,10 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
                     mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.settings));
                     mShowCaseView.overrideButtonClick(null);
+                    mShowCaseView.setButtonText("CLOSE");
                 }
                 break;
-            case 7:
+            case 8:
                 // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
                 menuView = findViewById(R.id.export);
                 if (menuView!=null) {
@@ -741,6 +657,37 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
                     mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.export));
                     mShowCaseView.overrideButtonClick(null);
+                    mShowCaseView.setButtonText("CLOSE");
+                }
+                break;
+            case 9:
+                // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
+                menuView = findViewById(R.id.showHelp);
+                if (menuView!=null) {
+                    mShowCaseView.setContentTitle(MenuDescription.help.title);
+                    mShowCaseView.setContentText(MenuDescription.help.text);
+                    mShowCaseView.setShowcase(new ViewTarget(menuView), true);
+                }else{
+                    mShowCaseView.setShowcase(Target.NONE, true);
+                    mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
+                    mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.help));
+                    mShowCaseView.overrideButtonClick(null);
+                    mShowCaseView.setButtonText("CLOSE");
+                }
+                break;
+            case 10:
+                // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
+                menuView = findViewById(R.id.export);
+                if (menuView!=null) {
+                    mShowCaseView.setContentTitle(MenuDescription.feedback.title);
+                    mShowCaseView.setContentText(MenuDescription.feedback.text);
+                    mShowCaseView.setShowcase(new ViewTarget(menuView), true);
+                }else{
+                    mShowCaseView.setShowcase(Target.NONE, true);
+                    mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
+                    mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.feedback));
+                    mShowCaseView.overrideButtonClick(null);
+                    mShowCaseView.setButtonText("CLOSE");
                 }
                 break;
             default:
@@ -749,19 +696,12 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         mShowCaseIndex++;
     }
 
-    @Override
-    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        // update the preferences in the stats object
-        if(mClimbStat.updatePreference(sharedPreferences, key)) {
-            EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, mDateOffset));
-        }
-    }
-
     enum MenuDescription {
-        type("Climb StatType", "Toggle between bouldering and rope climbing"),
-        settings("Settings", "Enable/disable wear, warmup settings"),
+        type("Climb Type", "Toggle between bouldering and rope climbing"),
+        settings("Settings", "Enable/disable wear, goal and warmup settings"),
         export("Export", "Export climbs to CSV"),
-        feedback("Feedback", "Send an email to the developer");
+        help("Help", "Show this intro again"),
+        feedback("Feedback", "Send an email to the developer.  \n\nPLEASE let me know what you think, what features you like and dislike, and what motivates you to climb in general!");
 
         private final String title;
         private final String text;
@@ -804,11 +744,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             mFragmentList = new ArrayList<>();
 
             Fragment fragment = new ListViewMobileFragment();
-            mFragmentList.add(new Pair("List", fragment));
+            mFragmentList.add(new Pair("LIST", fragment));
 
             // set climb type of the content fragment
             fragment = new OverviewMobileFragment();
-            mFragmentList.add(new Pair("Overview", fragment));
+            mFragmentList.add(new Pair("TODAY", fragment));
 
             /*fragment = new GradeChartMobileFragment();
             mFragmentList.add(new Pair("Grades", fragment));
@@ -816,8 +756,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             fragment = new HistoryChartMobileFragment();
             mFragmentList.add(new Pair("History", fragment));*/
 
-            fragment = new CombinedChartMobileFragment();
-            mFragmentList.add(new Pair("Combined", fragment));
+            /*fragment = new CombinedChartMobileFragment();
+            mFragmentList.add(new Pair("CHART", fragment));*/
+
+            fragment = new GoalListFragment();
+            mFragmentList.add(new Pair<>("GOALS", fragment));
         }
 
         @Override
@@ -841,7 +784,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
 
 
 
-    private void showAddClimbDialog(String selectedClimbUUID) {
+    private void showEditClimbDialog(String selectedClimbUUID) {
         // DialogFragment.show() will take care of adding the fragment
         // in a transaction.  We also want to remove any currently showing
         // dialog, so make our own transaction and take care of that here.
@@ -857,5 +800,36 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         newFragment.show(ft, "dialog");
     }
 
+    private void showEditGoalDialog(String selectedGoalUUID) {
+        // DialogFragment.show() will take care of adding the fragment
+        // in a transaction.  We also want to remove any currently showing
+        // dialog, so make our own transaction and take care of that here.
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        Fragment prev = getSupportFragmentManager().findFragmentByTag("dialog");
+        if (prev != null) {
+            ft.remove(prev);
+        }
+        ft.addToBackStack(null);
+
+        // Create and show the dialog.
+        DialogFragment newFragment = EditGoalDialogFragment.newInstance(mClimbType.ordinal(), selectedGoalUUID);
+        newFragment.show(ft, "dialog");
+    }
+
+    /******************** THIS IS FOR SINGLESHOT TRACKING OF SHOWCASE VIEW ******************************/
+    boolean hasShot(int shotId) {
+        return PreferenceManager.getDefaultSharedPreferences(this)
+                .getBoolean("hasShot" + shotId, false);
+    }
+
+    void storeShot(int shotId) {
+        SharedPreferences internal = PreferenceManager.getDefaultSharedPreferences(this);
+        internal.edit().putBoolean("hasShot" + shotId, true).apply();
+    }
+
+    void resetShot(int shotId) {
+        SharedPreferences internal = PreferenceManager.getDefaultSharedPreferences(this);
+        internal.edit().putBoolean("hasShot" + shotId, false).apply();
+    }
 
 }

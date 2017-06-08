@@ -226,16 +226,16 @@ public class Shared {
 
     public enum ClimbType {
         bouldering("Bouldering", R.drawable.icon_boulder,
-                createGradeList(0, 15, "V", 16, null),
+                createGradeList(0, 17, "V", 18, null),
                 Arrays.asList("V3", "V6", "V9")),
         ropes("Ropes", R.drawable.icon_ropes,
-                createGradeList(6, 13, "5.",10, Arrays.asList("a","b","c","d")),
+                createGradeList(6, 15, "5.",10, Arrays.asList("a","b","c","d")),
                 Arrays.asList("5.8", "5.10d", "5.12d"));
 
         private static List<String> createGradeList(int minGrade, int maxGrade, String prefix, int minSuffixGrade, List<String> suffixList) {
             ArrayList<String> gradeList = new ArrayList();
 
-            for(int grade = minGrade; grade < maxGrade+1; grade++) {
+            for(int grade = minGrade; grade <= maxGrade; grade++) {
                 // this is janky but oh well
                 if(grade >= minSuffixGrade) {
                     for(String suffix: suffixList) {

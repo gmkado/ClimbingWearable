@@ -28,13 +28,13 @@ import com.github.mikephil.charting.data.ScatterDataSet;
 import com.github.mikephil.charting.utils.EntryXComparator;
 
 import org.threeten.bp.temporal.ChronoUnit;
-import org.w3c.dom.Text;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import io.realm.RealmResults;
 
@@ -61,17 +61,26 @@ public class ClimbStats {
     private RealmResults<Climb> mResult;
     private ArrayList<Date> mSessionDates;
 
-    private int mTotalPoints;
-    private float mAveragePoints;
-    private int mMaxPoints;
+    private int mPointsSessionsAchieved;
+    private int mPointsTotal;
+    private float mPointsAverage;
+    private int mPointsMax;
+    private int mPointsCurrentStreak;
+    private int mPointsLongestStreak;
 
-    private int mTotalClimbs;
-    private float mAverageClimbs;
-    private int mMaxClimbs;
+    private int mClimbsSessionsAchieved;
+    private int mClimbsTotal;
+    private float mClimbsAverage;
+    private int mClimbsMax;
+    private int mClimbsCurrentStreak;
+    private int mClimbsLongestStreak;
 
-    private int mNumSessionsGradeGoalReached;
-    private Number mMaxGrade;
-    private Number mAverageMaxGrade;
+    private int mGradeSessionsAchieved;
+    private int mGradeReachedTotalCount; // total number of times grade has been climbed
+    private Number mGradeMax;
+    private Number mGradeAverage;
+    private int mGradeCurrentStreak;
+    private int mGradeLongestStreak;
 
     private int mNumSessions;
     private ArrayList<Entry> gradeScatterEntries;
@@ -79,6 +88,8 @@ public class ClimbStats {
     private ArrayList<Entry> pointLineEntries;
     private ArrayList<BarEntry> pointBarEntries;
     private ArrayList<BarEntry> climbBarEntries;
+    private int mMinutesClimbedTotal = 0;
+    private int mMinutesClimbedAverage;
 
     public int getmPrefSessionsPerWeek() {
         return mPrefSessionsPerWeek;
@@ -196,34 +207,31 @@ public class ClimbStats {
         SpannableString span;
         if(!isAmbient) {
             span = new SpannableString(TextUtils.concat(
-                    getSingleStatString(POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), POINTS.basecolor.App), "\n",
-                    getSingleStatString(CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), CLIMBS.basecolor.App), "\n",
-                    getSingleStatString(GRADE.title, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), GRADE.basecolor.App)));
+                    getSingleStatString(POINTS.title, Integer.toString(mPointsTotal), Integer.toString(mPrefNumpoints), POINTS.basecolor.App), "\n",
+                    getSingleStatString(CLIMBS.title, Integer.toString(mClimbsTotal), Integer.toString(mPrefNumClimbs), CLIMBS.basecolor.App), "\n",
+                    getSingleStatString(GRADE.title, getGradeString(mGradeMax), mClimbType.grades.get(mPrefTargetGrade), GRADE.basecolor.App)));
         }else {
             span = new SpannableString(TextUtils.concat(
-                    getSingleStatString(POINTS.title, Integer.toString(mTotalPoints), Integer.toString(mPrefNumpoints), Color.WHITE), "\n",
-                    getSingleStatString(CLIMBS.title, Integer.toString(mTotalClimbs), Integer.toString(mPrefNumClimbs), Color.WHITE), "\n",
-                    getSingleStatString(GRADE.title, getGradeString(mMaxGrade), mClimbType.grades.get(mPrefTargetGrade), Color.WHITE)));
+                    getSingleStatString(POINTS.title, Integer.toString(mPointsTotal), Integer.toString(mPrefNumpoints), Color.WHITE), "\n",
+                    getSingleStatString(CLIMBS.title, Integer.toString(mClimbsTotal), Integer.toString(mPrefNumClimbs), Color.WHITE), "\n",
+                    getSingleStatString(GRADE.title, getGradeString(mGradeMax), mClimbType.grades.get(mPrefTargetGrade), Color.WHITE)));
 
         }
         span.setSpan(new RelativeSizeSpan(0.8f), 0, span.length(), 0); // reduce size for wearable
         return span;
     }
 
-
     public enum StatType {
-        POINTS ("POINTS", "Pts", ColorHelper.BaseColor.RED),
-        CLIMBS("CLIMBS", "Clmb", ColorHelper.BaseColor.BLUE),
-        GRADE("GRADE","Grd", ColorHelper.BaseColor.GREEN);
+        POINTS ("POINTS", ColorHelper.BaseColor.RED),
+        CLIMBS("CLIMBS", ColorHelper.BaseColor.BLUE),
+        GRADE("GRADE", ColorHelper.BaseColor.GREEN);
 
-        String title;
+        public String title;
         public ColorHelper.BaseColor basecolor;
-        String abbr;
 
-        StatType(String title, String abbr, ColorHelper.BaseColor basecolor) {
+        StatType(String title, ColorHelper.BaseColor basecolor) {
             this.title = title;
             this.basecolor = basecolor;
-            this.abbr = abbr;
         }
     }
 
@@ -237,9 +245,9 @@ public class ClimbStats {
 
     public void calculateStats() {
         if (!mResult.isEmpty()) {
-            mTotalPoints = (mResult.sum("grade")).intValue();
-            mTotalClimbs = mResult.size();
-            mMaxGrade = mResult.max("grade");
+            mPointsTotal = (mResult.sum("grade")).intValue();
+            mClimbsTotal = mResult.size();
+            mGradeMax = mResult.max("grade");
 
             // -------------- GET ALL UNIQUE SESSIONS IN RESULTS -----------------
             mSessionDates = new ArrayList<>();
@@ -265,9 +273,23 @@ public class ClimbStats {
             }
 
             // ------------------loop through all sessions to get session stats -------------------
-            mMaxPoints = 0;
-            mMaxClimbs = 0;
-            mNumSessionsGradeGoalReached = 0;
+            mPointsMax = 0;
+            mClimbsMax = 0;
+            mGradeSessionsAchieved = 0;
+            mGradeCurrentStreak = 0;
+            mGradeLongestStreak = 0;
+            mGradeReachedTotalCount = 0;
+            int gradeCurrentStreak = 0;
+            mPointsSessionsAchieved = 0;
+            mPointsCurrentStreak = 0;
+            mPointsLongestStreak = 0;
+            int pointsCurrentStreak = 0;
+            mClimbsSessionsAchieved = 0;
+            mClimbsCurrentStreak = 0;
+            mClimbsLongestStreak = 0;
+            int climbsCurrentStreak = 0;
+
+
             int runningMaxGradeSum = 0;
             gradeScatterEntries = new ArrayList<>();
             climbLineEntries = new ArrayList<>();
@@ -278,8 +300,8 @@ public class ClimbStats {
             if(mDateRange == ChronoUnit.DAYS) {
                 // ---------------- Overview stats ------------------------
                 runningMaxGradeSum = mResult.max("grade").intValue();
-                mTotalPoints = mResult.sum("grade").intValue();
-                mTotalClimbs = mResult.size();
+                mPointsTotal = mResult.sum("grade").intValue();
+                mClimbsTotal = mResult.size();
 
                 // ------------------- Chart stats -----------------------
                 for (Climb climb : mResult) {
@@ -304,42 +326,74 @@ public class ClimbStats {
                     float xValue = dateToXValue(date);
                     if(mSessionDates.contains(date)) {
                         // Get the climbs in this session
-                        RealmResults sessionResult = mResult.where().between("date", date,
+                        RealmResults<Climb> sessionResult = mResult.where().between("date", date,
                                 Shared.ZDTToDate(Shared.DateToZDT(date).plusDays(1))).findAll();
+
+                        mMinutesClimbedTotal += (sessionResult.last().getDate().getTime()-sessionResult.first().getDate().getTime())/1000f/60;
 
                         // ---------------- Max session grade ------------------------
                         int maxSessionGrade = sessionResult.max("grade").intValue();
                         gradeScatterEntries.add(new Entry(xValue + 0.5f, maxSessionGrade)); //put dot in center
                         if (maxSessionGrade >= mPrefTargetGrade) {
-                            mNumSessionsGradeGoalReached++;
+                            mGradeSessionsAchieved++;
+                            gradeCurrentStreak++;
+                            if(gradeCurrentStreak > mGradeLongestStreak) {
+                                mGradeLongestStreak = gradeCurrentStreak;
+                            }
+                        }else{
+                            gradeCurrentStreak = 0;
                         }
                         runningMaxGradeSum += maxSessionGrade;
+                        mGradeReachedTotalCount += sessionResult.where().greaterThanOrEqualTo("grade", mPrefTargetGrade).count();
 
                         // -------------------- Session points -------------------
                         int sessionPoints = sessionResult.sum("grade").intValue();
                         pointBarEntries.add(new BarEntry(xValue, sessionPoints));
                         // check maxes
-                        if (sessionPoints > mMaxPoints) {
-                            mMaxPoints = sessionPoints;
+                        if (sessionPoints > mPointsMax) {
+                            mPointsMax = sessionPoints;
+                        }
+                        if (sessionPoints >= mPrefNumpoints) {
+                            mPointsSessionsAchieved++;
+                            pointsCurrentStreak++;
+                            if(pointsCurrentStreak > mPointsLongestStreak) {
+                                mPointsLongestStreak = pointsCurrentStreak;
+                            }
+                        } else {
+                            pointsCurrentStreak = 0;
                         }
 
                         // --------------------- session climbs -----------------
                         int sessionClimbs = sessionResult.size();
-                        if (sessionClimbs > mMaxClimbs) {
-                            mMaxClimbs = sessionClimbs;
+                        if (sessionClimbs > mClimbsMax) {
+                            mClimbsMax = sessionClimbs;
                         }
                         climbBarEntries.add(new BarEntry(xValue, sessionClimbs));
+                        if (sessionClimbs >= mPrefNumClimbs) {
+                            mClimbsSessionsAchieved++;
+                            climbsCurrentStreak ++;
+                            if(climbsCurrentStreak > mClimbsLongestStreak) {
+                                mClimbsLongestStreak = climbsCurrentStreak;
+                            }
+                        }else {
+                            climbsCurrentStreak = 0;
+                        }
+
                     }else {
                         pointBarEntries.add(new BarEntry(xValue, 0));
                         climbBarEntries.add(new BarEntry(xValue, 0));
 
                     }
                 }
+                mClimbsCurrentStreak = climbsCurrentStreak;
+                mPointsCurrentStreak = pointsCurrentStreak;
+                mGradeCurrentStreak = gradeCurrentStreak;
             }
             mNumSessions = mSessionDates.size();
-            mAverageMaxGrade = runningMaxGradeSum / mNumSessions;
-            mAveragePoints = mTotalPoints / mNumSessions;
-            mAverageClimbs = mTotalClimbs / mNumSessions;
+            mGradeAverage = runningMaxGradeSum / mNumSessions;
+            mPointsAverage = mPointsTotal / mNumSessions;
+            mClimbsAverage = mClimbsTotal / mNumSessions;
+            mMinutesClimbedAverage = mMinutesClimbedTotal / mNumSessions;
         } else {
             // TODO: fill in this case
         }
@@ -348,37 +402,69 @@ public class ClimbStats {
     public SpannableString getCenterText(StatType statType) {
         // set the center text
         if(mDateRange == ChronoUnit.FOREVER) {
-            statType = POINTS;
-            SpannableString title = new SpannableString(statType.title);
-            title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
-            title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            int minPerHour = 60;
+            int minPerDay = minPerHour*24;
+
+            int daysClimbed =  mMinutesClimbedTotal /minPerDay;
+            int remainder = mMinutesClimbedTotal %minPerDay;
+            int hoursClimbed = remainder/minPerHour;
+            remainder = remainder%minPerHour;
+            String totalTimeString = String.format(Locale.getDefault(), "%dd %dh %dm", daysClimbed, hoursClimbed, remainder);
+
+            hoursClimbed = mMinutesClimbedAverage/minPerHour;
+            remainder = remainder%minPerHour;
+            String averageTimeString = String.format(Locale.getDefault(), "%dh %dm", hoursClimbed, remainder);
+
             SpannableString result = new SpannableString(TextUtils.concat(
-                            title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAveragePoints)), null, statType.basecolor.App), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxPoints)), null, statType.basecolor.App), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalPoints)), null, statType.basecolor.App)));
+                    getSingleStatString("Number of Sessions", Integer.toString(mNumSessions), null, Color.BLACK), "\n",
+                    getSingleStatString("Total Time Spent Climbing", totalTimeString, null, Color.BLACK), "\n",
+                    getSingleStatString("Average Time Per Session", averageTimeString, null, Color.BLACK)));
+
+            statType = POINTS;
+            SpannableString title = new SpannableString(statType.title+" PER SESSION");
+            title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
+            title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            int goalAchievedPercent = mPointsSessionsAchieved *100/mNumSessions;
+            result = new SpannableString(TextUtils.concat(result, "\n\n",
+                    title, "\n",
+                    getSingleStatString("Average", Integer.toString(Math.round(mPointsAverage)), null, statType.basecolor.App), "\n",
+                    getSingleStatString("Best", Integer.toString(mPointsMax), null, statType.basecolor.App), "\n",
+                    getSingleStatString("Successful Sessions", Integer.toString(goalAchievedPercent)+"%", null, statType.basecolor.App),"\n",
+                    getSingleStatString("Longest Streak", Integer.toString(mPointsLongestStreak), null, statType.basecolor.App),"\n",
+                    getSingleStatString("Current Streak", Integer.toString(mPointsCurrentStreak), null, statType.basecolor.App),"\n"
+                    ));
+
             statType = CLIMBS;
-            title = new SpannableString(statType.title);
+            title = new SpannableString(statType.title+" PER SESSION");
             title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
             title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            goalAchievedPercent = mClimbsSessionsAchieved *100/mNumSessions;
             result = new SpannableString(TextUtils.concat(result,"\n\n",
-                            title, "\n",
-                            getSingleStatString("Average", Integer.toString(Math.round(mAverageClimbs)), null, statType.basecolor.App), "\n",
-                            getSingleStatString("Best", Integer.toString(Math.round(mMaxClimbs)), null, statType.basecolor.App), "\n",
-                            getSingleStatString("Total", Integer.toString(Math.round(mTotalClimbs)), null, statType.basecolor.App)));
+                    title, "\n",
+                    getSingleStatString("Average", Integer.toString(Math.round(mClimbsAverage)), null, statType.basecolor.App), "\n",
+                    getSingleStatString("Best", Integer.toString(mClimbsMax), null, statType.basecolor.App), "\n",
+                    getSingleStatString("Successful Sessions", Integer.toString(goalAchievedPercent)+"%", null, statType.basecolor.App),"\n",
+                    getSingleStatString("Longest Streak", Integer.toString(mClimbsLongestStreak), null, statType.basecolor.App),"\n",
+                    getSingleStatString("Current Streak", Integer.toString(mClimbsCurrentStreak), null, statType.basecolor.App),"\n"
+            ));
             statType = GRADE;
-            title = new SpannableString(statType.title);
+            title = new SpannableString(statType.title+" PER SESSION");
             title.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, title.length(), 0);
             title.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), 0);
+            goalAchievedPercent = mGradeSessionsAchieved *100/mNumSessions;
             result = new SpannableString(TextUtils.concat(result,"\n\n",
-                            title, "\n",
-                            getSingleStatString("Average", getGradeString(mAverageMaxGrade), null, statType.basecolor.App), "\n",
-                            getSingleStatString("Best", getGradeString(mMaxGrade), null, statType.basecolor.App), "\n",
-                            getSingleStatString("# Sessions achieved", Integer.toString(mNumSessionsGradeGoalReached), null, statType.basecolor.App)));
+                    title, "\n",
+                    getSingleStatString("Average", getGradeString(mGradeAverage), null, statType.basecolor.App), "\n",
+                    getSingleStatString("Best", getGradeString(mGradeMax), null, statType.basecolor.App), "\n",
+                    getSingleStatString("Successful Sessions", Integer.toString(goalAchievedPercent)+"%", null, statType.basecolor.App),"\n",
+                    getSingleStatString("Longest Streak", Integer.toString(mGradeLongestStreak), null, statType.basecolor.App),"\n",
+                    getSingleStatString("Current Streak", Integer.toString(mGradeCurrentStreak), null, statType.basecolor.App),"\n"));
+
             return result;
         }else {
             SpannableString goalString;
             SpannableString percentString;
+            SpannableString currentString;
             SpannableString remainderString;
 
             int current = getCurrentForStatType(statType);
@@ -386,6 +472,9 @@ public class ClimbStats {
             int remainder = goal-current < 0 ? 0 : goal-current; // floor at 0
             int percent = current*100/goal;
             percentString = new SpannableString(Integer.toString(percent) + "%");
+
+            currentString = new SpannableString(Integer.toString(current));
+            currentString.setSpan(new RelativeSizeSpan(5), 0, currentString.length(), 0);
 
             if(statType != GRADE) {
                 goalString = new SpannableString("SEND " + Integer.toString(goal) + " " + statType.title +
@@ -395,7 +484,12 @@ public class ClimbStats {
                 if(mDateRange == ChronoUnit.DAYS) {
                     goalString = new SpannableString("SEND " + getGradeString(mPrefTargetGrade) +
                             " TODAY");
-                    String gradeStr = getGradeString(mMaxGrade);
+                    String gradeStr = getGradeString(mGradeMax);
+                    // change currenttext string to show the grade in day view
+                    currentString = new SpannableString(gradeStr);
+                    currentString.setSpan(new RelativeSizeSpan(5), 0, currentString.length(), 0);
+
+                    // same with percentstring
                     percentString = new SpannableString(gradeStr);
                     if(!gradeStr.equals(NULL_GRADE_STR)) {
                         remainderString = new SpannableString(Integer.toString(remainder) + " GRADES AWAY");
@@ -404,21 +498,24 @@ public class ClimbStats {
                     }
                 }else {
                     goalString = new SpannableString("SEND " + getGradeString(mPrefTargetGrade) +
-                            " IN " + Integer.toString(goal) + " SESSIONS");
-                    remainderString = new SpannableString(Integer.toString(remainder) + " SESSIONS TO GO");
+                            " " + Integer.toString(goal) + " TIMES");
+                    remainderString = new SpannableString(Integer.toString(remainder) + " MORE TO GO");
                 }
             }
 
+            if(remainder == 0) {
+                remainderString = new SpannableString("CRUSHING IT!");
+            }
 
-            percentString.setSpan(new RelativeSizeSpan(4), 0, percentString.length(), 0);
+            percentString.setSpan(new RelativeSizeSpan(5), 0, percentString.length(), 0);
 
             goalString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, goalString.length(), 0);
             remainderString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, remainderString.length(), 0);
             percentString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, percentString.length(), 0);
-
+            currentString.setSpan(new ForegroundColorSpan(statType.basecolor.App), 0, currentString.length(), 0);
             return new SpannableString(TextUtils.concat(
                     "\n\n", goalString, "\n",
-                    percentString, "\n",
+                    currentString, "\n",
                     remainderString, "\n\n",
                     getPageIndicatorString(statType.ordinal(), StatType.values().length)
             ));
@@ -478,8 +575,13 @@ public class ClimbStats {
 
         int remainder = goal-current < 0 ? 0 : goal-current; // floor at 0
         List<PieEntry> entries = new ArrayList<>();
-        entries.add(new PieEntry(remainder, "Goal"));
-        entries.add(new PieEntry(current, "Current"));
+        entries.add(new PieEntry(remainder, ""));
+        if (remainder == 0) {
+            entries.add(new PieEntry(current, "DONE!"));
+        }else{
+            entries.add(new PieEntry(current, ""));
+        }
+        entries.add(new PieEntry(0, statType.title));
         PieDataSet set = new PieDataSet(entries, "Stats");
 
         ArrayList<Integer> colors = new ArrayList<>();
@@ -524,13 +626,13 @@ public class ClimbStats {
     private int getCurrentForStatType(StatType statType) {
         switch(statType) {
             case POINTS:
-                return mTotalPoints ;
+                return mPointsTotal;
             case CLIMBS:
-                return mTotalClimbs;
+                return mClimbsTotal;
             case GRADE:
                 return mDateRange == ChronoUnit.DAYS?
-                        mMaxGrade==null? 0:mMaxGrade.intValue():  // if mdaterange == DAY
-                        mNumSessionsGradeGoalReached;           // otherwise
+                        mGradeMax ==null? 0: mGradeMax.intValue():  // if mdaterange == DAY
+                        mGradeReachedTotalCount;           // otherwise
             default:
                 // shouldnt get here
                 Log.e(TAG, "Got unexpected climbtype");

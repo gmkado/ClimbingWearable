@@ -15,6 +15,7 @@ import android.widget.TextView;
 import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
+import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.github.mikephil.charting.animation.Easing;
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.data.PieData;
@@ -98,12 +99,12 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
 
         chart.setTransparentCircleColor(Color.WHITE);
         chart.setTransparentCircleAlpha(110);
-
+        //chart.setDrawEntryLabels(false);
+        chart.setDrawEntryLabels(true);
         float radiusPercent = (diameter-2f*width)/diameter * 100;
         chart.setHoleRadius(radiusPercent);
         chart.setTransparentCircleRadius(61f);
 
-        chart.setDrawEntryLabels(false);
         chart.setDrawCenterText(true);
         chart.setRotationAngle(270);
         chart.setRotationEnabled(false);
@@ -125,14 +126,23 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
     }
 
 
+    /*TODO: fix this
     @Subscribe(sticky = true)
     public void onRealmResultEvent(RealmResultsEvent event) {
         mClimbStats = event.climbstats;
         mDateRange = event.dateRange;
         mClimbType = event.climbType;
         updatePointsView();
-    }
+    }*/
 
+    @Subscribe(sticky = true)
+    public void onShowCaseEvent(ShowcaseEvent event) {
+        if(event.type == ShowcaseEvent.ShowcaseEventType.goals) {
+            event.view.setContentTitle("Your climbing goals");
+            event.view.setContentText("Tap to cycle through goals");
+            event.view.setShowcase(new ViewTarget(R.id.chart_outer ,getActivity()), true);
+        }
+    }
     @Override
     public void onStop() {
         super.onStop();
@@ -159,18 +169,21 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
             data.setDrawValues(false);
             mPieChartOuter.setData(data);
             mPieChartOuter.highlightValue(1, 0, false); // highlight the current value
+            //mPieChartOuter.setEntryLabelColor(ClimbStats.StatType.POINTS.basecolor.Dark);
 
             // Setup data for the middle chart -- NUMBER OF CLIMBS
             data = mClimbStats.getPieData(ClimbStats.StatType.CLIMBS, false);
             data.setDrawValues(false);
             mPieChartMiddle.setData(data);
             mPieChartMiddle.highlightValue(1, 0, false);
+            //mPieChartMiddle.setEntryLabelColor(ClimbStats.StatType.CLIMBS.basecolor.Dark);
 
             // Setup data for the inner chart -- MAX GRADE
             data = mClimbStats.getPieData(ClimbStats.StatType.GRADE, false);
             data.setDrawValues(false);
             mPieChartInner.setData(data);
             mPieChartInner.highlightValue(1, 0, false);
+            //mPieChartInner.setEntryLabelColor(ClimbStats.StatType.GRADE.basecolor.Dark);
 
             mPieChartInner.setCenterText(mClimbStats.getCenterText(mCurrentStat));
 
@@ -217,7 +230,7 @@ public class OverviewMobileFragment extends Fragment implements OnChartGestureLi
         }else {
             mCurrentStat = ClimbStats.StatType.values()[mCurrentStat.ordinal() + 1];
         }
-        mPieChartInner.setCenterText(mClimbStats.getWearCenterText(true));
+        mPieChartInner.setCenterText(mClimbStats.getCenterText(mCurrentStat));
         mPieChartInner.invalidate();
     }
 

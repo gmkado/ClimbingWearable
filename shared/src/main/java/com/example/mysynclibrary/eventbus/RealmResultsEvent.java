@@ -13,15 +13,9 @@ import io.realm.RealmResults;
  */
 
 public class RealmResultsEvent {
-    public ClimbStats climbstats;
-    public final Shared.ClimbType climbType;
-    public ChronoUnit dateRange;
-    public int dateOffset;
+    public RealmResults<Climb> mResult;
 
-    public RealmResultsEvent(ClimbStats stat, int dateOffset){
-        this.climbstats = stat;
-        this.climbType = stat.getClimbType();
-        this.dateRange = stat.getDateRange();
-        this.dateOffset = dateOffset;
+    public RealmResultsEvent(RealmResults<Climb> result){
+        this.mResult = result;
     }
 }

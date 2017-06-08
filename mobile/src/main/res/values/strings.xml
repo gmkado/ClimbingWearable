@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">WearableClimbTracker</string>
+    <string name="app_name">GradeChaser</string>
     <string name="sync">Sync from wear</string>
 
     <string name="title_activity_settings">Settings</string>
@@ -26,6 +26,5 @@
     <string name="pref_title_goalNumclimbsRopes">Climbs per session</string>
     <string name="pref_title_goalNumsessionsRopes">Sessions per week</string>
     <string name="pref_title_goalVpointsRopes">Points per session</string>
-
-
+    <item name="mstb_sample_values" type="id" />
 </resources>

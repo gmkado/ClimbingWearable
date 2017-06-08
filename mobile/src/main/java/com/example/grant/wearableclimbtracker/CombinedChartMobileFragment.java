@@ -87,18 +87,18 @@ public class CombinedChartMobileFragment extends Fragment  {
 
     }
 
-    @Subscribe (sticky = true)
+    /*@Subscribe (sticky = true)
     public void onRealmResultsEvent(RealmResultsEvent event) {
         mClimbStat = event.climbstats;
         mClimbType = event.climbType;
         mDateRange = event.dateRange;
         mDateOffset = event.dateOffset;
         setupCombinedChart();
-    }
+    }*/
 
     private void setupCombinedChart() {
         // TODO: a lot of these should be done only once
-        Log.d(TAG, "setupCombinedChart");
+        //Log.d(TAG, "setupCombinedChart");
 
         if (mClimbStat.getRealmResult().isEmpty()) {
             mCombinedChart.setData(null);
@@ -256,7 +256,9 @@ public class CombinedChartMobileFragment extends Fragment  {
                 float buffer = 0.1f*xAxis.mAxisRange;
                 xAxis.setAxisMinValue(xAxis.getAxisMinimum() - buffer);
                 xAxis.setAxisMaxValue(xAxis.getAxisMaximum()+ buffer);
-            }else if(mDateRange!= ChronoUnit.FOREVER) {
+            }else if(mDateRange == ChronoUnit.FOREVER) {
+                xAxis.setAxisMaxValue(xAxis.getAxisMaximum() + 0.5f);
+            }else{
                 // show the full range of week/month/year
                 Pair<Date, Date> xrange = Shared.getDatesFromRange(mDateRange, mDateOffset);
                 xAxis.setAxisMinValue(mClimbStat.dateToXValue(xrange.first));

@@ -2,6 +2,11 @@ package com.example.mysynclibrary.realm;
 
 import com.example.mysynclibrary.Shared;
 
+import org.threeten.bp.temporal.ChronoUnit;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 import io.realm.RealmObject;
@@ -17,6 +22,7 @@ public class Climb extends RealmObject {
     @Index private int grade;
     private int type;
     @Required private Date date;  // datetime of send
+    @Required private String sessionDate;  // truncated date for distinct search, can only use string or int
     @PrimaryKey private String id;
 
     // project fields
@@ -92,11 +98,16 @@ public class Climb extends RealmObject {
 
     public void setDate(Date date) {
         this.date = date;
+
+        // TODO: is this robust?
+        DateFormat sdf = SimpleDateFormat.getDateInstance(SimpleDateFormat.LONG);
+        this.sessionDate = sdf.format(ChronoUnit.DAYS);
     }
 
 
+    /********** helper functions for exporting to CSV *******************************/
     public static String[] getTitleRow() {
-        return new String[] {"Date", "StatType", "Grade"};
+        return new String[] {"Date", "Type", "Grade"};
     }
 
     public String[] toStringArray() {

@@ -38,7 +38,6 @@ public class ListViewMobileFragment extends Fragment {
     private final String TAG = "ListViewMobileFragment";
     private ListView mListView;
     private ClimbListAdapter mAdapter;
-    private ClimbStats mClimbStat;
 
     public ListViewMobileFragment() {
 
@@ -96,8 +95,7 @@ public class ListViewMobileFragment extends Fragment {
 
     @Subscribe(sticky = true)
     public void onRealmResultEvent(RealmResultsEvent event) {
-        mClimbStat = event.climbstats;
-        mAdapter = new ClimbListAdapter(mClimbStat.getRealmResult());
+        mAdapter = new ClimbListAdapter(event.mResult);
         mListView.setAdapter(mAdapter);
     }
 
@@ -119,7 +117,6 @@ public class ListViewMobileFragment extends Fragment {
         private class ViewHolder {
             TextView grade;
             TextView date;
-            ImageView goalimg;
         }
 
         public ClimbListAdapter(@Nullable OrderedRealmCollection<Climb> data) {
@@ -134,7 +131,6 @@ public class ListViewMobileFragment extends Fragment {
                 viewHolder = new ViewHolder();
                 viewHolder.grade = (TextView) convertView.findViewById(R.id.grade_textview);
                 viewHolder.date = (TextView) convertView.findViewById(R.id.date_textview);
-                viewHolder.goalimg = (ImageView) convertView.findViewById(R.id.goal_imageView);
                 convertView.setTag(viewHolder);
             }else {
                 viewHolder = (ViewHolder) convertView.getTag();
@@ -144,11 +140,6 @@ public class ListViewMobileFragment extends Fragment {
             int gradeInd = climb.getGrade();
             Shared.ClimbType type = Shared.ClimbType.values()[climb.getType()];
 
-            if(gradeInd < mClimbStat.getmPrefTargetGrade()) {
-                viewHolder.goalimg.setVisibility(View.INVISIBLE);
-            }else {
-                viewHolder.goalimg.setVisibility(View.VISIBLE);
-            }
             viewHolder.grade.setText(type.grades.get(gradeInd));
 
             DateFormat df = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);

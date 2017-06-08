@@ -20,7 +20,12 @@
         android:title="Export to CSV"
         />
     <item
+        android:id="@+id/showHelp"
+        android:title="Show Help"
+        />
+    <item
         android:id="@+id/feedback"
         android:title="Send feedback"
         />
+
 </menu>

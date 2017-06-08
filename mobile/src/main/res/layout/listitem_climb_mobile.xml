@@ -25,12 +25,4 @@
         android:textAlignment="textEnd"
         android:textSize="24sp" />
 
-    <ImageView
-        android:id="@+id/goal_imageView"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:src="@drawable/goal_reached"
-        android:visibility="visible" />
-
 </LinearLayout>

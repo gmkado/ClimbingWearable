@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="mstb_sample_unit">
+        <item>CLIMBS</item>
+        <item>POINTS</item>
+        <item>FEET</item>
+        <item>GRADE</item>
+
+    </string-array>
+    <string-array name="mstb_sample_recurrence">
+        <item>SESSION</item>
+        <item>WEEKLY</item>
+        <item>MONTHLY</item>
+        <item>YEARLY</item>
+    </string-array>
+    <string-array name="mstb_sample_endtype">
+        <item>NO END</item>
+        <item>DATE</item>
+        <item>DURATION</item>
+    </string-array>
+</resources>

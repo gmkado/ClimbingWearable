@@ -5,46 +5,8 @@
         android:key="wear_enabled_switch"
         android:summary="@string/pref_description_enable_wear"
         android:title="@string/pref_title_enable_wear" />
-
-
-    <PreferenceCategory
-        android:title = "Warm-up">
-        <SwitchPreference
-            android:defaultValue="false"
-            android:key="warmup_enabled_switch"
-            android:summary="@string/pref_description_enable_warmup"
-            android:title="@string/pref_title_enable_warmup" />
-        <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
-             dismiss it. -->
-        <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
-        <ListPreference
-            android:defaultValue="0"
-            android:key="warmup_maxgrade_boulder"
-            android:negativeButtonText="@null"
-            android:positiveButtonText="@null"
-            android:title= "@string/pref_title_maxbouldergrade"
-            android:summary="@string/pref_summary_maxbouldergrade"/>
-        <com.example.grant.wearableclimbtracker.NumberPickerPreference
-            android:key="warmup_numclimbs_boulder"
-            android:title="@string/pref_title_numboulder"
-            android:summary="@string/pref_summary_numboulder"
-            android:defaultValue="0"/>
-        <ListPreference
-            android:defaultValue="0"
-            android:key="warmup_maxgrade_ropes"
-            android:negativeButtonText="@null"
-            android:positiveButtonText="@null"
-            android:title= "@string/pref_title_maxropesgrade"
-            android:summary="@string/pref_summary_maxropesgrade"/>
-        <com.example.grant.wearableclimbtracker.NumberPickerPreference
-            android:key="warmup_numclimbs_ropes"
-            android:title="@string/pref_title_numropes"
-            android:summary="@string/pref_summary_numropes"
-            android:defaultValue="0"/>
-    </PreferenceCategory>
     <PreferenceCategory
         android:title = "Bouldering Goals">
-
         <ListPreference
             android:defaultValue="0"
             android:key="goal_grade_boulder"
@@ -83,6 +45,41 @@
         <com.example.grant.wearableclimbtracker.NumberPickerPreference
             android:key="goal_numsessions_ropes"
             android:title="@string/pref_title_goalNumsessionsRopes"
+            android:defaultValue="0"/>
+    </PreferenceCategory>
+    <PreferenceCategory
+        android:title = "Warm-up">
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="warmup_enabled_switch"
+            android:summary="@string/pref_description_enable_warmup"
+            android:title="@string/pref_title_enable_warmup" />
+        <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
+             dismiss it. -->
+        <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
+        <ListPreference
+            android:defaultValue="0"
+            android:key="warmup_maxgrade_boulder"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
+            android:title= "@string/pref_title_maxbouldergrade"
+            android:summary="@string/pref_summary_maxbouldergrade"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="warmup_numclimbs_boulder"
+            android:title="@string/pref_title_numboulder"
+            android:summary="@string/pref_summary_numboulder"
+            android:defaultValue="0"/>
+        <ListPreference
+            android:defaultValue="0"
+            android:key="warmup_maxgrade_ropes"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
+            android:title= "@string/pref_title_maxropesgrade"
+            android:summary="@string/pref_summary_maxropesgrade"/>
+        <com.example.grant.wearableclimbtracker.NumberPickerPreference
+            android:key="warmup_numclimbs_ropes"
+            android:title="@string/pref_title_numropes"
+            android:summary="@string/pref_summary_numropes"
             android:defaultValue="0"/>
     </PreferenceCategory>
 </PreferenceScreen>
