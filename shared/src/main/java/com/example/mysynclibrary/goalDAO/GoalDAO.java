@@ -2,6 +2,13 @@ package com.example.mysynclibrary.goalDAO;
 
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
+import com.github.mikephil.charting.charts.CombinedChart;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarLineScatterCandleBubbleData;
+import com.github.mikephil.charting.data.CombinedData;
+import com.github.mikephil.charting.formatter.AxisValueFormatter;
+
+import java.text.DateFormat;
 
 import io.realm.Realm;
 import io.realm.RealmChangeListener;
@@ -21,14 +28,31 @@ public abstract class GoalDAO {
      *
      * @return the current value for the progress bar
      */
-    public abstract int getCurrentProgress();
-
+    public abstract int getNonrecurringProgress();
 
     /**
      *
      * @return the target for the progress bar
      */
-    public abstract int getTarget();
+    public abstract int getNonrecurringTarget();
 
     public abstract String getSummary();
+
+    public abstract String getType();
+
+    public abstract boolean isRecurring();
+
+    /**
+     * Get the percent success rate for this recurring goal
+     * @return
+     */
+    public abstract float getRecurringPercent();
+
+    public abstract CombinedData getNonrecurringChartData();
+
+    public abstract DateFormat getNonrecurringDateFormat();
+
+    public abstract AxisValueFormatter getNonrecurringXFormatter();
+
+    public abstract AxisValueFormatter getNonrecurringYFormatter();
 }

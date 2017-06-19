@@ -22,7 +22,7 @@ public class Climb extends RealmObject {
     @Index private int grade;
     private int type;
     @Required private Date date;  // datetime of send
-    @Required private String sessionDate;  // truncated date for distinct search, can only use string or int
+    @Required @Index private String sessionDate;  // truncated date for distinct search, can only use string or int
     @PrimaryKey private String id;
 
     // project fields
@@ -99,9 +99,9 @@ public class Climb extends RealmObject {
     public void setDate(Date date) {
         this.date = date;
 
-        // TODO: is this robust?
+        // TODO: is this robust for different timezones?
         DateFormat sdf = SimpleDateFormat.getDateInstance(SimpleDateFormat.LONG);
-        this.sessionDate = sdf.format(ChronoUnit.DAYS);
+        this.sessionDate = sdf.format(date);
     }
 
 

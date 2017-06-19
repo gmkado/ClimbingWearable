@@ -1,6 +1,10 @@
 package com.example.mysynclibrary.realm;
 
+import android.os.Parcelable;
+
 import com.example.mysynclibrary.Shared;
+
+import org.threeten.bp.temporal.ChronoUnit;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -100,6 +104,10 @@ public class Goal extends RealmObject {
         return summary;
     }
 
+    public String getUUID() {
+        return id;
+    }
+
     public enum HeightUnit {
         FT,
         M;
@@ -129,10 +137,16 @@ public class Goal extends RealmObject {
     }
 
     public enum Period {
-        SESSION,
-        WEEKLY,
-        MONTHLY,
-        YEARLY;
+        SESSION(ChronoUnit.DAYS),
+        WEEKLY(ChronoUnit.WEEKS),
+        MONTHLY(ChronoUnit.MONTHS),
+        YEARLY(ChronoUnit.YEARS);
+
+        public ChronoUnit unit;
+
+        Period(ChronoUnit unit) {
+            this.unit = unit;
+        }
 
         public static List<String> getStringArray() {
             ArrayList list = new ArrayList();

@@ -33,6 +33,8 @@ import com.example.mysynclibrary.realm.Goal;
 import org.greenrobot.eventbus.EventBus;
 import org.honorato.multistatetogglebutton.MultiStateToggleButton;
 import org.honorato.multistatetogglebutton.ToggleButton;
+import org.threeten.bp.ZonedDateTime;
+import org.threeten.bp.temporal.ChronoUnit;
 
 import java.util.Calendar;
 import java.util.UUID;
@@ -136,13 +138,41 @@ public class EditGoalDialogFragment extends DialogFragment {
         mTargetEditText = (EditText) v.findViewById(R.id.editText_target);
         mHeightUnitSpinner = (Spinner) v.findViewById(R.id.spinner_heightunit);
         /************** Try getting goal***************************/
+        Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         if(mGoalUUID !=null) {
-            mGoal = mRealm.where(Goal.class).equalTo("id", mGoalUUID).findFirst();
+            Goal goal  = mRealm.where(Goal.class).equalTo("id", mGoalUUID).findFirst();
+            mGoal = mRealm.copyFromRealm(goal);  // detach from realm so changes can be made without saving until save button is pressed
+            deleteButton.setVisibility(View.VISIBLE);
+            deleteButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Realm realm = Realm.getDefaultInstance();
+                    try {
+                        realm.executeTransactionAsync(new Realm.Transaction() {
+                            @Override
+                            public void execute(Realm realm) {
+                                realm.where(Goal.class).equalTo("id", mGoalUUID).findFirst().deleteFromRealm();
+                            }
+                        }, new Realm.Transaction.OnSuccess() {
+
+                            @Override
+                            public void onSuccess() {
+                                dismiss();
+                            }
+                        });
+                    } finally {
+                        realm.close();
+                    }
+                }
+            });
         }else {
             mGoal = new Goal(); // This is unmanaged, only gets saved when we press the save button
             mGoal.setId(UUID.randomUUID().toString());
             mGoal.setClimbType(mClimbType);
-            mGoal.setStartDate(Calendar.getInstance().getTime());
+            ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
+            mGoal.setStartDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
+
+            deleteButton.setVisibility(View.GONE);
         }
 
         /******************* DETAILS **********************************/
@@ -293,10 +323,11 @@ public class EditGoalDialogFragment extends DialogFragment {
         if(mGoal.getEndType() == Goal.EndType.DATE) {
             cal.setTime(mGoal.getEndDate());
         }else {
-            cal = Calendar.getInstance();
+            ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
+            mGoal.setEndDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
             mGoal.setEndDate(cal.getTime());
             if(mGoal.getEndType() == Goal.EndType.PERIOD) {
-                numPeriodEditText.setText(mGoal.getNumPeriods());
+                numPeriodEditText.setText(Integer.toString(mGoal.getNumPeriods()));
             }
         }
         // stupid workaround since there is no mDatePicker.setOnDateChangedListener()
@@ -334,38 +365,6 @@ public class EditGoalDialogFragment extends DialogFragment {
         });
 
         /***************** SAVE AND DELETE BUTTONS *******************/
-        Button deleteButton = (Button) v.findViewById(R.id.delete_button);
-
-        if(mGoal.isManaged()) {
-            deleteButton.setVisibility(View.VISIBLE);
-            deleteButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    Realm realm = Realm.getDefaultInstance();
-                    try {
-                        realm.executeTransactionAsync(new Realm.Transaction() {
-                            @Override
-                            public void execute(Realm realm) {
-                                if (mGoal != null) {
-                                    mGoal.deleteFromRealm();
-                                }
-                            }
-                        }, new Realm.Transaction.OnSuccess() {
-
-                            @Override
-                            public void onSuccess() {
-                                dismiss();
-                            }
-                        });
-                    } finally {
-                        realm.close();
-                    }
-                }
-            });
-        }else {
-            deleteButton.setVisibility(View.GONE);
-        }
-
         mSaveButton.setEnabled(false);
         mSaveButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -531,10 +530,4 @@ public class EditGoalDialogFragment extends DialogFragment {
         mRealm.close();
     }
 
-    @Override
-    public void onDismiss(DialogInterface dialog) {
-        Log.d(TAG, "onDismiss");
-        super.onDismiss(dialog);
-        EventBus.getDefault().post(new EditGoalDialogEvent(EditGoalDialogEvent.DialogActionType.DISMISSED, null));
-    }
 }

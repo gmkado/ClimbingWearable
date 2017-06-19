@@ -53,7 +53,7 @@ public class ListViewMobileFragment extends Fragment {
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
                 // Create and show the dialog.
                 Climb climb = mAdapter.getItem(i);
-                EventBus.getDefault().post(new EditClimbDialogEvent(EditClimbDialogEvent.DialogActionType.OPEN_REQUEST,climb.getId()));
+                EventBus.getDefault().post(new EditClimbDialogEvent(climb.getId()));
                 return true;
             }
         });

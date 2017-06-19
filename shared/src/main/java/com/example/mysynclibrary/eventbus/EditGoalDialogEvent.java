@@ -7,16 +7,9 @@ package com.example.mysynclibrary.eventbus;
  */
 
 public class EditGoalDialogEvent {
-    public enum DialogActionType {
-        OPEN_REQUEST,
-        DISMISSED;
-    }
-
-    public DialogActionType type;
     public String goalUUID;
 
-    public EditGoalDialogEvent(DialogActionType type, String uuid){
-        this.type = type;
+    public EditGoalDialogEvent(String uuid){
         this.goalUUID = uuid; // null if not OPEN_REQUEST or adding a climb
     }
 }

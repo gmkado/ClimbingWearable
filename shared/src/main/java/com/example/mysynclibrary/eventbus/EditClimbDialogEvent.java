@@ -11,16 +11,9 @@ import com.google.android.gms.wearable.DataEventBuffer;
  */
 
 public class EditClimbDialogEvent {
-    public enum DialogActionType {
-        OPEN_REQUEST,
-        DISMISSED;
-    }
-
-    public DialogActionType type;
     public String climbUUID;
 
-    public EditClimbDialogEvent(DialogActionType type, String uuid){
-        this.type = type;
+    public EditClimbDialogEvent(String uuid){
         this.climbUUID = uuid; // null if not OPEN_REQUEST or adding a climb
     }
 }

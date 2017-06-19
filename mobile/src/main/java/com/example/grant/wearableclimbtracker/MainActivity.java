@@ -29,6 +29,7 @@ import android.widget.Toast;
 
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
+import com.example.mysynclibrary.eventbus.EditGoalDialogEvent;
 import com.example.mysynclibrary.eventbus.ListScrollEvent;
 import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
@@ -67,6 +68,7 @@ import java.util.List;
 import java.util.Set;
 
 import io.realm.Realm;
+import io.realm.RealmChangeListener;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import io.realm.Sort;
@@ -524,14 +526,11 @@ public class MainActivity extends AppCompatActivity {
 
     @Subscribe
     public void onEditClimbDialogEvent(EditClimbDialogEvent event) {
-        switch (event.type) {
-            case OPEN_REQUEST:
-                showEditClimbDialog(event.climbUUID);
-                break;
-            case DISMISSED:
-                invalidateRealmResult();
-                break;
-        }
+        showEditClimbDialog(event.climbUUID);
+    }
+    @Subscribe
+    public void onEditGoalEvent(EditGoalDialogEvent event) {
+        showEditGoalDialog(event.goalUUID);
     }
 
     @Subscribe
@@ -553,19 +552,30 @@ public class MainActivity extends AppCompatActivity {
                 .equalTo("delete", false)
                 .equalTo("type", mClimbType.ordinal());
 
-        ZonedDateTime startZDT = ZonedDateTime.now();
+        /*ZonedDateTime startZDT = ZonedDateTime.now();
         startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
         ZonedDateTime endZDT = startZDT.plus(1, ChronoUnit.DAYS);
 
         // add the filter
-        realmQuery.between("date",Shared.ZDTToDate(startZDT),Shared.ZDTToDate(endZDT));
+        realmQuery.between("date",Shared.ZDTToDate(startZDT),Shared.ZDTToDate(endZDT));*/
 
 
         // see http://stackoverflow.com/questions/43956135/realmresults-not-being-destroyed-on-new-eventbus-post/43982767#43982767
         // ADDED THIS TO AVOID CALLING MULTIPLE LISTENERS
         // When watching memory monitor (Android monitor -> monitors -> Memory), force GC removes additional instances of realm result, so this seems okay
-        mResult = realmQuery.findAllSorted("date", Sort.ASCENDING);
+        if(mResult!=null) {
+            mResult.removeAllChangeListeners();
+        }
 
+        mResult = realmQuery.findAllSorted("date", Sort.ASCENDING);
+        RealmChangeListener listener = new RealmChangeListener<RealmResults<Climb>>() {
+            @Override
+            public void onChange(RealmResults<Climb> element) {
+                Log.d(TAG, "Realmresult onchange");
+                EventBus.getDefault().postSticky(new RealmResultsEvent(element));
+            }
+        };
+        mResult.addChangeListener(listener);
         EventBus.getDefault().postSticky(new RealmResultsEvent(mResult));
 
     }

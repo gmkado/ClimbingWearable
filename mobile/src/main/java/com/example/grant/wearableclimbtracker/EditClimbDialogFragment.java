@@ -340,11 +340,4 @@ public class EditClimbDialogFragment extends DialogFragment {
         super.onDestroy();
         mRealm.close();
     }
-
-    @Override
-    public void onDismiss(DialogInterface dialog) {
-        Log.d(TAG, "onDismiss");
-        super.onDismiss(dialog);
-        EventBus.getDefault().post(new EditClimbDialogEvent(EditClimbDialogEvent.DialogActionType.DISMISSED, null));
-    }
 }
