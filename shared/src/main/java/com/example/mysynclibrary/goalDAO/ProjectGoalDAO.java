@@ -1,9 +1,14 @@
 package com.example.mysynclibrary.goalDAO;
 
+import android.util.Pair;
+
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
+import com.github.mikephil.charting.charts.CombinedChart;
 import com.github.mikephil.charting.data.CombinedData;
 import com.github.mikephil.charting.formatter.AxisValueFormatter;
+
+import org.threeten.bp.ZonedDateTime;
 
 import java.text.DateFormat;
 
@@ -26,7 +31,7 @@ public class ProjectGoalDAO extends GoalDAO{
     }
 
     @Override
-    public int getNonrecurringTarget() {
+    public int getTarget() {
         return 0;
     }
 
@@ -66,7 +71,22 @@ public class ProjectGoalDAO extends GoalDAO{
     }
 
     @Override
-    public AxisValueFormatter getNonrecurringYFormatter() {
+    public AxisValueFormatter getYFormatter() {
+        return null;
+    }
+
+    @Override
+    public CombinedData getRecurringChartData() {
+        return null;
+    }
+
+    @Override
+    public AxisValueFormatter getRecurringXFormatter() {
+        return null;
+    }
+
+    @Override
+    public Pair<ZonedDateTime, ZonedDateTime> getDateRange(boolean recurring) {
         return null;
     }
 

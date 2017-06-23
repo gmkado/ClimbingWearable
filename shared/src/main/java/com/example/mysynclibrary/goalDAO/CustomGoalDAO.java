@@ -1,11 +1,15 @@
 package com.example.mysynclibrary.goalDAO;
 
+import android.util.Pair;
+
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
 import com.github.mikephil.charting.charts.ScatterChart;
 import com.github.mikephil.charting.components.AxisBase;
 import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.data.CombinedData;
 import com.github.mikephil.charting.data.Entry;
@@ -29,6 +33,7 @@ import java.util.Locale;
 
 import io.realm.Realm;
 import io.realm.RealmChangeListener;
+import io.realm.RealmQuery;
 import io.realm.RealmResults;
 
 import static com.example.mysynclibrary.ClimbStats.StatType.GRADE;
@@ -57,7 +62,6 @@ public class CustomGoalDAO extends GoalDAO {
     /* Recurring goal fields */
     private int mCurrentStreak;
     private int mLongestStreak;
-    private int mTotalPeriodCount;
     private int mSuccessfulPeriodCount;
     private int mNonRecurringProgress;
     private ZonedDateTime nonRecurringStartZDT;
@@ -75,18 +79,20 @@ public class CustomGoalDAO extends GoalDAO {
             public void onChange(Goal element) {
                 if(element.isValid()) { // Otherwise we deleted it
                     // rerun the query
+                    getClimbsAndDateRangeFromGoalCriteria();
                     calculateStats();
                 }
             }
         });
+        getClimbsAndDateRangeFromGoalCriteria();
         calculateStats();
     }
 
-    public static CustomGoalDAO getGoalDAOFromID(String goalUUID) {
+    public static CustomGoalDAO
+    getGoalDAOFromID(String goalUUID) {
         // create goal from UUID
         return new CustomGoalDAO(Realm.getDefaultInstance().where(Goal.class).equalTo("id", goalUUID).findFirst());
     }
-
 
     @Override
     public String getSummary() {
@@ -109,14 +115,14 @@ public class CustomGoalDAO extends GoalDAO {
     }
 
     @Override
-    public int getNonrecurringTarget() {
+    public int getTarget() {
         return mGoal.getTarget();
     }
 
     @Override
     public float getRecurringPercent() {
         if(isRecurring()) {
-            return 1.0f * mSuccessfulPeriodCount/mTotalPeriodCount;
+            return 1.0f * mSuccessfulPeriodCount/mRecurrDateList.size();
         }else {
             return 0;
         }
@@ -128,9 +134,7 @@ public class CustomGoalDAO extends GoalDAO {
         switch(mGoal.getGoalUnit()) {
             case CLIMBS:
                 data.setData(getLineData());
-                break;
-            case GRADE:
-                data.setData(getScatterData());
+
                 break;
             case HEIGHT:
                 // TODO: fill this in
@@ -139,6 +143,7 @@ public class CustomGoalDAO extends GoalDAO {
                 data.setData(getLineData());
                 break;
         }
+        data.setData(getScatterData());
         return data;
     }
 
@@ -153,7 +158,7 @@ public class CustomGoalDAO extends GoalDAO {
             @Override
             public String getFormattedValue(float value, AxisBase axis) {
                 Date date = XValueToDate(value, false);
-                Duration duration = Duration.between(nonRecurringStartZDT, nonRecurringEndZDT); // TODO: should only do this comparison once in calcNonrecurringStats
+                Duration duration = Duration.between(nonRecurringStartZDT, nonRecurringEndZDT == null? ZonedDateTime.now() : nonRecurringEndZDT); // TODO: should only do this comparison once in calcNonrecurringStats
                 if(duration.compareTo(Duration.ofDays(1))<=0) {
                     return SimpleDateFormat.getTimeInstance(DateFormat.SHORT).format(date);
                 }else {
@@ -169,9 +174,8 @@ public class CustomGoalDAO extends GoalDAO {
     }
 
     @Override
-    public AxisValueFormatter getNonrecurringYFormatter() {
-        if(mGoal.getGoalUnit() == Goal.GoalUnit.GRADE) {
-            return new AxisValueFormatter() {
+    public AxisValueFormatter getYFormatter() {
+        return new AxisValueFormatter() {
                 @Override
                 public String getFormattedValue(float value, AxisBase axis) {
                     return mGoal.getClimbType().grades.get((int) value);
@@ -182,8 +186,44 @@ public class CustomGoalDAO extends GoalDAO {
                     return 0;
                 }
             };
+    }
+
+    @Override
+    public CombinedData getRecurringChartData() {
+        CombinedData data = new CombinedData();
+        data.setData(getBarData());
+
+        return data;
+    }
+
+    @Override
+    public AxisValueFormatter getRecurringXFormatter() {
+        return new AxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value, AxisBase axis) {
+                if(value>=0 && value < mRecurrDateList.size()) {
+                    Date date = XValueToDate(value, true);
+                    return SimpleDateFormat.getDateInstance(DateFormat.SHORT).format(date);
+                }else {
+                    return "";
+                }
+
+            }
+
+            @Override
+            public int getDecimalDigits() {
+                return 0;
+            }
+        };
+    }
+
+    @Override
+    public Pair<ZonedDateTime, ZonedDateTime> getDateRange(boolean recurring) {
+        if(recurring) {
+            return new Pair<>(recurringStartZDT,recurringEndZDT == null ? ZonedDateTime.now() : recurringEndZDT );
+
         }else {
-            return null;
+            return new Pair<>(nonRecurringStartZDT,nonRecurringEndZDT == null ? ZonedDateTime.now() : nonRecurringEndZDT );
         }
     }
 
@@ -196,7 +236,6 @@ public class CustomGoalDAO extends GoalDAO {
      * TODO: If recurring is true, return the date for the recurring graph, otherwise return the date for the nonrecurring graph
      */
     private Date XValueToDate(float value, boolean recurring) {
-
         if(recurring) {
             return mRecurrDateList.get((int) value);
         }else {
@@ -215,15 +254,10 @@ public class CustomGoalDAO extends GoalDAO {
 
     }
 
-    private void setup() {
+    private void getClimbsAndDateRangeFromGoalCriteria() {
         try (Realm realm = Realm.getDefaultInstance()) {
             // No need to close the Realm instance manually since this is wrapped in try statement
             // https://realm.io/docs/java/latest/#closing-realm-instances
-            // tODO: any reason not to query all climbs like done here?
-            mResults = realm.where(Climb.class)
-                    .greaterThanOrEqualTo("date", mGoal.getStartDate())
-                    .equalTo("type", mGoal.getClimbType().ordinal())
-                    .findAll();
 
             // query for distinct session dates and add constraint to query for "numperiod" sessions
             RealmResults<Climb> results = realm.where(Climb.class).distinct("sessionDate");
@@ -237,7 +271,7 @@ public class CustomGoalDAO extends GoalDAO {
             recurringStartZDT = Shared.DateToZDT(mGoal.getStartDate());
             switch (mGoal.getEndType()) {
                 case NO_END:
-                    recurringEndZDT = ZonedDateTime.now();
+                    recurringEndZDT = null;
                     break;
                 case DATE:
                     recurringEndZDT = Shared.DateToZDT(mGoal.getEndDate());
@@ -246,7 +280,7 @@ public class CustomGoalDAO extends GoalDAO {
                     if (mGoal.getPeriod() == Goal.Period.SESSION) {
                         if (mGoal.getNumPeriods() > sessionDates.size()) {
                             // we haven't reached the end, so use today
-                            recurringEndZDT = ZonedDateTime.now();
+                            recurringEndZDT = null;
                         } else {
                             recurringEndZDT = Shared.DateToZDT(sessionDates.get(mGoal.getNumPeriods())); // TODO: is this off by 1?
                         }
@@ -274,18 +308,46 @@ public class CustomGoalDAO extends GoalDAO {
                 default:
                     throw new IllegalArgumentException("Got invalid end type");
             }
+
+
+            if(!mGoal.isRecurring()) {
+                // Actually don't have recurring data so these ZDTs are the nonrecurring date range
+                nonRecurringStartZDT = recurringStartZDT;
+                nonRecurringEndZDT = recurringEndZDT;
+                if(listener!=null) {
+                    listener.onNonrecurringDateRangeChanged(); // notify parent to react to new data and date ranges
+                }
+            }else {
+                if(listener!=null) {
+                    listener.onRecurringDateRangeChanged(); // notify parent to react to new data and date ranges
+                }
+            }
+
+            /* Use fields to query for appropriate climbs*/
+            RealmQuery<Climb> query = realm.where(Climb.class)
+                    .greaterThanOrEqualTo("date", mGoal.getStartDate())
+                    .equalTo("type", mGoal.getClimbType().ordinal());
+            if(recurringEndZDT != null) {
+                query.lessThanOrEqualTo("date", Shared.ZDTToDate(recurringEndZDT));
+            }
+            mResults = query.findAll();
+            mResults.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
+                @Override
+                public void onChange(RealmResults<Climb> element) {
+                    calculateStats();
+                }
+            });
         }
     }
 
     private void calculateStats() {
-        setup();
         if(mGoal.isRecurring()) {
             calculateRecurringStats();
-            calculateNonRecurringStats(mBarEntries.size()-1);
+
+            setNonrecurringDateRangeFromIndex(mBarEntries.size()-1);
+            calculateNonrecurringStats();
         }else {
-            nonRecurringStartZDT = recurringStartZDT;
-            nonRecurringEndZDT = recurringEndZDT;
-            calculateNonRecurringStats();
+            calculateNonrecurringStats();
         }
     }
 
@@ -302,31 +364,19 @@ public class CustomGoalDAO extends GoalDAO {
         mRecurrDateList = new ArrayList<>();
         ZonedDateTime currZDT = recurringStartZDT;
 
-        mTotalPeriodCount = 0;
-        while (currZDT.isBefore(recurringEndZDT)) {
-            float xValue = mTotalPeriodCount++;
+        ZonedDateTime endZDT  = recurringEndZDT == null ? ZonedDateTime.now() : recurringEndZDT;
+        while (currZDT.isBefore(endZDT)) {
+            float xValue = mRecurrDateList.size();
             mRecurrDateList.add(Shared.ZDTToDate(currZDT));
 
             ZonedDateTime nextZDT = currZDT.plus(1, mGoal.getPeriod().unit);
-
             // Get the climbs in this period
             RealmResults sessionResult = mResults.where()
-                    .between("date", Shared.ZDTToDate(currZDT), Shared.ZDTToDate(nextZDT)).findAll();
+                    .between("date", Shared.ZDTToDate(currZDT), Shared.ZDTToDate(nextZDT))
+                    .greaterThanOrEqualTo("grade", mGoal.getMingrade())
+                    .findAll();
             if (!sessionResult.isEmpty()) {
                 switch (mGoal.getGoalUnit()) {
-                    case GRADE:
-                        // get number of grades > target
-                        long count = mResults.where().greaterThan("grade", mGoal.getTarget()).count();
-                        mBarEntries.add(new BarEntry(xValue, count));
-                        if (count != 0) {
-                            mSuccessfulPeriodCount++;
-                            mCurrentStreak++;
-                            if (mCurrentStreak > mLongestStreak)
-                                mLongestStreak = mCurrentStreak;
-                        } else {
-                            mCurrentStreak = 0;
-                        }
-                        break;
                     case POINTS:
                         int sessionPoints = sessionResult.sum("grade").intValue();
                         mBarEntries.add(new BarEntry(xValue, sessionPoints));
@@ -364,19 +414,25 @@ public class CustomGoalDAO extends GoalDAO {
 
             currZDT = nextZDT;
         }
+        if(listener!=null) {
+            listener.onRecurringStatsChange(); // notify parent to react to new data and date ranges
+        }
     }
 
-    private void calculateNonRecurringStats(int index) {
+    private void setNonrecurringDateRangeFromIndex(int index) {
         // calculate the nonrecurring stats from the recurring index
         nonRecurringStartZDT = Shared.DateToZDT(XValueToDate(index, true));
         nonRecurringEndZDT = nonRecurringStartZDT.plus(1, mGoal.getPeriod().unit);
-        calculateNonRecurringStats();
+
+        if(listener!=null) {
+            listener.onNonrecurringDateRangeChanged(); // notify parent to react to new data and date ranges
+        }
     }
 
-    private void calculateNonRecurringStats() {
+    private void calculateNonrecurringStats() {
         // start should be zero
         Date start = Shared.ZDTToDate(nonRecurringStartZDT);
-        Date end = Shared.ZDTToDate(nonRecurringEndZDT);
+        Date end = Shared.ZDTToDate(nonRecurringEndZDT == null ? ZonedDateTime.now(): nonRecurringEndZDT);
         mNonRecurrTsOffset = start.getTime();
         mNonRecurrTsScale = 1000*60;  // 1 minutes per tic
 
@@ -387,38 +443,31 @@ public class CustomGoalDAO extends GoalDAO {
         mLineEntries = new ArrayList<>();
         mScatterEntries = new ArrayList<>();
         RealmResults<Climb> climbs = mResults.where().greaterThanOrEqualTo("date",start).lessThanOrEqualTo("date",end).findAll();
-        switch(mGoal.getGoalUnit()) {
-            case GRADE:
-                mNonRecurringProgress = climbs.max("grade")==null? 0 : climbs.max("grade").intValue();
-                break;
-            case POINTS:
-                mNonRecurringProgress = climbs.sum("grade")==null? 0: climbs.sum("grade").intValue();
-                break;
-            case CLIMBS:
-                mNonRecurringProgress = climbs.size();
-                break;
-            case HEIGHT:
-                // TODO: fill this in
-                break;
-        }
 
+        mNonRecurringProgress = 0;
         // populate graph data
         for(Climb climb:climbs) {
             float xValue = dateToXValue(climb.getDate());
-            switch(mGoal.getGoalUnit()) {
-                case GRADE:
-                    mScatterEntries.add(new Entry(xValue, climb.getGrade()));
-                    break;
-                case POINTS:
-                    mLineEntries.add(new Entry(xValue, climbs.where().lessThanOrEqualTo("date", climb.getDate()).sum("grade").intValue()));
-                    break;
-                case CLIMBS:
-                    mLineEntries.add(new Entry(xValue, climbs.where().lessThanOrEqualTo("date", climb.getDate()).count()));
-                    break;
-                case HEIGHT:
-                    // TODO: fill this in
-                    break;
+            mScatterEntries.add(new Entry(xValue, climb.getGrade()));
+            if(climb.getGrade()>=mGoal.getMingrade()) {  // only count the climb if its > mingrade
+                switch (mGoal.getGoalUnit()) {
+                    case POINTS:
+                        mNonRecurringProgress += climb.getGrade();
+                        mLineEntries.add(new Entry(xValue, climbs.where().lessThanOrEqualTo("date", climb.getDate()).sum("grade").intValue()));
+                        break;
+                    case CLIMBS:
+                        mNonRecurringProgress ++;
+                        mLineEntries.add(new Entry(xValue, climbs.where().lessThanOrEqualTo("date", climb.getDate()).count()));
+                        break;
+                    case HEIGHT:
+                        // TODO: fill this in
+                        break;
+                }
             }
+        }
+
+        if(listener!=null) {
+            listener.onNonrecurringStatsChanged(); // notify parent to react to new data and date ranges
         }
     }
 
@@ -431,7 +480,7 @@ public class CustomGoalDAO extends GoalDAO {
         ScatterData data = new ScatterData();
         ScatterDataSet set = new ScatterDataSet(mScatterEntries, "scatter");
         set.setScatterShapeSize(8f);
-        set.setAxisDependency(YAxis.AxisDependency.LEFT);
+        set.setAxisDependency(YAxis.AxisDependency.RIGHT);
         set.setScatterShape(ScatterChart.ScatterShape.CIRCLE);
         set.setColors(new int[] {GRADE.basecolor.Accent});
         set.setDrawValues(false);
@@ -451,8 +500,22 @@ public class CustomGoalDAO extends GoalDAO {
         dataSet.setDrawFilled(true);
         dataSet.setLineWidth(3f);
         dataSet.setMode(LineDataSet.Mode.LINEAR );
-        dataSet.setAxisDependency(YAxis.AxisDependency.RIGHT);
+        dataSet.setAxisDependency(YAxis.AxisDependency.LEFT);
         data.addDataSet(dataSet);
+
+        return data;
+    }
+
+    private BarData getBarData() {
+        // ensure that they are sorted
+        Collections.sort(mBarEntries, new EntryXComparator());
+
+        BarData data = new BarData();
+        BarDataSet dataSet = new BarDataSet(mBarEntries, "bar");
+        dataSet.setDrawValues(false);
+        dataSet.setAxisDependency(YAxis.AxisDependency.LEFT);
+        data.addDataSet(dataSet);
+        data.setBarWidth(0.9f);
 
         return data;
     }

@@ -7,7 +7,7 @@
     android:animateLayoutChanges="true"
 
     android:orientation="vertical">
-    <com.akexorcist.roundcornerprogressbar.IconRoundCornerProgressBar
+    <com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar
         android:id="@+id/rcprogress"
         android:layout_width="match_parent"
         android:layout_height="50dp"
@@ -16,9 +16,23 @@
         app:rcIconPadding="5dp"
         app:rcIconSize="30dp" />
 
-    <com.github.mikephil.charting.charts.CombinedChart
-        android:id="@+id/chart"
+    <LinearLayout
+        android:id="@+id/layout_expandableview"
         android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:visibility="gone" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/textview_daterange"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1/2/3-1/2/4"
+            android:textAlignment="center" />
+
+        <com.github.mikephil.charting.charts.CombinedChart
+            android:id="@+id/chart"
+            android:layout_width="match_parent"
+            android:layout_height="200dp" />
+    </LinearLayout>
 </LinearLayout>

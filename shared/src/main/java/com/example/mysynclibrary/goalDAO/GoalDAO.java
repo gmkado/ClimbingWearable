@@ -1,5 +1,7 @@
 package com.example.mysynclibrary.goalDAO;
 
+import android.util.Pair;
+
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
 import com.github.mikephil.charting.charts.CombinedChart;
@@ -7,6 +9,8 @@ import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarLineScatterCandleBubbleData;
 import com.github.mikephil.charting.data.CombinedData;
 import com.github.mikephil.charting.formatter.AxisValueFormatter;
+
+import org.threeten.bp.ZonedDateTime;
 
 import java.text.DateFormat;
 
@@ -21,8 +25,11 @@ import io.realm.RealmResults;
  */
 
 public abstract class GoalDAO {
+    GoalDAOListener listener;
 
-    public GoalDAO() {}
+    GoalDAO() {
+        listener = null;
+    }
 
     /**
      *
@@ -34,7 +41,7 @@ public abstract class GoalDAO {
      *
      * @return the target for the progress bar
      */
-    public abstract int getNonrecurringTarget();
+    public abstract int getTarget();
 
     public abstract String getSummary();
 
@@ -54,5 +61,25 @@ public abstract class GoalDAO {
 
     public abstract AxisValueFormatter getNonrecurringXFormatter();
 
-    public abstract AxisValueFormatter getNonrecurringYFormatter();
+    public abstract AxisValueFormatter getYFormatter();
+
+    public abstract CombinedData getRecurringChartData();
+
+    public abstract AxisValueFormatter getRecurringXFormatter();
+
+    public abstract Pair<ZonedDateTime, ZonedDateTime> getDateRange(boolean recurring);
+
+    public interface GoalDAOListener{
+        void onRecurringStatsChange();
+
+        void onNonrecurringStatsChanged();
+
+        void onNonrecurringDateRangeChanged();
+
+        void onRecurringDateRangeChanged();
+    }
+
+    public void setGoalListener(GoalDAOListener listener) {
+        this.listener = listener;
+    }
 }

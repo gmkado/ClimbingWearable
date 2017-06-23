@@ -27,8 +27,18 @@ public class Goal extends RealmObject {
     @PrimaryKey private String id;
     private int climbtype;
     private int goalunit;
+
+    public int getMingrade() {
+        return mingrade;
+    }
+
+    public void setMingrade(int mingrade) {
+        this.mingrade = mingrade;
+    }
+
+    private int mingrade;
     private int endtype;
-    @Required private Date startDate;
+    @Required private Date startDate; // TODO: this could have weird consequences if user changes timezones.  Could solve by using localdatetime and storing as a string
     private int target;
     /**************************************************************************************/
     private int period;
@@ -47,9 +57,6 @@ public class Goal extends RealmObject {
             case CLIMBS:
                 summary = summary.concat(Integer.toString(target) + " climbs ");
                 break;
-            case GRADE:
-                summary = summary.concat(getClimbType().grades.get(target) + " ");
-                break;
             case HEIGHT:
                 summary = summary.concat(Integer.toString(target) +
                         (getHeightunit()==HeightUnit.FT?"ft ":"m "));
@@ -58,6 +65,7 @@ public class Goal extends RealmObject {
                 summary = summary.concat(Integer.toString(target) + " points ");
                 break;
         }
+        summary = summary.concat("at least " + getClimbType().grades.get(getMingrade())+ " ");
         if(recurring) {
             switch (getPeriod()) {
                 case SESSION:
@@ -123,7 +131,6 @@ public class Goal extends RealmObject {
 
     public enum GoalUnit {
         CLIMBS,
-        GRADE,
         HEIGHT,
         POINTS;
 

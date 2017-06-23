@@ -27,6 +27,7 @@
                 android:paddingBottom="4dp" />
         </android.support.v4.view.ViewPager>
         <com.github.clans.fab.FloatingActionMenu
+            android:id="@+id/fab_menu"
             android:layout_width="wrap_content"
             android:layout_height="50dp"
             android:layout_gravity="bottom|end"
@@ -36,12 +37,15 @@
                 android:id="@+id/fab_add_climb"
                 android:src="@drawable/fab_add"
                 android:layout_height="wrap_content"
-                android:layout_width="wrap_content" />
+                android:layout_width="wrap_content"
+                app:fab_label = "Add Climb"/>
             <com.github.clans.fab.FloatingActionButton
                 android:id="@+id/fab_add_goal"
                 android:src="@drawable/fab_goal"
                 android:layout_height="wrap_content"
-                android:layout_width="wrap_content" />
+                android:layout_width="wrap_content"
+                app:fab_label = "Add Goal"
+                />
         </com.github.clans.fab.FloatingActionMenu>
 
     </FrameLayout>

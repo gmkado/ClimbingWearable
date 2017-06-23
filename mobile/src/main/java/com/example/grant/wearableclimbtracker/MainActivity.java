@@ -38,6 +38,7 @@ import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.Target;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.github.clans.fab.FloatingActionButton;
+import com.github.clans.fab.FloatingActionMenu;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -342,12 +343,15 @@ public class MainActivity extends AppCompatActivity {
                 .addApi(Wearable.API)
                 .build();
 
+        final FloatingActionMenu menu = (FloatingActionMenu)findViewById(R.id.fab_menu);
         mAddClimbButton = (FloatingActionButton) findViewById(R.id.fab_add_climb);
         mAddClimbButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // add a climb, so open popup
                 showEditClimbDialog(null);
+                menu.close(true);
+
             }
         });
         mAddGoalButton = (FloatingActionButton) findViewById(R.id.fab_add_goal);
@@ -356,6 +360,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 // add a climb, so open popup
                 showEditGoalDialog(null);
+                menu.close(true);
             }
         });
 
@@ -528,6 +533,7 @@ public class MainActivity extends AppCompatActivity {
     public void onEditClimbDialogEvent(EditClimbDialogEvent event) {
         showEditClimbDialog(event.climbUUID);
     }
+
     @Subscribe
     public void onEditGoalEvent(EditGoalDialogEvent event) {
         showEditGoalDialog(event.goalUUID);
@@ -579,7 +585,6 @@ public class MainActivity extends AppCompatActivity {
         EventBus.getDefault().postSticky(new RealmResultsEvent(mResult));
 
     }
-
 
 
     private void showNextShowCaseView() {

@@ -171,7 +171,7 @@ public class EditGoalDialogFragment extends DialogFragment {
             mGoal.setClimbType(mClimbType);
             ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
             mGoal.setStartDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
-
+            mGoal.setMingrade(0);
             deleteButton.setVisibility(View.GONE);
         }
 
@@ -202,11 +202,8 @@ public class EditGoalDialogFragment extends DialogFragment {
         });
         // TargetEditText and GradeEditText are set once initially depending on the initial unitType.  After that, they are never set programmatically, only driven from the user
         // This allows us to keep track of two different numbers using the UI
-        if(mGoal.getGoalUnit() == Goal.GoalUnit.GRADE) {
-            mGradeSpinner.setSelection(mGoal.getTarget()); // must happen after updateClimbTypeUI
-        }else {
-            mTargetEditText.setText(Integer.toString(mGoal.getTarget()));
-        }
+        mGradeSpinner.setSelection(mGoal.getMingrade()); // must happen after updateClimbTypeUI
+        mTargetEditText.setText(Integer.toString(mGoal.getTarget()));
 
         mTargetEditText.addTextChangedListener(new TextWatcher() {
             @Override
@@ -231,7 +228,7 @@ public class EditGoalDialogFragment extends DialogFragment {
         mGradeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mGoal.setTarget(position);
+                mGoal.setMingrade(position);
                 checkGoalValidity();
             }
 
@@ -246,11 +243,8 @@ public class EditGoalDialogFragment extends DialogFragment {
             @Override
             public void onValueChanged(int value) {
                 mGoal.setGoalunit(Goal.GoalUnit.values()[mGoalUnitMSTB.getValue()]);
-                if(mGoal.getGoalUnit() == Goal.GoalUnit.GRADE) {
-                    mGoal.setTarget(mGradeSpinner.getSelectedItemPosition()); // must happen after updateClimbTypeUI
-                }else {
-                    mGoal.setTarget(Integer.parseInt(mTargetEditText.getText().toString()));
-                }
+                mGoal.setTarget(Integer.parseInt(mTargetEditText.getText().toString()));
+
                 checkGoalValidity();
                 updateUnitUI();
             }
@@ -272,6 +266,11 @@ public class EditGoalDialogFragment extends DialogFragment {
                 cal.set(Calendar.YEAR, year);
                 cal.set(Calendar.MONTH, month);
                 cal.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.MILLISECOND, 0);
+
                 mGoal.setStartDate(cal.getTime());
                 checkGoalValidity();
             }
@@ -470,26 +469,17 @@ public class EditGoalDialogFragment extends DialogFragment {
     private void updateUnitUI() {
         switch(Goal.GoalUnit.values()[mGoalUnitMSTB.getValue()]) {
             case POINTS:
-                mGradeSpinner.setVisibility(View.GONE);
                 mTargetEditText.setVisibility(View.VISIBLE);
                 mTargetSuffix.setVisibility(View.VISIBLE);
                 mHeightUnitSpinner.setVisibility(View.GONE);
                 mTargetSuffix.setText("points");
                 break;
-            case GRADE:
-                mGradeSpinner.setVisibility(View.VISIBLE);
-                mTargetEditText.setVisibility(View.GONE);
-                mTargetSuffix.setVisibility(View.GONE);
-                mHeightUnitSpinner.setVisibility(View.GONE);
-                break;
             case HEIGHT:
-                mGradeSpinner.setVisibility(View.GONE);
                 mTargetEditText.setVisibility(View.VISIBLE);
                 mTargetSuffix.setVisibility(View.GONE);
                 mHeightUnitSpinner.setVisibility(View.VISIBLE);
                 break;
             case CLIMBS:
-                mGradeSpinner.setVisibility(View.GONE);
                 mTargetEditText.setVisibility(View.VISIBLE);
                 mTargetSuffix.setVisibility(View.VISIBLE);
                 mHeightUnitSpinner.setVisibility(View.GONE);
