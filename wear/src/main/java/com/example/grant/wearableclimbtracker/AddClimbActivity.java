@@ -141,10 +141,9 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
 
                 Date now = new Date();
                 // set climb fields
-                climb.setDate(now);
                 climb.setLastedit(now);
                 climb.setGrade(mSelectedPosition);
-                climb.setType(mClimbType.ordinal());
+                climb.setType(mClimbType);
                 climb.setDelete(false);
 
 

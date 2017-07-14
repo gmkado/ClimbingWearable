@@ -11,12 +11,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
-import com.github.mikephil.charting.animation.Easing;
 import com.github.mikephil.charting.charts.PieChart;
-import com.github.mikephil.charting.data.PieData;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -36,9 +32,6 @@ public class OverviewWearFragment extends Fragment {
     private PieChart mPieChartInner;
     private PieChart mPieChartOuter;
     private PieChart mPieChartMiddle;
-
-    /* Stats being tracked */
-    private ClimbStats mClimbStats;
 
 
     public OverviewWearFragment() {
@@ -117,15 +110,14 @@ public class OverviewWearFragment extends Fragment {
 
     @Subscribe(sticky = true)
     public void onRealmResultEvent(RealmResultsEvent event) {
-        mClimbStats = event.climbstats;
-        mClimbType = event.climbType;
+        // TODO: fix this
         updatePointsView();
     }
 
     @Subscribe
     public void onEnterAmbientEvent(AmbientEvent event) {
         // change font color
-        mPieChartInner.setCenterText(mClimbStats.getWearCenterText(event.isAmbient));
+        //TODO: fix this mPieChartInner.setCenterText(mClimbStats.getWearCenterText(event.isAmbient));
         mPieChartInner.invalidate();
     }
 
@@ -145,31 +137,5 @@ public class OverviewWearFragment extends Fragment {
         Log.d(TAG, "updatePointsView()");
         typeTextView.setText(mClimbType.title);
 
-
-        // Setup data for the outer chart -- POINTS
-        PieData data = mClimbStats.getPieData(ClimbStats.StatType.POINTS, true);
-        data.setDrawValues(false);
-        mPieChartOuter.setData(data);
-        mPieChartOuter.highlightValue(1, 0, false); // highlight the current value
-
-        // Setup data for the middle chart -- NUMBER OF CLIMBS
-        data = mClimbStats.getPieData(ClimbStats.StatType.CLIMBS, true);
-        data.setDrawValues(false);
-        mPieChartMiddle.setData(data);
-        mPieChartMiddle.highlightValue(1, 0, false);
-
-        // Setup data for the inner chart -- MAX GRADE
-        data = mClimbStats.getPieData(ClimbStats.StatType.GRADE, true);
-        data.setDrawValues(false);
-        mPieChartInner.setData(data);
-        mPieChartInner.highlightValue(1, 0, false);
-
-
-        mPieChartInner.setCenterText(mClimbStats.getWearCenterText(false));
-
-        // animate the charts
-        mPieChartInner.animateY(500, Easing.EasingOption.EaseInOutQuad);
-        mPieChartOuter.animateY(500, Easing.EasingOption.EaseInOutQuad);
-        mPieChartMiddle.animateY(500, Easing.EasingOption.EaseInOutQuad);
     }
 }

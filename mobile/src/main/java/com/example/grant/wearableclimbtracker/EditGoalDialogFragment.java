@@ -363,7 +363,7 @@ public class EditGoalDialogFragment extends DialogFragment {
             }
         });
 
-        /***************** SAVE AND DELETE BUTTONS *******************/
+        /***************** SAVE BUTTON *******************/
         mSaveButton.setEnabled(false);
         mSaveButton.setOnClickListener(new View.OnClickListener() {
             @Override

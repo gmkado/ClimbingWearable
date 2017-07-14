@@ -9,16 +9,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
-import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.example.mysynclibrary.ClimbStats;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.ListScrollEvent;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
@@ -29,17 +26,22 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
 import io.realm.OrderedRealmCollection;
+import io.realm.Realm;
 import io.realm.RealmBaseAdapter;
+import io.realm.RealmQuery;
+import io.realm.RealmResults;
 
 /**
  * Created by Grant on 10/17/2016.
  */
-public class ListViewMobileFragment extends Fragment {
-    private final String TAG = "ListViewMobileFragment";
+public class ClimbListMobileFragment extends Fragment {
+    private final String TAG = "ClimbListMobileFragment";
     private ListView mListView;
     private ClimbListAdapter mAdapter;
+    private RealmResults<Climb> mResult;
+    private Realm mRealm;
 
-    public ListViewMobileFragment() {
+    public ClimbListMobileFragment() {
 
     }
 
@@ -53,7 +55,7 @@ public class ListViewMobileFragment extends Fragment {
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
                 // Create and show the dialog.
                 Climb climb = mAdapter.getItem(i);
-                EventBus.getDefault().post(new EditClimbDialogEvent(climb.getId()));
+                EventBus.getDefault().post(new EditClimbDialogEvent(climb.getId(), EditClimbDialogEvent.EditClimbMode.EDIT));
                 return true;
             }
         });
@@ -82,9 +84,23 @@ public class ListViewMobileFragment extends Fragment {
             }
         });
 
+        // populate the listview
+        mRealm = Realm.getDefaultInstance();
+        invalidateRealmResult();
+        mAdapter = new ClimbListAdapter(mResult);
+        mListView.setAdapter(mAdapter);
         return rootView;
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mRealm.close();
+    }
+
+    private void invalidateRealmResult() {
+        mResult = mRealm.where(Climb.class).findAll();
+    }
 
 
     @Override
@@ -93,22 +109,16 @@ public class ListViewMobileFragment extends Fragment {
         Log.d(TAG, "onResume()");
     }
 
-    @Subscribe(sticky = true)
-    public void onRealmResultEvent(RealmResultsEvent event) {
-        mAdapter = new ClimbListAdapter(event.mResult);
-        mListView.setAdapter(mAdapter);
-    }
-
     @Override
     public void onStop() {
         super.onStop();
-        EventBus.getDefault().unregister(this);
+        //EventBus.getDefault().unregister(this);
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        EventBus.getDefault().register(this);
+        //EventBus.getDefault().register(this);
     }
 
 
@@ -138,12 +148,12 @@ public class ListViewMobileFragment extends Fragment {
 
             Climb climb = adapterData.get(position);
             int gradeInd = climb.getGrade();
-            Shared.ClimbType type = Shared.ClimbType.values()[climb.getType()];
+            Shared.ClimbType type = climb.getType();
 
             viewHolder.grade.setText(type.grades.get(gradeInd));
 
             DateFormat df = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
-            viewHolder.date.setText(df.format(climb.getDate()));
+            // TODO: add send/attempt info
 
             // set font color based on difficulty
             int fontColor;

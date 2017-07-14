@@ -11,9 +11,17 @@ import com.google.android.gms.wearable.DataEventBuffer;
  */
 
 public class EditClimbDialogEvent {
-    public String climbUUID;
+    public enum EditClimbMode{
+        ADD_SEND,
+        ADD_PROJECT,
+        EDIT
+    }
 
-    public EditClimbDialogEvent(String uuid){
+    public String climbUUID;
+    public EditClimbMode mode;
+
+    public EditClimbDialogEvent(String uuid, EditClimbMode mode){
+        this.mode = mode;
         this.climbUUID = uuid; // null if not OPEN_REQUEST or adding a climb
     }
 }

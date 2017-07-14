@@ -3,6 +3,7 @@ package com.example.mysynclibrary.goalDAO;
 import android.util.Pair;
 
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
 import com.github.mikephil.charting.charts.ScatterChart;
@@ -36,7 +37,6 @@ import io.realm.RealmChangeListener;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
 
-import static com.example.mysynclibrary.ClimbStats.StatType.GRADE;
 
 /**
  * Created by Grant on 6/3/2017.
@@ -45,7 +45,7 @@ import static com.example.mysynclibrary.ClimbStats.StatType.GRADE;
 public class CustomGoalDAO extends GoalDAO {
     public static final String TYPE = "Custom";
 
-    private RealmResults<Climb> mResults;
+    private RealmResults<Attempt> mResults;
     private Goal mGoal;
 
     private ArrayList<BarEntry> mBarEntries;
@@ -260,10 +260,10 @@ public class CustomGoalDAO extends GoalDAO {
             // https://realm.io/docs/java/latest/#closing-realm-instances
 
             // query for distinct session dates and add constraint to query for "numperiod" sessions
-            RealmResults<Climb> results = realm.where(Climb.class).distinct("sessionDate");
+            RealmResults<Attempt> results = realm.where(Attempt.class).distinct("date");
             ArrayList<Date> sessionDates = new ArrayList<>();
-            for (Climb climb : results) {
-                sessionDates.add(climb.getDate());
+            for (Attempt attempt : results) {
+                sessionDates.add(attempt.getDatetime());
             }
 
 
@@ -324,16 +324,16 @@ public class CustomGoalDAO extends GoalDAO {
             }
 
             /* Use fields to query for appropriate climbs*/
-            RealmQuery<Climb> query = realm.where(Climb.class)
-                    .greaterThanOrEqualTo("date", mGoal.getStartDate())
-                    .equalTo("type", mGoal.getClimbType().ordinal());
+            RealmQuery<Attempt> query = realm.where(Attempt.class)
+                    .greaterThanOrEqualTo("datetime", mGoal.getStartDate())
+                    .equalTo("climb.type", mGoal.getClimbType().ordinal());
             if(recurringEndZDT != null) {
-                query.lessThanOrEqualTo("date", Shared.ZDTToDate(recurringEndZDT));
+                query.lessThanOrEqualTo("datetime", Shared.ZDTToDate(recurringEndZDT));
             }
             mResults = query.findAll();
-            mResults.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
+            mResults.addChangeListener(new RealmChangeListener<RealmResults<Attempt>>() {
                 @Override
-                public void onChange(RealmResults<Climb> element) {
+                public void onChange(RealmResults<Attempt> element) {
                     calculateStats();
                 }
             });
@@ -442,22 +442,24 @@ public class CustomGoalDAO extends GoalDAO {
         // Loop through the climbs from start to end and add the appropriate stat to line or scatter entry
         mLineEntries = new ArrayList<>();
         mScatterEntries = new ArrayList<>();
-        RealmResults<Climb> climbs = mResults.where().greaterThanOrEqualTo("date",start).lessThanOrEqualTo("date",end).findAll();
+        RealmResults<Attempt> attempts = mResults.where().greaterThanOrEqualTo("datetime",start).lessThanOrEqualTo("datetime",end).findAll();
 
         mNonRecurringProgress = 0;
         // populate graph data
-        for(Climb climb:climbs) {
-            float xValue = dateToXValue(climb.getDate());
+        for(Attempt attempt:attempts) {
+            float xValue = dateToXValue(attempt.getDatetime());
+            Climb climb =attempt.getClimb();
+
             mScatterEntries.add(new Entry(xValue, climb.getGrade()));
-            if(climb.getGrade()>=mGoal.getMingrade()) {  // only count the climb if its > mingrade
+            if(attempt.getClimb().getGrade()>=mGoal.getMingrade()) {  // only count the climb if its > mingrade
                 switch (mGoal.getGoalUnit()) {
                     case POINTS:
                         mNonRecurringProgress += climb.getGrade();
-                        mLineEntries.add(new Entry(xValue, climbs.where().lessThanOrEqualTo("date", climb.getDate()).sum("grade").intValue()));
+                        mLineEntries.add(new Entry(xValue, attempts.where().lessThanOrEqualTo("date", attempt.getDatetime()).sum("grade").intValue()));
                         break;
                     case CLIMBS:
                         mNonRecurringProgress ++;
-                        mLineEntries.add(new Entry(xValue, climbs.where().lessThanOrEqualTo("date", climb.getDate()).count()));
+                        mLineEntries.add(new Entry(xValue, attempts.where().lessThanOrEqualTo("date", attempt.getDatetime()).count()));
                         break;
                     case HEIGHT:
                         // TODO: fill this in
@@ -482,7 +484,6 @@ public class CustomGoalDAO extends GoalDAO {
         set.setScatterShapeSize(8f);
         set.setAxisDependency(YAxis.AxisDependency.RIGHT);
         set.setScatterShape(ScatterChart.ScatterShape.CIRCLE);
-        set.setColors(new int[] {GRADE.basecolor.Accent});
         set.setDrawValues(false);
         data.addDataSet(set);
         return data;

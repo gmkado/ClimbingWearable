@@ -9,29 +9,23 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ShareCompat;
 import android.support.v4.content.FileProvider;
-import android.support.v4.util.Pair;
-import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.CompoundButton;
-import android.widget.Switch;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
 import com.example.mysynclibrary.eventbus.EditGoalDialogEvent;
 import com.example.mysynclibrary.eventbus.ListScrollEvent;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.amlcurran.showcaseview.ShowcaseView;
@@ -49,12 +43,11 @@ import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
 import com.opencsv.CSVWriter;
+import com.polyak.iconswitch.IconSwitch;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
-import org.threeten.bp.ZonedDateTime;
-import org.threeten.bp.temporal.ChronoUnit;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -62,25 +55,19 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
 import io.realm.Realm;
-import io.realm.RealmChangeListener;
-import io.realm.RealmQuery;
 import io.realm.RealmResults;
-import io.realm.Sort;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREF_LASTSYNC = "prefLastSync";
     private static final String PREF_TYPE = "prefType";
-    private static final String PREF_DATERANGE = "prefDateRange";
-    private static final String PREF_SHOWDATERANGE = "prefShowDateRange";
     private static final long SYNC_TIMOUT_MS = 3000; // time to wait for response from wearable
 
     private static final int MAIN_INTRO_SHOT_ID = 1;
@@ -91,13 +78,7 @@ public class MainActivity extends AppCompatActivity {
     private GoogleApiClient mGoogleApiClient;
     private String mNodeId;
     private Realm mRealm;
-    private ChartPagerAdapter mChartPagerAdapter;
-    private ViewPager mViewPager;
-    private Switch typeToggle;
     private Shared.ClimbType mClimbType;
-    private int mDateOffset;
-
-    private TextView mDateTextView;
     private FloatingActionButton mAddClimbButton;
     private FloatingActionButton mAddGoalButton;
 
@@ -119,23 +100,6 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onCreateOptionsMenu");
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_menu, menu);
-
-        // check last climbtype and set current view
-        typeToggle = (Switch)menu.findItem(R.id.type_toggle).getActionView().findViewById(R.id.switch1);
-        typeToggle.setChecked(mClimbType == Shared.ClimbType.bouldering);
-
-        typeToggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mClimbType = isChecked? Shared.ClimbType.bouldering: Shared.ClimbType.ropes;
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit();
-                // save this in shared pref.edit();
-                editor.putInt(PREF_TYPE, mClimbType.ordinal());
-                editor.commit();
-
-                invalidateRealmResult();
-            }
-        });
 
         // if wear preference is turned off, hide sync button
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
@@ -237,7 +201,7 @@ public class MainActivity extends AppCompatActivity {
                 mShowCaseIndex = 0;
                 resetShot(LIST_SHOT_ID);
                 resetShot(CHART_SHOT_ID);
-                mViewPager.setCurrentItem(1); // start in overview fragment
+                //mViewPager.setCurrentItem(1); // start in overview fragment
                 showNextShowCaseView();
                 return true;
             default:
@@ -275,36 +239,23 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //Log.d(TAG, "onCreate");
+        // add the toggle view for goals/climbs
+        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
+        setSupportActionBar(myToolbar);
+
+        // add behavior for view toggle
+        View viewToggle = getLayoutInflater().inflate(R.layout.view_toggle, null);
+        IconSwitch listViewToggle = (IconSwitch) viewToggle.findViewById(R.id.icon_switch);
+        listViewToggle.setCheckedChangeListener(new IconSwitch.CheckedChangeListener() {
+            @Override
+            public void onCheckChanged(IconSwitch.Checked current) {
+                setVisibleListView(current == IconSwitch.Checked.LEFT);
+            }
+        });
+        setVisibleListView(listViewToggle.getChecked() == IconSwitch.Checked.LEFT);
+        myToolbar.addView(viewToggle);
 
         mRealm = Realm.getDefaultInstance();
-
-        // setup viewpager and adapter
-        mChartPagerAdapter = new ChartPagerAdapter(this,getSupportFragmentManager());
-        mViewPager = (ViewPager) findViewById(R.id.pager);
-        mViewPager.setAdapter(mChartPagerAdapter);
-        mViewPager.setCurrentItem(1); // start in overview fragment
-        /*mViewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
-            @Override
-            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-
-            }
-
-            @Override
-            public void onPageSelected(int position) {
-                if(position == 0 || position == 1) {
-                    mAddClimbButton.show(true);
-                }else {
-                    mAddClimbButton.hide(true);
-                }
-                showPagerShowcase(position);
-            }
-
-            @Override
-            public void onPageScrollStateChanged(int state) {
-
-            }
-        });*/
 
         // get the shared preferences for type and date range
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
@@ -349,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 // add a climb, so open popup
-                showEditClimbDialog(null);
+                showEditClimbDialog(null, EditClimbDialogEvent.EditClimbMode.ADD_SEND);
                 menu.close(true);
 
             }
@@ -364,14 +315,35 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        invalidateRealmResult();
+    }
 
+    private void setVisibleListView(boolean showClimbList) {
+        FragmentManager fm = getSupportFragmentManager();
+        if(showClimbList) {
+            fm.beginTransaction()
+                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
+                    .show(fm.findFragmentById(R.id.climblist))
+                    .commit();
+            fm.beginTransaction()
+                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
+                    .hide(fm.findFragmentById(R.id.goallist))
+                    .commit();
+        }else {
+            fm.beginTransaction()
+                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
+                    .show(fm.findFragmentById(R.id.goallist))
+                    .commit();
+            fm.beginTransaction()
+                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
+                    .hide(fm.findFragmentById(R.id.climblist))
+                    .commit();
+        }
     }
 
     private void showPagerShowcase(int position) {
         if (position == 0 && !hasShot(LIST_SHOT_ID)) {
             mShowCaseView = new ShowcaseView.Builder(this)
-                    .setTarget(new ViewTarget(R.id.pager_title_strip, this))
+                    //.setTarget(new ViewTarget(R.id.pager_title_strip, this))
                     .setContentTitle("List View")
                     .setContentText("This is a list of climbs within the selected date range.  You can edit and delete climbs by long pressing on them.")
                     .setStyle(R.style.CustomShowcaseTheme)
@@ -379,7 +351,7 @@ public class MainActivity extends AppCompatActivity {
             storeShot(LIST_SHOT_ID);
         } else if (position == 2 && !hasShot(CHART_SHOT_ID)) {
             mShowCaseView = new ShowcaseView.Builder(this)
-                    .setTarget(new ViewTarget(R.id.pager_title_strip, this))
+                    //.setTarget(new ViewTarget(R.id.pager_title_strip, this))
                     .setContentTitle("Chart View")
                     .setContentText("This is a chart of session stats within the selected date range.  Click on a bar to see the details of that session.")
                     .setStyle(R.style.CustomShowcaseTheme)
@@ -531,7 +503,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Subscribe
     public void onEditClimbDialogEvent(EditClimbDialogEvent event) {
-        showEditClimbDialog(event.climbUUID);
+        showEditClimbDialog(event.climbUUID, event.mode);
     }
 
     @Subscribe
@@ -550,42 +522,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
-
-
-    public void invalidateRealmResult() {
-        //Log.d(TAG, "setClimbRealmResult");
-        RealmQuery<Climb> realmQuery =  mRealm.where(Climb.class)
-                .equalTo("delete", false)
-                .equalTo("type", mClimbType.ordinal());
-
-        /*ZonedDateTime startZDT = ZonedDateTime.now();
-        startZDT = startZDT.truncatedTo(ChronoUnit.DAYS);
-        ZonedDateTime endZDT = startZDT.plus(1, ChronoUnit.DAYS);
-
-        // add the filter
-        realmQuery.between("date",Shared.ZDTToDate(startZDT),Shared.ZDTToDate(endZDT));*/
-
-
-        // see http://stackoverflow.com/questions/43956135/realmresults-not-being-destroyed-on-new-eventbus-post/43982767#43982767
-        // ADDED THIS TO AVOID CALLING MULTIPLE LISTENERS
-        // When watching memory monitor (Android monitor -> monitors -> Memory), force GC removes additional instances of realm result, so this seems okay
-        if(mResult!=null) {
-            mResult.removeAllChangeListeners();
-        }
-
-        mResult = realmQuery.findAllSorted("date", Sort.ASCENDING);
-        RealmChangeListener listener = new RealmChangeListener<RealmResults<Climb>>() {
-            @Override
-            public void onChange(RealmResults<Climb> element) {
-                Log.d(TAG, "Realmresult onchange");
-                EventBus.getDefault().postSticky(new RealmResultsEvent(element));
-            }
-        };
-        mResult.addChangeListener(listener);
-        EventBus.getDefault().postSticky(new RealmResultsEvent(mResult));
-
-    }
-
 
     private void showNextShowCaseView() {
         // iterate to next showcase view and show it
@@ -617,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
                         "\u2022 " + "Climbs: I want to send 10 climbs per session\n" +
                         "\u2022 " + "Grade: I want to be a V5 climber"+
                         "\n\n *Harder grades are worth more points. V0/5.6 = 0 pts, V1/5.7 = 1 pt, etc");
-                mShowCaseView.setShowcase(new ViewTarget(R.id.pager_title_strip,this), true);
+                //mShowCaseView.setShowcase(new ViewTarget(R.id.pager_title_strip,this), true);
                 break;
             case 5:
                 EventBus.getDefault().post(new ShowcaseEvent(mShowCaseView, ShowcaseEvent.ShowcaseEventType.goals));
@@ -627,8 +563,8 @@ public class MainActivity extends AppCompatActivity {
                 builder = new ShowcaseView.Builder(this)
                         .setStyle(R.style.CustomShowcaseTheme)
                         .useDecorViewAsParent();
-                menuView = findViewById(R.id.type_toggle);
-                if (menuView!=null) {
+                //menuView = findViewById(R.id.type_toggle);
+                /*if (menuView!=null) {
                     mShowCaseView = builder.setContentTitle(MenuDescription.type.title)
                             .setContentText(MenuDescription.type.text)
                             .setTarget(new ViewTarget(menuView))
@@ -644,7 +580,7 @@ public class MainActivity extends AppCompatActivity {
                             .setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.type))
                             .build();
                 }
-                break;
+                break;*/
             case 7:
                 // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
                 menuView = findViewById(R.id.settings);
@@ -743,63 +679,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-    private class ChartPagerAdapter extends FragmentPagerAdapter{
-        private final MainActivity mMainActivity;
-        private ArrayList<Pair<String,Fragment>> mFragmentList; // <title, fragment>
-
-        public ChartPagerAdapter(MainActivity activity, FragmentManager fm) {
-            super(fm);
-            mMainActivity = activity;
-            initiatePages();
-        }
-
-        private void initiatePages() {
-            //Log.d(TAG, "initiatePages");
-            mFragmentList = new ArrayList<>();
-
-            Fragment fragment = new ListViewMobileFragment();
-            mFragmentList.add(new Pair("LIST", fragment));
-
-            // set climb type of the content fragment
-            fragment = new OverviewMobileFragment();
-            mFragmentList.add(new Pair("TODAY", fragment));
-
-            /*fragment = new GradeChartMobileFragment();
-            mFragmentList.add(new Pair("Grades", fragment));
-
-            fragment = new HistoryChartMobileFragment();
-            mFragmentList.add(new Pair("History", fragment));*/
-
-            /*fragment = new CombinedChartMobileFragment();
-            mFragmentList.add(new Pair("CHART", fragment));*/
-
-            fragment = new GoalListFragment();
-            mFragmentList.add(new Pair<>("GOALS", fragment));
-        }
-
-        @Override
-        public Fragment getItem(int position) {
-            // hide fab button for graph views
-            return mFragmentList.get(position).second;
-        }
-
-        @Override
-        public int getCount() {
-            return mFragmentList.size();
-        }
-
-        @Override
-        public CharSequence getPageTitle(int position) {
-            return mFragmentList.get(position).first;
-        }
-
-
-    }
-
-
-
-    private void showEditClimbDialog(String selectedClimbUUID) {
+    private void showEditClimbDialog(String selectedClimbUUID, EditClimbDialogEvent.EditClimbMode mode) {
         // DialogFragment.show() will take care of adding the fragment
         // in a transaction.  We also want to remove any currently showing
         // dialog, so make our own transaction and take care of that here.
@@ -811,7 +691,7 @@ public class MainActivity extends AppCompatActivity {
         ft.addToBackStack(null);
 
         // Create and show the dialog.
-        DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID);
+        DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID, mode);
         newFragment.show(ft, "dialog");
     }
 

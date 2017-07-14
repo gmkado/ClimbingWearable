@@ -27,8 +27,6 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.mysynclibrary.ClimbStats;
-import com.example.mysynclibrary.eventbus.RealmResultsEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.Shared;
@@ -44,7 +42,6 @@ import com.google.gson.Gson;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
-import org.threeten.bp.temporal.ChronoUnit;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -53,7 +50,6 @@ import java.util.List;
 import java.util.Set;
 
 import io.realm.Realm;
-import io.realm.RealmChangeListener;
 import io.realm.RealmResults;
 
 import static org.greenrobot.eventbus.ThreadMode.MAIN;
@@ -77,7 +73,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     private GoogleApiClient mGoogleApiClient;
     private String mNodeId;
     private GestureDetectorCompat mDetector;
-    private ClimbStats mClimbStat;
 
     public MainActivity() {
     }
@@ -335,15 +330,6 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                 .equalTo("delete", false)
                 .greaterThan("date",Shared.getStartofDate(null))
                 .findAll();
-        results.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
-            @Override
-            public void onChange(RealmResults<Climb> element) {
-                mClimbStat = new ClimbStats(element,  mClimbType, ChronoUnit.DAYS, PreferenceManager.getDefaultSharedPreferences(MainActivity.this));
-                EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, 0));
-            }
-        });
-        mClimbStat = new ClimbStats(results,  mClimbType, ChronoUnit.DAYS, PreferenceManager.getDefaultSharedPreferences(this));
-        EventBus.getDefault().postSticky(new RealmResultsEvent(mClimbStat, 0));
     }
 
     private class ContentPagerAdapter extends FragmentGridPagerAdapter {

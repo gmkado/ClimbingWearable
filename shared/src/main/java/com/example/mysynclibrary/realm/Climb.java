@@ -2,39 +2,29 @@ package com.example.mysynclibrary.realm;
 
 import com.example.mysynclibrary.Shared;
 
-import org.threeten.bp.temporal.ChronoUnit;
-
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 
+import io.realm.RealmList;
 import io.realm.RealmObject;
 import io.realm.annotations.Index;
 import io.realm.annotations.PrimaryKey;
-import io.realm.annotations.Required;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
 public class Climb extends RealmObject {
 
     // All fields are by default persisted.
+    @PrimaryKey private String id;
     @Index private int grade;
     private int type;
-    @Required private Date date;  // datetime of send
-    @Required @Index private String sessionDate;  // truncated date for distinct search, can only use string or int
-    @PrimaryKey private String id;
 
-    // project fields
-    // TODO: fall detection https://github.com/BharadwajS/Fall-detection-in-Android/blob/master/Android/SenseFall/SenseFall/src/com/example/sensefall/DisplayMessageActivity.java
-    // - http://stackoverflow.com/questions/22093572/android-sensor-listening-when-app-in-background
-    // - http://stackoverflow.com/questions/4848490/android-how-to-approach-fall-detection-algorithm
-    /*private boolean project; // is a project
-    private int color; // integer representation of color
-    private String area; // area name
-    private Date setdate;  // datetime of set
-    private boolean completed;
-    private int attempts;*/
+    @Index private int color; // integer representation of color
+    @Index private String gym;   // gym name
+    @Index private String area; // area name
+    private Date setDate;  // datetime of set
+    private String notes;   // more distinguishing notes
 
     // sync fields
     private boolean delete;
@@ -83,27 +73,53 @@ public class Climb extends RealmObject {
         this.grade = grade;
     }
 
-    public int getType() {
-        return type;
+    public Shared.ClimbType getType() {
+        return Shared.ClimbType.values()[type];
     }
 
-    public void setType(int type) {
-        this.type = type;
+    public void setType(Shared.ClimbType type) {
+        this.type = type.ordinal();
     }
 
-    public Date getDate() {
-        return date;
+    public int getColor() {
+        return color;
     }
 
-
-    public void setDate(Date date) {
-        this.date = date;
-
-        // TODO: is this robust for different timezones?
-        DateFormat sdf = SimpleDateFormat.getDateInstance(SimpleDateFormat.LONG);
-        this.sessionDate = sdf.format(date);
+    public void setColor(int color) {
+        this.color = color;
     }
 
+    public String getGym() {
+        return gym;
+    }
+
+    public void setGym(String gym) {
+        this.gym = gym;
+    }
+
+    public String getArea() {
+        return area;
+    }
+
+    public void setArea(String area) {
+        this.area = area;
+    }
+
+    public Date getSetDate() {
+        return setDate;
+    }
+
+    public void setSetDate(Date setDate) {
+        this.setDate = setDate;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 
     /********** helper functions for exporting to CSV *******************************/
     public static String[] getTitleRow() {
@@ -111,7 +127,14 @@ public class Climb extends RealmObject {
     }
 
     public String[] toStringArray() {
-        Shared.ClimbType type = Shared.ClimbType.values()[getType()];
-        return new String[] {getDate().toString(), type.title, type.grades.get(getGrade())};
+        Shared.ClimbType type = getType();
+        // TODO: fix this to include new way of recording attempts -- return new String[] {getSendDate().toString(), type.title, type.grades.get(getGrade())};
+        return null;
+    }
+
+    /*********** check validity of climb object *****************/
+    public boolean isValidClimb() {
+        // check all required fields;
+        return true;
     }
 }
