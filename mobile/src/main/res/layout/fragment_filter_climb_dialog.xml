@@ -1,0 +1,76 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:ls="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    tools:context="com.example.grant.wearableclimbtracker.FilterClimbDialogFragment">
+
+    <com.farbod.labelledspinner.LabelledSpinner
+        android:id="@+id/spinner_sortby"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        ls:labelText="Sort By"
+        ls:widgetColor="#F44336">
+
+    </com.farbod.labelledspinner.LabelledSpinner>
+
+    <Switch
+        android:id="@+id/switch_gym"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Filter by Gym" />
+
+    <com.farbod.labelledspinner.LabelledSpinner
+        android:id="@+id/spinner_gyms"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        ls:labelText="Gyms"
+        ls:widgetColor="#F44336" />
+
+    <Switch
+        android:id="@+id/switch_area"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Filter by Area" />
+
+    <com.farbod.labelledspinner.LabelledSpinner
+        android:id="@+id/spinner_areas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        ls:labelText="Areas"
+        ls:widgetColor="#F44336" />
+    <Switch
+        android:id="@+id/switch_project"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Show Projects Only" />
+
+    <Switch
+        android:id="@+id/switch_set"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Show Current Set Only" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/button_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cancel" />
+
+        <Button
+            android:id="@+id/button_ok"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="OK" />
+    </LinearLayout>
+
+
+</LinearLayout>

@@ -6,7 +6,12 @@
     android:orientation="vertical"
     tools:context="com.example.grant.wearableclimbtracker.EditClimbDialogFragment">
 
-
+    <com.polyak.iconswitch.IconSwitch
+        android:id="@+id/switch_climbtype"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:isw_icon_left="@drawable/icon_boulder"
+        app:isw_icon_right="@drawable/icon_ropes" />
     <TabHost
         android:id="@+id/tab_host"
         android:layout_width="match_parent"
@@ -35,24 +40,6 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:visibility="visible">
-
-                    <Switch
-                        android:id="@+id/switch_climbtype"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:paddingBottom="10dp"
-                        android:paddingTop="20dp"
-                        android:text="Climb Type"
-                        android:textAlignment="viewStart"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/textView"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:paddingTop="10dp"
-                        android:text="Goal Type"
-                        android:textStyle="bold" />
 
                     <org.honorato.multistatetogglebutton.MultiStateToggleButton
                         android:id="@+id/mstb_goalunit"

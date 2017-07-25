@@ -4,9 +4,9 @@
     android:layout_width="match_parent" android:layout_height="match_parent"
     >
     <com.polyak.iconswitch.IconSwitch
-        android:id="@+id/icon_switch"
-        android:layout_width="wrap_content"
+        android:id="@+id/switch_climbtype"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:isw_icon_left="@drawable/fab_add"
-        app:isw_icon_right="@drawable/fab_goal" />
+        app:isw_icon_left="@drawable/icon_boulder"
+        app:isw_icon_right="@drawable/icon_ropes" />
 </FrameLayout>

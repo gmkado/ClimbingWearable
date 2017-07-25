@@ -3,29 +3,31 @@ package com.example.grant.wearableclimbtracker;
 import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.PopupMenu;
 import android.support.v7.widget.RecyclerView;
 import android.util.Pair;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
-import com.akexorcist.roundcornerprogressbar.IconRoundCornerProgressBar;
 import com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar;
-import com.example.mysynclibrary.eventbus.EditGoalDialogEvent;
-import com.example.mysynclibrary.goalDAO.CustomGoalDAO;
+import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.goalDAO.GoalDAO;
-import com.example.mysynclibrary.goalDAO.ProjectGoalDAO;
 import com.example.mysynclibrary.realm.Goal;
+import com.github.clans.fab.FloatingActionButton;
 import com.github.mikephil.charting.charts.CombinedChart;
 import com.github.mikephil.charting.components.LimitLine;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.CombinedData;
 
-import org.greenrobot.eventbus.EventBus;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.format.DateTimeFormatter;
 import org.threeten.bp.format.FormatStyle;
@@ -68,33 +70,41 @@ public class GoalListFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_goaldao_list, container, false);
+        View view = inflater.inflate(R.layout.fragment_goal_list, container, false);
 
         mRealm = Realm.getDefaultInstance();
+
         // Set the adapter
-        if (view instanceof RecyclerView) {
-            Context context = view.getContext();
-            final RecyclerView recyclerView = (RecyclerView) view;
-            recyclerView.setLayoutManager(new LinearLayoutManager(context));
+        final RecyclerView recyclerView = (RecyclerView) view.findViewById(R.id.list);
+        recyclerView.setLayoutManager(new LinearLayoutManager(view.getContext()));
 
-            mResult = mRealm.where(Goal.class).findAll();
-            // Add changelistener so if we add a goal, this view updates
-            mResult.addChangeListener(new RealmChangeListener<RealmResults<Goal>>() {
-                @Override
-                public void onChange(RealmResults<Goal> element) {
-                    recyclerView.setAdapter(new MyGoalRecyclerViewAdapter(getGoalList(element)));
-                }
-            });
-            recyclerView.setAdapter(new MyGoalRecyclerViewAdapter(getGoalList(mResult)));
-        }
+        mResult = mRealm.where(Goal.class).findAll();
+        // Add changelistener so if we add a goal, this view updates
+        mResult.addChangeListener(new RealmChangeListener<RealmResults<Goal>>() {
+            @Override
+            public void onChange(RealmResults<Goal> element) {
+                recyclerView.setAdapter(new MyGoalRecyclerViewAdapter(getGoalList(element)));
+            }
+        });
+        recyclerView.setAdapter(new MyGoalRecyclerViewAdapter(getGoalList(mResult)));
 
+        // add goal button listener
+        FloatingActionButton addGoalButton = (FloatingActionButton) view.findViewById(R.id.fab_add_goal);
+        addGoalButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showEditGoalDialog(null);
+            }
+        });
         return view;
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        mResult.removeAllChangeListeners();
+        if(mResult!=null) {
+            mResult.removeAllChangeListeners();
+        }
     }
 
     @Override
@@ -105,11 +115,8 @@ public class GoalListFragment extends Fragment {
 
     private List<GoalDAO> getGoalList(RealmResults<Goal> result) {
         ArrayList<GoalDAO> goallist = new ArrayList<>();
-        //goallist.add(new GoalOfGoalsDAO());  TODO: this seems difficult to implement
-        goallist.add(new ProjectGoalDAO());
-
         for(Goal goal:result) {
-            goallist.add(new CustomGoalDAO(goal));
+            goallist.add(new GoalDAO(goal));
         }
 
         return goallist;
@@ -124,7 +131,7 @@ public class GoalListFragment extends Fragment {
     /**
      * {@link RecyclerView.Adapter} that can display a {@link GoalDAO}
      */
-    public static class MyGoalRecyclerViewAdapter extends RecyclerView.Adapter<MyGoalRecyclerViewAdapter.ViewHolder> {
+    public class MyGoalRecyclerViewAdapter extends RecyclerView.Adapter<MyGoalRecyclerViewAdapter.ViewHolder> {
 
         private final List<GoalDAO> mValues;
 
@@ -135,7 +142,7 @@ public class GoalListFragment extends Fragment {
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.fragment_goaldao, parent, false);
+                    .inflate(R.layout.listitem_goal_mobile, parent, false);
             return new ViewHolder(view);
         }
 
@@ -144,6 +151,32 @@ public class GoalListFragment extends Fragment {
             holder.mItem = mValues.get(position);
 
             holder.mTitleTextView.setText(holder.mItem.getSummary());
+
+            // TODO: rethink how important it is to keep different goal types
+
+            holder.mMenu.setVisibility(View.VISIBLE);
+            // populate mMenu and add onclicklistener
+            holder.mMenu.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    PopupMenu menu = new PopupMenu(getContext(), holder.mMenu);
+                    menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+
+                        @Override
+                        public boolean onMenuItemClick(MenuItem item) {
+                            int id = item.getItemId();
+                            switch (id) {
+                                case R.id.item_edit:
+                                    showEditGoalDialog(holder.mItem.getID());
+                                    break;
+                            }
+                            return true;
+                        }
+                    });
+                    menu.inflate(R.menu.menu_goal_listitem);
+                    menu.show();
+                }
+            });
             holder.mNonrecurringView.getLayoutTransition().setAnimateParentHierarchy(false); // this fixed weird animate overlap issues https://stackoverflow.com/questions/36064424/animate-layout-changes-broken-in-nested-layout-with-collapsingtoolbarlayout
             holder.mNonrecurringProgressBar.setProgressColor(Color.parseColor("#56d2c2"));
             holder.mNonrecurringProgressBar.setProgressBackgroundColor(Color.parseColor("#757575"));
@@ -201,6 +234,7 @@ public class GoalListFragment extends Fragment {
         class ViewHolder extends RecyclerView.ViewHolder {
             final View mView;
             final TextView mTitleTextView;
+            private ImageButton mMenu;
             TextView mNonrecurringDateRangeTextView;
             TextView mRecurringDateRangeTextView;
 
@@ -218,7 +252,7 @@ public class GoalListFragment extends Fragment {
                 super(view);
                 mView = view;
                 mTitleTextView = (TextView) view.findViewById(R.id.textview_title);
-
+                mMenu = (ImageButton) view.findViewById(R.id.imagebutton_menu);
                 mNonrecurringView = (ViewGroup) view.findViewById(R.id.layout_nonrecurring);
                 mNonrecurringProgressBar = (TextRoundCornerProgressBar) mNonrecurringView.findViewById(R.id.rcprogress);
                 mNonrecurringChart = (CombinedChart)mNonrecurringView.findViewById(R.id.chart);
@@ -230,19 +264,6 @@ public class GoalListFragment extends Fragment {
                 mRecurringChart = (CombinedChart)mRecurringView.findViewById(R.id.chart);
                 final View recurringExpandedView = mRecurringView.findViewById(R.id.layout_expandableview);
                 mRecurringDateRangeTextView = (TextView) mRecurringView.findViewById(R.id.textview_daterange);
-
-                view.setOnLongClickListener(new View.OnLongClickListener() {
-                    @Override
-                    public boolean onLongClick(View v) {
-                        GoalDAO goalDAO = mValues.get(getAdapterPosition());
-
-                        // Create and show the dialog.
-                        if(goalDAO.getType().equals(CustomGoalDAO.TYPE)) {
-                            EventBus.getDefault().post(new EditGoalDialogEvent(((CustomGoalDAO) goalDAO).getID()));
-                        }
-                        return true;
-                    }
-                });
 
                 mNonrecurringProgressBar.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -373,7 +394,7 @@ public class GoalListFragment extends Fragment {
             public void refreshNonrecurringDateText() {
                 Pair<ZonedDateTime,ZonedDateTime> dr = mItem.getDateRange(false);
                 if(dr == null) {
-                    mNonrecurringDateRangeTextView.setVisibility(View.GONE); // date range not applicable
+                    mNonrecurringDateRangeTextView.setVisibility(View.GONE); // gym range not applicable
                 }else {
                     mNonrecurringDateRangeTextView.setText(
                             DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(dr.first) + " to " +
@@ -390,4 +411,22 @@ public class GoalListFragment extends Fragment {
             }
         }
     }
+
+    private void showEditGoalDialog(String selectedGoalUUID) {
+        // DialogFragment.show() will take care of adding the fragment
+        // in a transaction.  We also want to remove any currently showing
+        // dialog, so make our own transaction and take care of that here.
+        FragmentTransaction ft = getActivity().getSupportFragmentManager().beginTransaction();
+        Fragment prev = getActivity().getSupportFragmentManager().findFragmentByTag("dialog");
+        if (prev != null) {
+            ft.remove(prev);
+        }
+        ft.addToBackStack(null);
+
+        // Create and show the dialog.
+        Shared.ClimbType type = Shared.ClimbType.bouldering; //TODO: if filtering by climb type, use that climbtype in editclimb
+        DialogFragment newFragment = EditGoalDialogFragment.newInstance(type, selectedGoalUUID);
+        newFragment.show(ft, "dialog");
+    }
+
 }

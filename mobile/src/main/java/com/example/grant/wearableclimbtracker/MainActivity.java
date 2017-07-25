@@ -3,36 +3,30 @@ package com.example.grant.wearableclimbtracker;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
-import android.support.v4.app.DialogFragment;
+import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ShareCompat;
 import android.support.v4.content.FileProvider;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.View;
+import android.support.design.widget.NavigationView;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Toast;
 
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
-import com.example.mysynclibrary.eventbus.EditGoalDialogEvent;
-import com.example.mysynclibrary.eventbus.ListScrollEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
-import com.github.amlcurran.showcaseview.ShowcaseView;
-import com.github.amlcurran.showcaseview.targets.Target;
-import com.github.amlcurran.showcaseview.targets.ViewTarget;
-import com.github.clans.fab.FloatingActionButton;
-import com.github.clans.fab.FloatingActionMenu;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -43,7 +37,6 @@ import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 import com.google.gson.Gson;
 import com.opencsv.CSVWriter;
-import com.polyak.iconswitch.IconSwitch;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -55,7 +48,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -63,28 +55,17 @@ import java.util.Set;
 import io.realm.Realm;
 import io.realm.RealmResults;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener {
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREF_LASTSYNC = "prefLastSync";
-    private static final String PREF_TYPE = "prefType";
     private static final long SYNC_TIMOUT_MS = 3000; // time to wait for response from wearable
 
-    private static final int MAIN_INTRO_SHOT_ID = 1;
-    private static final int LIST_SHOT_ID = 2;
-    private static final int CHART_SHOT_ID = 3;
     private static final String FILE_AUTHORITY = "com.example.grant.wearableclimbtracker.fileprovider";
-
     private GoogleApiClient mGoogleApiClient;
     private String mNodeId;
     private Realm mRealm;
-    private Shared.ClimbType mClimbType;
-    private FloatingActionButton mAddClimbButton;
-    private FloatingActionButton mAddGoalButton;
-
-
-    private int mShowCaseIndex;
-    private ShowcaseView mShowCaseView;
 
     private Handler mTimerHandler = new Handler();
     private Runnable mTimerRunnable = new Runnable() {
@@ -93,121 +74,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this,"No response from wear. Check that wear settings is enabled and app is open on wearable", Toast.LENGTH_LONG).show();
         }
     };
-    private RealmResults<Climb> mResult;
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        Log.d(TAG, "onCreateOptionsMenu");
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.main_menu, menu);
-
-        // if wear preference is turned off, hide sync button
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean wearEnabled = sharedPref.getBoolean(Shared.KEY_WEAR_ENABLED, false);
-        if(wearEnabled) {
-            menu.findItem(R.id.sync_db).setVisible(true);
-            getSupportActionBar().setSubtitle("Last sync: " + sharedPref.getString(PREF_LASTSYNC, "never"));
-        }else {
-            menu.findItem(R.id.sync_db).setVisible(false);
-            getSupportActionBar().setSubtitle("");
-        }
-
-        return true;
-    }
-
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        //Log.d(TAG, "onOptionsItemSelected");
-        Intent intent;
-        switch (item.getItemId()) {
-            case R.id.sync_db:
-                // start sync process
-                Log.d(TAG, "requesting sync");
-                sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
-
-                // start a timer to see if we get a response
-                mTimerHandler.postDelayed(mTimerRunnable, SYNC_TIMOUT_MS);
-                return true;
-            case R.id.settings:
-                // open settings
-                intent = new Intent(this, SettingsActivity.class);
-                startActivity(intent);
-                return true;
-            case R.id.export:
-                // query all sends and export to CSV
-                File imagePath = new File(getApplicationContext().getFilesDir(), "exports");
-                boolean dirExists = imagePath.exists();
-                if(!dirExists) {
-                    dirExists = imagePath.mkdirs(); // create the directory if it doesn't exist already
-                }
-                if(dirExists) {
-                    File newFile = new File(imagePath, "myclimbs.csv"); // create the csv file
-                    try {
-                        CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
-                        writer.writeNext(Climb.getTitleRow());
-
-                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo("delete", true).findAll();
-                        for (Climb climb : result) {
-                            writer.writeNext(climb.toStringArray());
-                        }
-                        writer.close();
-                    }catch(IOException e) {
-                        Log.e(TAG, "error during csv write:" + e.getMessage());
-                        return true;
-                    }
-
-                    Intent intentShareFile = new Intent(Intent.ACTION_SEND);
-                    intentShareFile.setAction(Intent.ACTION_SEND);
-
-                    // NOTE: using https://medium.com/google-developers/sharing-content-between-android-apps-2e6db9d1368b
-                    Uri contentUri;
-                    try {
-                        contentUri = FileProvider.getUriForFile(this, FILE_AUTHORITY, newFile);
-                    }catch (IllegalArgumentException e){
-                        Log.e(TAG, "The selected file can't be shared: " + newFile.getName());
-                        return true;
-                    }
-
-                    if(contentUri!= null) {
-                        Intent shareIntent = ShareCompat.IntentBuilder.from(this)
-                                .setStream(contentUri)
-                                .setType("text/csv")
-                                .createChooserIntent();
-                        // Provide read access
-                        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        if(shareIntent.resolveActivity(getPackageManager()) != null){
-                            Log.d(TAG, "Successfully created share intent.  starting activity");
-                            startActivity(shareIntent);
-                        }else {
-                            Log.e(TAG, "No activity available to handle MIME type ");
-                        }
-                    }else {
-                        Log.e(TAG, "failed to get content URI");
-                    }
-
-                }else {
-                    Log.e(TAG, "Could not create directory");
-                }
-                return true;
-            case R.id.feedback:
-                intent = new Intent(Intent.ACTION_SENDTO, Uri.fromParts(
-                        "mailto","gkadokura+climbapp@gmail.com", null));
-                intent.putExtra(Intent.EXTRA_SUBJECT, "Feedback for climbing app"); // TODO: put correct name here
-                //intent.putExtra(Intent.EXTRA_TEXT, message);
-                startActivity(Intent.createChooser(intent, "Choose an Email client :"));
-                return true;
-            case R.id.showHelp:
-                mShowCaseIndex = 0;
-                resetShot(LIST_SHOT_ID);
-                resetShot(CHART_SHOT_ID);
-                //mViewPager.setCurrentItem(1); // start in overview fragment
-                showNextShowCaseView();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
 
     @Override
     protected void onStop() {
@@ -238,36 +104,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
-        // add the toggle view for goals/climbs
-        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
-        setSupportActionBar(myToolbar);
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.setDrawerListener(toggle);
+        toggle.syncState();
 
-        // add behavior for view toggle
-        View viewToggle = getLayoutInflater().inflate(R.layout.view_toggle, null);
-        IconSwitch listViewToggle = (IconSwitch) viewToggle.findViewById(R.id.icon_switch);
-        listViewToggle.setCheckedChangeListener(new IconSwitch.CheckedChangeListener() {
-            @Override
-            public void onCheckChanged(IconSwitch.Checked current) {
-                setVisibleListView(current == IconSwitch.Checked.LEFT);
-            }
-        });
-        setVisibleListView(listViewToggle.getChecked() == IconSwitch.Checked.LEFT);
-        myToolbar.addView(viewToggle);
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
 
         mRealm = Realm.getDefaultInstance();
 
-        // get the shared preferences for type and date range
-        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-        mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_TYPE, Shared.ClimbType.bouldering.ordinal())];
-
-        if(!hasShot(MAIN_INTRO_SHOT_ID)) {
-            showNextShowCaseView();
-            storeShot(MAIN_INTRO_SHOT_ID);
-        }
-
-        //  set title to last update date
-        getSupportActionBar().setSubtitle("Last sync: " + pref.getString(PREF_LASTSYNC, "never"));
+        // TODO:set sync menu title to last update
+        //getSupportActionBar().setSubtitle("Last sync: " + pref.getString(PREF_LASTSYNC, "never"));
 
         // setup google api
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -294,81 +146,161 @@ public class MainActivity extends AppCompatActivity {
                 .addApi(Wearable.API)
                 .build();
 
-        final FloatingActionMenu menu = (FloatingActionMenu)findViewById(R.id.fab_menu);
-        mAddClimbButton = (FloatingActionButton) findViewById(R.id.fab_add_climb);
-        mAddClimbButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // add a climb, so open popup
-                showEditClimbDialog(null, EditClimbDialogEvent.EditClimbMode.ADD_SEND);
-                menu.close(true);
+        // Show climbs fragment
+        Fragment fragment = ClimbListMobileFragment.newInstance();
+        getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
 
-            }
-        });
-        mAddGoalButton = (FloatingActionButton) findViewById(R.id.fab_add_goal);
-        mAddGoalButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // add a climb, so open popup
-                showEditGoalDialog(null);
-                menu.close(true);
-            }
-        });
+        MenuItem item = navigationView.getMenu().getItem(0);
+        item.setChecked(true);
+        setTitle(item.getTitle()); // Set action bar title
 
     }
 
-    private void setVisibleListView(boolean showClimbList) {
-        FragmentManager fm = getSupportFragmentManager();
-        if(showClimbList) {
-            fm.beginTransaction()
-                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
-                    .show(fm.findFragmentById(R.id.climblist))
-                    .commit();
-            fm.beginTransaction()
-                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
-                    .hide(fm.findFragmentById(R.id.goallist))
-                    .commit();
-        }else {
-            fm.beginTransaction()
-                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
-                    .show(fm.findFragmentById(R.id.goallist))
-                    .commit();
-            fm.beginTransaction()
-                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
-                    .hide(fm.findFragmentById(R.id.climblist))
-                    .commit();
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
         }
     }
 
-    private void showPagerShowcase(int position) {
-        if (position == 0 && !hasShot(LIST_SHOT_ID)) {
-            mShowCaseView = new ShowcaseView.Builder(this)
-                    //.setTarget(new ViewTarget(R.id.pager_title_strip, this))
-                    .setContentTitle("List View")
-                    .setContentText("This is a list of climbs within the selected date range.  You can edit and delete climbs by long pressing on them.")
-                    .setStyle(R.style.CustomShowcaseTheme)
-                    .build();
-            storeShot(LIST_SHOT_ID);
-        } else if (position == 2 && !hasShot(CHART_SHOT_ID)) {
-            mShowCaseView = new ShowcaseView.Builder(this)
-                    //.setTarget(new ViewTarget(R.id.pager_title_strip, this))
-                    .setContentTitle("Chart View")
-                    .setContentText("This is a chart of session stats within the selected date range.  Click on a bar to see the details of that session.")
-                    .setStyle(R.style.CustomShowcaseTheme)
-                    .build();
-            storeShot(CHART_SHOT_ID);
-        }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_settings) {
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(MenuItem item) {
+        // Handle navigation view item clicks here.
+        Fragment fragment;
+        Intent intent;
+        switch(item.getItemId()) {
+            case R.id.nav_climb:
+                // show the climb fragment
+                fragment = ClimbListMobileFragment.newInstance();
+                getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
+
+                item.setChecked(true); // Highlight the selected item has been done by NavigationView
+                setTitle(item.getTitle()); // Set action bar title
+                break;
+            case R.id.nav_goal:
+                fragment = GoalListFragment.newInstance();
+                getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
+
+                item.setChecked(true); // Highlight the selected item has been done by NavigationView
+                setTitle(item.getTitle()); // Set action bar title
+                break;
+            case R.id.nav_sync:
+                // start sync process
+                Log.d(TAG, "requesting sync");
+                sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
+
+                // start a timer to see if we get a response
+                mTimerHandler.postDelayed(mTimerRunnable, SYNC_TIMOUT_MS);
+                break;
+            case R.id.nav_settings:
+                // open settings
+                intent = new Intent(this, SettingsActivity.class);
+                startActivity(intent);
+                break;
+            case R.id.nav_export:
+                // query all sends and export to CSV
+                File imagePath = new File(getApplicationContext().getFilesDir(), "exports");
+                boolean dirExists = imagePath.exists();
+                if (!dirExists) {
+                    dirExists = imagePath.mkdirs(); // create the directory if it doesn't exist already
+                }
+                if (dirExists) {
+                    File newFile = new File(imagePath, "myclimbs.csv"); // create the csv file
+                    try {
+                        CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
+                        writer.writeNext(Climb.getTitleRow());
+
+                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo("delete", true).findAll();
+                        for (Climb climb : result) {
+                            writer.writeNext(climb.toStringArray());
+                        }
+                        writer.close();
+                    } catch (IOException e) {
+                        Log.e(TAG, "error during csv write:" + e.getMessage());
+                        return true;
+                    }
+
+                    Intent intentShareFile = new Intent(Intent.ACTION_SEND);
+                    intentShareFile.setAction(Intent.ACTION_SEND);
+
+                    // NOTE: using https://medium.com/google-developers/sharing-content-between-android-apps-2e6db9d1368b
+                    Uri contentUri;
+                    try {
+                        contentUri = FileProvider.getUriForFile(this, FILE_AUTHORITY, newFile);
+                    } catch (IllegalArgumentException e) {
+                        Log.e(TAG, "The selected file can't be shared: " + newFile.getName());
+                        return true;
+                    }
+
+                    if (contentUri != null) {
+                        Intent shareIntent = ShareCompat.IntentBuilder.from(this)
+                                .setStream(contentUri)
+                                .setType("text/csv")
+                                .createChooserIntent();
+                        // Provide read access
+                        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        if (shareIntent.resolveActivity(getPackageManager()) != null) {
+                            Log.d(TAG, "Successfully created share intent.  starting activity");
+                            startActivity(shareIntent);
+                        } else {
+                            Log.e(TAG, "No activity available to handle MIME type ");
+                        }
+                    } else {
+                        Log.e(TAG, "failed to get content URI");
+                    }
+
+                } else {
+                    Log.e(TAG, "Could not create directory");
+                }
+                break;
+            case R.id.nav_feedback:
+                intent = new Intent(Intent.ACTION_SENDTO, Uri.fromParts(
+                        "mailto", "gkadokura+climbapp@gmail.com", null));
+                intent.putExtra(Intent.EXTRA_SUBJECT, "Feedback for climbing app"); // TODO: put correct name here
+                //intent.putExtra(Intent.EXTRA_TEXT, message);
+                startActivity(Intent.createChooser(intent, "Choose an Email client :"));
+                break;
+        }
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+        return true;
+    }
 
     private void sendMessageToRealmCreator(final String path, final byte[] data) {
         //Log.d(TAG,"sendMessageToRealmCreator");
         if(mNodeId == null) {
-                // need to find a capable node
-                PendingResult result = Wearable.CapabilityApi.getCapability(
-                        mGoogleApiClient, REALM_CONTENT_CREATOR_CAPABILITY,
-                        CapabilityApi.FILTER_REACHABLE);
-                result.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
+            // need to find a capable node
+            PendingResult result = Wearable.CapabilityApi.getCapability(
+                    mGoogleApiClient, REALM_CONTENT_CREATOR_CAPABILITY,
+                    CapabilityApi.FILTER_REACHABLE);
+            result.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
                 @Override
                 public void onResult(@NonNull CapabilityApi.GetCapabilityResult result) {
                     Set<Node> connectedNodes = result.getCapability().getNodes();
@@ -409,7 +341,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**************** EVENT BUS LISTENERS ***************************/
-    @Subscribe (threadMode = ThreadMode.MAIN)
+    @Subscribe(threadMode = ThreadMode.MAIN)
     public void onWearMessageReceived(WearMessageEvent event) {
         switch(event.messageEvent.getPath()) {
             case Shared.REALM_SYNC_PATH:
@@ -455,7 +387,7 @@ public class MainActivity extends AppCompatActivity {
                         deleteClimbs.deleteAllFromRealm();
 
 
-                        //set today as the new last sync date
+                        //set today as the new last sync gym
                         SharedPreferences.Editor editor = settings.edit();
                         DateFormat df = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
@@ -469,12 +401,12 @@ public class MainActivity extends AppCompatActivity {
                                 getSupportActionBar().setSubtitle("Last sync: " + newSyncDate);
                             }
                         });
-                        List<Climb> nonWear = realm.where(Climb.class).lessThan("date",Shared.getStartofDate(null)).equalTo("onwear", true).findAll();
+                        List<Climb> nonWear = realm.where(Climb.class).lessThan("gym",Shared.getStartofDate(null)).equalTo("onwear", true).findAll();
                         for (Climb climb: nonWear) {
                             climb.setOnwear(false);
                         }
 
-                        List<Climb> todaysClimbs = realm.where(Climb.class).greaterThanOrEqualTo("date",Shared.getStartofDate(null)).findAll();
+                        List<Climb> todaysClimbs = realm.where(Climb.class).greaterThanOrEqualTo("gym",Shared.getStartofDate(null)).findAll();
 
                         //set onwear to true
                         for (Climb climb: todaysClimbs) {
@@ -499,232 +431,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
-    }
-
-    @Subscribe
-    public void onEditClimbDialogEvent(EditClimbDialogEvent event) {
-        showEditClimbDialog(event.climbUUID, event.mode);
-    }
-
-    @Subscribe
-    public void onEditGoalEvent(EditGoalDialogEvent event) {
-        showEditGoalDialog(event.goalUUID);
-    }
-
-    @Subscribe
-    public void onListScrollEvent(ListScrollEvent event) {
-        switch (event.type) {
-            case up:
-                mAddClimbButton.show(true);
-                break;
-            case down:
-                mAddClimbButton.hide(true);
-                break;
-        }
-    }
-
-    private void showNextShowCaseView() {
-        // iterate to next showcase view and show it
-        View menuView;
-        ShowcaseView.Builder builder;
-        switch(mShowCaseIndex) {
-            case 0:
-                String title = "Add Climb";
-                String content = "Click this button to record a new climb";
-                builder = new ShowcaseView.Builder(this)
-                    .setTarget(new ViewTarget(R.id.fab_add_climb, this))
-                    .setContentTitle(title)
-                    .setContentText(content)
-                    .setStyle(R.style.CustomShowcaseTheme)
-                    .setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            showNextShowCaseView();
-                        }
-                    });
-                mShowCaseView = builder.build();
-                mShowCaseView.setButtonText("Next");
-                break;
-
-            case 4:
-                mShowCaseView.setContentTitle("Your climbing goals");
-                mShowCaseView.setContentText("This area helps you keep track of your goals, which you can change in the settings menu:\n" +
-                        "\u2022 " + "Points*: I want to send 30 points per session\n" +
-                        "\u2022 " + "Climbs: I want to send 10 climbs per session\n" +
-                        "\u2022 " + "Grade: I want to be a V5 climber"+
-                        "\n\n *Harder grades are worth more points. V0/5.6 = 0 pts, V1/5.7 = 1 pt, etc");
-                //mShowCaseView.setShowcase(new ViewTarget(R.id.pager_title_strip,this), true);
-                break;
-            case 5:
-                EventBus.getDefault().post(new ShowcaseEvent(mShowCaseView, ShowcaseEvent.ShowcaseEventType.goals));
-                break;
-            case 6:
-                mShowCaseView.hide();  // hide the previous views and start showcasing menu items
-                builder = new ShowcaseView.Builder(this)
-                        .setStyle(R.style.CustomShowcaseTheme)
-                        .useDecorViewAsParent();
-                //menuView = findViewById(R.id.type_toggle);
-                /*if (menuView!=null) {
-                    mShowCaseView = builder.setContentTitle(MenuDescription.type.title)
-                            .setContentText(MenuDescription.type.text)
-                            .setTarget(new ViewTarget(menuView))
-                            .setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    showNextShowCaseView();
-                                }
-                            }).build();
-                    mShowCaseView.setButtonText("Next");
-                }else{
-                    mShowCaseView = builder.setContentTitle(MenuDescription.getCondensedShowcaseTitle())
-                            .setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.type))
-                            .build();
-                }
-                break;*/
-            case 7:
-                // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
-                menuView = findViewById(R.id.settings);
-                if (menuView!=null) {
-                    mShowCaseView.setContentTitle(MenuDescription.settings.title);
-                    mShowCaseView.setContentText(MenuDescription.settings.text);
-                    mShowCaseView.setShowcase(new ViewTarget(menuView), true);
-                }else{
-                    mShowCaseView.setShowcase(Target.NONE, true);
-                    mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
-                    mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.settings));
-                    mShowCaseView.overrideButtonClick(null);
-                    mShowCaseView.setButtonText("CLOSE");
-                }
-                break;
-            case 8:
-                // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
-                menuView = findViewById(R.id.export);
-                if (menuView!=null) {
-                    mShowCaseView.setContentTitle(MenuDescription.export.title);
-                    mShowCaseView.setContentText(MenuDescription.export.text);
-                    mShowCaseView.setShowcase(new ViewTarget(menuView), true);
-                }else{
-                    mShowCaseView.setShowcase(Target.NONE, true);
-                    mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
-                    mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.export));
-                    mShowCaseView.overrideButtonClick(null);
-                    mShowCaseView.setButtonText("CLOSE");
-                }
-                break;
-            case 9:
-                // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
-                menuView = findViewById(R.id.showHelp);
-                if (menuView!=null) {
-                    mShowCaseView.setContentTitle(MenuDescription.help.title);
-                    mShowCaseView.setContentText(MenuDescription.help.text);
-                    mShowCaseView.setShowcase(new ViewTarget(menuView), true);
-                }else{
-                    mShowCaseView.setShowcase(Target.NONE, true);
-                    mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
-                    mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.help));
-                    mShowCaseView.overrideButtonClick(null);
-                    mShowCaseView.setButtonText("CLOSE");
-                }
-                break;
-            case 10:
-                // if we got here then the previous menu item was okay, so mShowCaseView was properly initialized
-                menuView = findViewById(R.id.export);
-                if (menuView!=null) {
-                    mShowCaseView.setContentTitle(MenuDescription.feedback.title);
-                    mShowCaseView.setContentText(MenuDescription.feedback.text);
-                    mShowCaseView.setShowcase(new ViewTarget(menuView), true);
-                }else{
-                    mShowCaseView.setShowcase(Target.NONE, true);
-                    mShowCaseView.setContentTitle(MenuDescription.getCondensedShowcaseTitle());
-                    mShowCaseView.setContentText(MenuDescription.getCondensedShowcaseText(MenuDescription.feedback));
-                    mShowCaseView.overrideButtonClick(null);
-                    mShowCaseView.setButtonText("CLOSE");
-                }
-                break;
-            default:
-                mShowCaseView.hide();
-        }
-        mShowCaseIndex++;
-    }
-
-    enum MenuDescription {
-        type("Climb Type", "Toggle between bouldering and rope climbing"),
-        settings("Settings", "Enable/disable wear, goal and warmup settings"),
-        export("Export", "Export climbs to CSV"),
-        help("Help", "Show this intro again"),
-        feedback("Feedback", "Send an email to the developer.  \n\nPLEASE let me know what you think, what features you like and dislike, and what motivates you to climb in general!");
-
-        private final String title;
-        private final String text;
-
-        MenuDescription(String title, String text){
-            this.title = title;
-            this.text = text;
-        }
-
-        public String getBulletPoint() {
-            return "\u2022 " + this.title + ": " + this.text;
-        }
-
-        public static String getCondensedShowcaseTitle(){return "Other menu options:";}
-
-        public static String getCondensedShowcaseText(MenuDescription item) {
-            // return a bulletpoint list of all menu items after item
-            List<MenuDescription> list = Arrays.asList(MenuDescription.values()).subList(item.ordinal(), MenuDescription.values().length);
-            String showcaseText="";
-            for (MenuDescription desc: list) {
-                showcaseText = showcaseText+desc.getBulletPoint()+"\n";
-            }
-            return showcaseText;
-        }
-    }
-
-    private void showEditClimbDialog(String selectedClimbUUID, EditClimbDialogEvent.EditClimbMode mode) {
-        // DialogFragment.show() will take care of adding the fragment
-        // in a transaction.  We also want to remove any currently showing
-        // dialog, so make our own transaction and take care of that here.
-        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-        Fragment prev = getSupportFragmentManager().findFragmentByTag("dialog");
-        if (prev != null) {
-            ft.remove(prev);
-        }
-        ft.addToBackStack(null);
-
-        // Create and show the dialog.
-        DialogFragment newFragment = EditClimbDialogFragment.newInstance(mClimbType.ordinal(), selectedClimbUUID, mode);
-        newFragment.show(ft, "dialog");
-    }
-
-    private void showEditGoalDialog(String selectedGoalUUID) {
-        // DialogFragment.show() will take care of adding the fragment
-        // in a transaction.  We also want to remove any currently showing
-        // dialog, so make our own transaction and take care of that here.
-        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-        Fragment prev = getSupportFragmentManager().findFragmentByTag("dialog");
-        if (prev != null) {
-            ft.remove(prev);
-        }
-        ft.addToBackStack(null);
-
-        // Create and show the dialog.
-        DialogFragment newFragment = EditGoalDialogFragment.newInstance(mClimbType.ordinal(), selectedGoalUUID);
-        newFragment.show(ft, "dialog");
-    }
-
-    /******************** THIS IS FOR SINGLESHOT TRACKING OF SHOWCASE VIEW ******************************/
-    boolean hasShot(int shotId) {
-        return PreferenceManager.getDefaultSharedPreferences(this)
-                .getBoolean("hasShot" + shotId, false);
-    }
-
-    void storeShot(int shotId) {
-        SharedPreferences internal = PreferenceManager.getDefaultSharedPreferences(this);
-        internal.edit().putBoolean("hasShot" + shotId, true).apply();
-    }
-
-    void resetShot(int shotId) {
-        SharedPreferences internal = PreferenceManager.getDefaultSharedPreferences(this);
-        internal.edit().putBoolean("hasShot" + shotId, false).apply();
     }
 
 }

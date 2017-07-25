@@ -1,12 +1,10 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.content.DialogInterface;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -27,10 +25,9 @@ import android.widget.TabHost;
 import android.widget.TextView;
 
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.EditGoalDialogEvent;
 import com.example.mysynclibrary.realm.Goal;
+import com.polyak.iconswitch.IconSwitch;
 
-import org.greenrobot.eventbus.EventBus;
 import org.honorato.multistatetogglebutton.MultiStateToggleButton;
 import org.honorato.multistatetogglebutton.ToggleButton;
 import org.threeten.bp.ZonedDateTime;
@@ -58,7 +55,7 @@ public class EditGoalDialogFragment extends DialogFragment {
     private DatePicker mEndDatePicker;
     private LinearLayout mPeriodLayout;
     private Spinner mGradeSpinner;
-    private Switch mClimbTypeSwitch;
+    private IconSwitch mClimbTypeSwitch;
     private TextView mTargetSuffix;
     private EditText mTargetEditText;
     private Spinner mHeightUnitSpinner;
@@ -77,10 +74,10 @@ public class EditGoalDialogFragment extends DialogFragment {
      * @param climbUuid String uuid of climb (if editing a climb.
      * @return A new instance of fragment EditClimbDialogFragment.
      */
-    public static EditGoalDialogFragment newInstance(int climbType, String climbUuid) {
+    public static EditGoalDialogFragment newInstance(Shared.ClimbType climbType, String climbUuid) {
         EditGoalDialogFragment fragment = new EditGoalDialogFragment();
         Bundle args = new Bundle();
-        args.putInt(ARG_CLIMBTYPE, climbType);
+        args.putInt(ARG_CLIMBTYPE, climbType.ordinal());
         args.putString(ARG_GOALUUID, climbUuid);
         fragment.setArguments(args);
         return fragment;
@@ -101,7 +98,7 @@ public class EditGoalDialogFragment extends DialogFragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        View v = inflater.inflate(R.layout.fragment_edit_goal_dialog, container, false);
+        View v = inflater.inflate(R.layout.dialog_edit_goal, container, false);
         TabHost host = (TabHost)v.findViewById(R.id.tab_host);
         host.setup();
 
@@ -130,7 +127,7 @@ public class EditGoalDialogFragment extends DialogFragment {
         mSaveButton = (Button)v.findViewById(R.id.save_button);
         mEndDatePicker = (DatePicker)v.findViewById(R.id.datePicker_enddate);
         mPeriodLayout = (LinearLayout) v.findViewById(R.id.layout_period);
-        mClimbTypeSwitch = (Switch) v.findViewById(R.id.switch_climbtype);
+        mClimbTypeSwitch = (IconSwitch) v.findViewById(R.id.switch_climbtype);
         mGradeSpinner = (Spinner) v.findViewById(R.id.spinner_grade);
         mTargetSuffix = (TextView) v.findViewById(R.id.textView_targetSuffix);
         mPeriodSuffix = (TextView) v.findViewById(R.id.textview_periodSuffix);
@@ -148,20 +145,12 @@ public class EditGoalDialogFragment extends DialogFragment {
                 public void onClick(View view) {
                     Realm realm = Realm.getDefaultInstance();
                     try {
-                        realm.executeTransactionAsync(new Realm.Transaction() {
-                            @Override
-                            public void execute(Realm realm) {
-                                realm.where(Goal.class).equalTo("id", mGoalUUID).findFirst().deleteFromRealm();
-                            }
-                        }, new Realm.Transaction.OnSuccess() {
-
-                            @Override
-                            public void onSuccess() {
-                                dismiss();
-                            }
-                        });
+                        realm.beginTransaction();
+                        realm.where(Goal.class).equalTo("id", mGoalUUID).findFirst().deleteFromRealm();
+                        realm.commitTransaction();
                     } finally {
                         realm.close();
+                        dismiss();
                     }
                 }
             });
@@ -176,11 +165,11 @@ public class EditGoalDialogFragment extends DialogFragment {
         }
 
         /******************* DETAILS **********************************/
-        mClimbTypeSwitch.setChecked(mGoal.getClimbType()== Shared.ClimbType.bouldering);
-        mClimbTypeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        mClimbTypeSwitch.setChecked(mGoal.getClimbType()== Shared.ClimbType.bouldering? IconSwitch.Checked.LEFT: IconSwitch.Checked.RIGHT);
+        mClimbTypeSwitch.setCheckedChangeListener(new IconSwitch.CheckedChangeListener() {
             @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mGoal.setClimbType(isChecked? Shared.ClimbType.bouldering: Shared.ClimbType.ropes);
+            public void onCheckChanged(IconSwitch.Checked current) {
+                mGoal.setClimbType(current == IconSwitch.Checked.LEFT? Shared.ClimbType.bouldering: Shared.ClimbType.ropes);
                 updateClimbTypeUI();
             }
         });
@@ -370,22 +359,13 @@ public class EditGoalDialogFragment extends DialogFragment {
             public void onClick(View view) {
                 // save the climb
                 Realm realm = Realm.getDefaultInstance();
-                try {
-                    realm.executeTransactionAsync(new Realm.Transaction() {
-
-                        @Override
-                        public void execute(Realm realm) {
-                            realm.copyToRealmOrUpdate(mGoal);
-
-                        }
-                    }, new Realm.Transaction.OnSuccess() {
-                        @Override
-                        public void onSuccess() {
-                            dismiss();
-                        }
-                    });
+                try{
+                    realm.beginTransaction();
+                    realm.copyToRealmOrUpdate(mGoal);
+                    realm.commitTransaction();
                 }finally{
                     realm.close();
+                    dismiss();
                 }
             }
         });
@@ -397,13 +377,6 @@ public class EditGoalDialogFragment extends DialogFragment {
     private void updateClimbTypeUI() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),R.layout.support_simple_spinner_dropdown_item, mGoal.getClimbType().grades);
         mGradeSpinner.setAdapter(adapter);
-        if(mClimbTypeSwitch.isChecked()) {
-            // bouldering
-            mClimbTypeSwitch.setText("Climb Type: Bouldering");
-        }else {
-            // ropes
-            mClimbTypeSwitch.setText("Climb Type: Ropes");
-        }
     }
 
     @Override

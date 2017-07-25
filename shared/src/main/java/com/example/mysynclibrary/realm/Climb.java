@@ -8,7 +8,9 @@ import java.util.Date;
 
 import io.realm.RealmList;
 import io.realm.RealmObject;
+import io.realm.RealmResults;
 import io.realm.annotations.Index;
+import io.realm.annotations.LinkingObjects;
 import io.realm.annotations.PrimaryKey;
 
 // Your model just have to extend RealmObject.
@@ -19,12 +21,16 @@ public class Climb extends RealmObject {
     @PrimaryKey private String id;
     @Index private int grade;
     private int type;
+    private Date createdAt = new Date();
 
     @Index private int color; // integer representation of color
     @Index private String gym;   // gym name
     @Index private String area; // area name
-    private Date setDate;  // datetime of set
+    private boolean isRemoved;  // has the climb been removed?
     private String notes;   // more distinguishing notes
+
+    @LinkingObjects("climb")
+    private final RealmResults<Attempt> attempts = null;
 
     // sync fields
     private boolean delete;
@@ -105,14 +111,6 @@ public class Climb extends RealmObject {
         this.area = area;
     }
 
-    public Date getSetDate() {
-        return setDate;
-    }
-
-    public void setSetDate(Date setDate) {
-        this.setDate = setDate;
-    }
-
     public String getNotes() {
         return notes;
     }
@@ -136,5 +134,21 @@ public class Climb extends RealmObject {
     public boolean isValidClimb() {
         // check all required fields;
         return true;
+    }
+
+    public boolean isRemoved() {
+        return isRemoved;
+    }
+
+    public void setRemoved(boolean removed) {
+        isRemoved = removed;
+    }
+
+    public RealmResults<Attempt> getAttempts() {
+        return attempts;
+    }
+
+    public Date getDateCreated() {
+        return createdAt;
     }
 }

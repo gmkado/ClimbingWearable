@@ -18,11 +18,12 @@ import android.widget.TabHost;
 import android.widget.TextView;
 
 import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.EditClimbDialogEvent;
+import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
 import com.farbod.labelledspinner.LabelledSpinner;
 import com.larswerkman.holocolorpicker.ColorPicker;
 import com.larswerkman.holocolorpicker.SVBar;
+import com.polyak.iconswitch.IconSwitch;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -38,13 +39,19 @@ public class EditClimbDialogFragment extends DialogFragment {
     private static final String ARG_CLIMBUUID = "climbUUID";
     private static final String TAG = "EditClimbDialogFragment";
     private static final String ARG_MODE = "editmode";
+    public enum EditClimbMode{
+        ADD_SEND,
+        ADD_PROJECT,
+        EDIT
+    }
 
-    private Shared.ClimbType mClimbType;
     private String mClimbUUID;
     private Realm mRealm;
     private Climb mClimb;
     private Button mSaveButton;
-    private EditClimbDialogEvent.EditClimbMode mMode;
+    private EditClimbMode mMode;
+    private ListView mGradeListView;
+    private Shared.ClimbType mDefaultType;
 
     public EditClimbDialogFragment() {
         // Required empty public constructor
@@ -58,10 +65,10 @@ public class EditClimbDialogFragment extends DialogFragment {
      * @param climbUuid String uuid of climb (if editing a climb.
      * @return A new instance of fragment EditClimbDialogFragment.
      */
-    public static EditClimbDialogFragment newInstance(int climbType, String climbUuid, EditClimbDialogEvent.EditClimbMode mode) {
+    public static EditClimbDialogFragment newInstance(Shared.ClimbType climbType, String climbUuid, EditClimbMode mode) {
         EditClimbDialogFragment fragment = new EditClimbDialogFragment();
         Bundle args = new Bundle();
-        args.putInt(ARG_CLIMBTYPE, climbType);
+        args.putInt(ARG_CLIMBTYPE, climbType.ordinal());
         args.putString(ARG_CLIMBUUID, climbUuid);
         args.putInt(ARG_MODE, mode.ordinal());
         fragment.setArguments(args);
@@ -72,9 +79,9 @@ public class EditClimbDialogFragment extends DialogFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mClimbType = Shared.ClimbType.values()[getArguments().getInt(ARG_CLIMBTYPE)];
             mClimbUUID = getArguments().getString(ARG_CLIMBUUID);
-            mMode = EditClimbDialogEvent.EditClimbMode.values()[getArguments().getInt(ARG_MODE)];
+            mMode = EditClimbMode.values()[getArguments().getInt(ARG_MODE)];
+            mDefaultType = Shared.ClimbType.values()[getArguments().getInt(ARG_CLIMBTYPE)];
         }
 
         mRealm = Realm.getDefaultInstance();
@@ -84,7 +91,7 @@ public class EditClimbDialogFragment extends DialogFragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        View v = inflater.inflate(R.layout.fragment_edit_climb_dialog, container, false);
+        View v = inflater.inflate(R.layout.dialog_edit_climb, container, false);
         TabHost host = (TabHost)v.findViewById(R.id.tab_host);
         host.setup();
 
@@ -94,7 +101,7 @@ public class EditClimbDialogFragment extends DialogFragment {
         spec.setIndicator("GRADE");
         host.addTab(spec);
         // set the listview to the climbtype grades
-        ListView gradeListView = (ListView) v.findViewById(R.id.grade_listview);
+        mGradeListView = (ListView) v.findViewById(R.id.grade_listview);
 
         //details tab
         spec = host.newTabSpec("DETAILS");
@@ -102,19 +109,21 @@ public class EditClimbDialogFragment extends DialogFragment {
         spec.setIndicator("DETAILS");
         host.addTab(spec);
 
+        Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         mSaveButton = (Button) v.findViewById(R.id.save_button);
         switch(mMode) {
             case ADD_SEND:
                 mSaveButton.setText("ADD SEND");
+                deleteButton.setVisibility(View.GONE);
                 break;
             case ADD_PROJECT:
                 mSaveButton.setText("ADD PROJECT");
+                deleteButton.setVisibility(View.GONE);
                 break;
             case EDIT:
                 mSaveButton.setText("SAVE");
                 break;
         }
-        Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         if(mClimbUUID != null) {
             Climb climb = mRealm.where(Climb.class).equalTo("id", mClimbUUID).findFirst();
             mClimb = mRealm.copyFromRealm(climb);  // detach from realm so changes can be made without saving until save button is pressed
@@ -124,26 +133,18 @@ public class EditClimbDialogFragment extends DialogFragment {
                 public void onClick(View view) {
                     Realm realm = Realm.getDefaultInstance();
                     try {
-                        realm.executeTransactionAsync(new Realm.Transaction() {
-                            @Override
-                            public void execute(Realm realm) {
-                                Climb climb = realm.where(Climb.class).equalTo("id", mClimbUUID).findFirst();
-                                if (climb.isOnwear()) {
-                                    // this climb is on the wearable, so we need to keep track of it until we sync
-                                    climb.setDelete(true);
-                                } else {
-                                    climb.deleteFromRealm();
-                                }
-                            }
-                        }, new Realm.Transaction.OnSuccess() {
-
-                            @Override
-                            public void onSuccess() {
-                                dismiss();
-                            }
-                        });
+                        realm.beginTransaction();
+                        Climb climb = realm.where(Climb.class).equalTo("id", mClimbUUID).findFirst();
+                        if (climb.isOnwear()) {
+                            // this climb is on the wearable, so we need to keep track of it until we sync
+                            climb.setDelete(true);
+                        } else {
+                            climb.deleteFromRealm();
+                        }
+                         realm.commitTransaction();
                     } finally {
                         realm.close();
+                        dismiss();
                     }
                 }
             });
@@ -152,7 +153,7 @@ public class EditClimbDialogFragment extends DialogFragment {
             // create unmanaged climb and initialize all default fields here
             mClimb = new Climb();
             mClimb.setId(UUID.randomUUID().toString());
-            mClimb.setType(mClimbType);
+            mClimb.setType(mDefaultType);
             mClimb.setGrade(0);
             mClimb.setColor(-1);
             mClimb.setOnwear(false);
@@ -163,9 +164,10 @@ public class EditClimbDialogFragment extends DialogFragment {
         mClimb.setLastedit(cal.getTime());
 
         /* ******************** GRADE UI ****************************/
-        gradeListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimbType.grades));
-        gradeListView.setItemChecked(mClimb.getGrade(), true);
-        gradeListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        invalidateGradeList();
+
+        mGradeListView.setItemChecked(mClimb.getGrade(), true);
+        mGradeListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int pos, long l) {
                 mClimb.setGrade(pos);
@@ -295,7 +297,7 @@ public class EditClimbDialogFragment extends DialogFragment {
         // ----------- colors --------------------
         ls = (LabelledSpinner)v.findViewById(R.id.spinner_color);
         final View addColorLayout = v.findViewById(R.id.layout_addcolor);
-        ColorPicker picker = (ColorPicker) v.findViewById(R.id.picker);
+        final ColorPicker picker = (ColorPicker) v.findViewById(R.id.picker);
         SVBar svBar = (SVBar) v.findViewById(R.id.svbar);
         picker.addSVBar(svBar);
         picker.setShowOldCenterColor(false);
@@ -319,9 +321,9 @@ public class EditClimbDialogFragment extends DialogFragment {
             public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
                 // if it's the last item, show edit text, otherwise hide edit text
                 if(position == adapterView.getAdapter().getCount()-1) {
-                    // show edit text
+                    // show edit color
                     addColorLayout.setVisibility(View.VISIBLE);
-                    mClimb.setColor(-1);
+                    mClimb.setColor(picker.getColor());
                 }else {
                     addColorLayout.setVisibility(View.GONE);
                     if(position == 0) {
@@ -357,26 +359,30 @@ public class EditClimbDialogFragment extends DialogFragment {
                 // save the climb
                 Realm realm = Realm.getDefaultInstance();
                 try {
-                    realm.executeTransactionAsync(new Realm.Transaction() {
-
-                        @Override
-                        public void execute(Realm realm) {
-
-                            realm.copyToRealmOrUpdate(mClimb);
-                        }
-                    }, new Realm.Transaction.OnSuccess() {
-                        @Override
-                        public void onSuccess() {
-                            dismiss();
-                        }
-                    });
+                    realm.beginTransaction();
+                    Climb managedClimb = realm.copyToRealmOrUpdate(mClimb);
+                    if(mMode == EditClimbMode.ADD_SEND)
+                    {
+                        Attempt send = mRealm.createObject(Attempt.class,UUID.randomUUID().toString());
+                        send.setSend(true);
+                        send.setDate(Calendar.getInstance().getTime());
+                        send.setCount(1);
+                        send.setProgress(100);
+                        send.setClimb(managedClimb);
+                    }
+                    realm.commitTransaction();
                 }finally{
                     realm.close();
+                    dismiss();
                 }
             }
         });
         checkClimbValidity();
         return v;
+    }
+
+    private void invalidateGradeList() {
+        mGradeListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimb.getType().grades));
     }
 
     private void checkClimbValidity() {
@@ -390,8 +396,8 @@ public class EditClimbDialogFragment extends DialogFragment {
 
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onDestroyView() {
+        super.onDestroyView();
         mRealm.close();
     }
 
