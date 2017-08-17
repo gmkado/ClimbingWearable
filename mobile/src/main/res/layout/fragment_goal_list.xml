@@ -15,15 +15,30 @@
         app:layoutManager="LinearLayoutManager"
         tools:context="com.example.grant.wearableclimbtracker.GoalListFragment"
         tools:listitem="@layout/listitem_goal_mobile" />
-
-
-    <com.github.clans.fab.FloatingActionButton
-        android:id="@+id/fab_add_goal"
+    <com.github.clans.fab.FloatingActionMenu
+        android:id="@+id/fab_menu"
         android:layout_width="wrap_content"
         android:layout_height="50dp"
         android:layout_gravity="bottom|end"
         android:layout_marginBottom="16dp"
-        android:layout_marginEnd="16dp"
-        android:src="@drawable/fab_goal"
-        app:fab_label="Add Goal" />
+        android:layout_marginEnd="16dp">
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/fab_add_project"
+            app:fab_label="Add Project"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/checkbox_off_background" />
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/fab_add_send"
+            app:fab_label="Add Send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/checkbox_on_background" />
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/fab_add_goal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/fab_goal"
+            app:fab_label="Add Goal" />
+    </com.github.clans.fab.FloatingActionMenu>
 </FrameLayout>

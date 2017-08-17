@@ -2,9 +2,17 @@ package com.example.grant.wearableclimbtracker;
 
 import android.graphics.Point;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.text.Editable;
+import android.text.InputType;
+import android.text.ParcelableSpan;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
+import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -24,8 +32,12 @@ import android.widget.Switch;
 import android.widget.TabHost;
 import android.widget.TextView;
 
+import com.afollestad.materialdialogs.DialogAction;
+import com.afollestad.materialdialogs.MaterialDialog;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Goal;
+import com.farbod.labelledspinner.LabelledSpinner;
+import com.github.clans.fab.Label;
 import com.polyak.iconswitch.IconSwitch;
 
 import org.honorato.multistatetogglebutton.MultiStateToggleButton;
@@ -33,7 +45,12 @@ import org.honorato.multistatetogglebutton.ToggleButton;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import io.realm.Realm;
@@ -42,24 +59,14 @@ import io.realm.Realm;
 public class EditGoalDialogFragment extends DialogFragment {
     private static final String ARG_CLIMBTYPE = "climbtype";
     private static final String ARG_GOALUUID = "goalUUID";
-    private static final String TAG = "EditClimbDialogFragment";
+    private static final String TAG = "EditGoalDialogFragment";
+    private static final String SPACE_STRING = "   ";
 
     private Shared.ClimbType mClimbType;
     private String mGoalUUID;
     private Realm mRealm;
     private Button mSaveButton;
     private Goal mGoal;
-    private MultiStateToggleButton mGoalUnitMSTB;
-    private MultiStateToggleButton mPeriodMSTB;
-    private MultiStateToggleButton mEndTypeMSTB;
-    private DatePicker mEndDatePicker;
-    private LinearLayout mPeriodLayout;
-    private Spinner mGradeSpinner;
-    private IconSwitch mClimbTypeSwitch;
-    private TextView mTargetSuffix;
-    private EditText mTargetEditText;
-    private Spinner mHeightUnitSpinner;
-    private TextView mPeriodSuffix;
     private TextView mGoalSummary;
 
     public EditGoalDialogFragment() {
@@ -99,41 +106,11 @@ public class EditGoalDialogFragment extends DialogFragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View v = inflater.inflate(R.layout.dialog_edit_goal, container, false);
-        TabHost host = (TabHost)v.findViewById(R.id.tab_host);
-        host.setup();
-
-        //Tab 1
-        TabHost.TabSpec spec = host.newTabSpec("DETAILS");
-        spec.setContent(R.id.details);
-        spec.setIndicator("DETAILS");
-        host.addTab(spec);
-
-        //Tab 2
-        spec = host.newTabSpec("START");
-        spec.setContent(R.id.startdate);
-        spec.setIndicator("START");
-        host.addTab(spec);
-
-        //Tab 3
-        spec = host.newTabSpec("END");
-        spec.setContent(R.id.enddate);
-        spec.setIndicator("END");
-        host.addTab(spec);
 
         // get all the UI elements
-        mGoalUnitMSTB = (MultiStateToggleButton)v.findViewById(R.id.mstb_goalunit);
-        mEndTypeMSTB = (MultiStateToggleButton)v.findViewById(R.id.mstb_goalendtype);
-        mPeriodMSTB = (MultiStateToggleButton)v.findViewById(R.id.mstb_period);
         mSaveButton = (Button)v.findViewById(R.id.save_button);
-        mEndDatePicker = (DatePicker)v.findViewById(R.id.datePicker_enddate);
-        mPeriodLayout = (LinearLayout) v.findViewById(R.id.layout_period);
-        mClimbTypeSwitch = (IconSwitch) v.findViewById(R.id.switch_climbtype);
-        mGradeSpinner = (Spinner) v.findViewById(R.id.spinner_grade);
-        mTargetSuffix = (TextView) v.findViewById(R.id.textView_targetSuffix);
-        mPeriodSuffix = (TextView) v.findViewById(R.id.textview_periodSuffix);
         mGoalSummary = (TextView) v.findViewById(R.id.textView_goalSummary);
-        mTargetEditText = (EditText) v.findViewById(R.id.editText_target);
-        mHeightUnitSpinner = (Spinner) v.findViewById(R.id.spinner_heightunit);
+
         /************** Try getting goal***************************/
         Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         if(mGoalUUID !=null) {
@@ -161,196 +138,11 @@ public class EditGoalDialogFragment extends DialogFragment {
             ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
             mGoal.setStartDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
             mGoal.setMingrade(0);
+            mGoal.setIncludeAttempts(false);
             deleteButton.setVisibility(View.GONE);
         }
+        updateGoalSpannable();
 
-        /******************* DETAILS **********************************/
-        mClimbTypeSwitch.setChecked(mGoal.getClimbType()== Shared.ClimbType.bouldering? IconSwitch.Checked.LEFT: IconSwitch.Checked.RIGHT);
-        mClimbTypeSwitch.setCheckedChangeListener(new IconSwitch.CheckedChangeListener() {
-            @Override
-            public void onCheckChanged(IconSwitch.Checked current) {
-                mGoal.setClimbType(current == IconSwitch.Checked.LEFT? Shared.ClimbType.bouldering: Shared.ClimbType.ropes);
-                updateClimbTypeUI();
-            }
-        });
-        updateClimbTypeUI();
-
-        mHeightUnitSpinner.setAdapter(new ArrayAdapter<>(getContext(),R.layout.support_simple_spinner_dropdown_item, Goal.HeightUnit.getStringArray()));
-        mHeightUnitSpinner.setSelection(mGoal.getHeightunit().ordinal());
-        mHeightUnitSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mGoal.setHeightunit(Goal.HeightUnit.values()[position]);
-                checkGoalValidity();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-
-            }
-        });
-        // TargetEditText and GradeEditText are set once initially depending on the initial unitType.  After that, they are never set programmatically, only driven from the user
-        // This allows us to keep track of two different numbers using the UI
-        mGradeSpinner.setSelection(mGoal.getMingrade()); // must happen after updateClimbTypeUI
-        mTargetEditText.setText(Integer.toString(mGoal.getTarget()));
-
-        mTargetEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                try {
-                    mGoal.setTarget(Integer.parseInt(s.toString()));
-                    checkGoalValidity();
-                }catch(NumberFormatException e) {
-                }
-            }
-        });
-        mGradeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mGoal.setMingrade(position);
-                checkGoalValidity();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-
-            }
-        });
-        mGoalUnitMSTB.setElements(Goal.GoalUnit.getStringArray());
-        mGoalUnitMSTB.setValue(mGoal.getGoalUnit().ordinal());
-        mGoalUnitMSTB.setOnValueChangedListener(new ToggleButton.OnValueChangedListener() {
-            @Override
-            public void onValueChanged(int value) {
-                mGoal.setGoalunit(Goal.GoalUnit.values()[mGoalUnitMSTB.getValue()]);
-                mGoal.setTarget(Integer.parseInt(mTargetEditText.getText().toString()));
-
-                checkGoalValidity();
-                updateUnitUI();
-            }
-        });
-        updateUnitUI();
-
-
-        /******************* START **********************************/
-        DatePicker startPicker = (DatePicker) v.findViewById(R.id.datepicker_startdate);
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(mGoal.getStartDate());
-
-        // stupid workaround since there is no mDatePicker.setOnDateChangedListener()
-        startPicker.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), new DatePicker.OnDateChangedListener() {
-
-            @Override
-            public void onDateChanged(DatePicker datePicker, int year, int month, int dayOfMonth) {
-                Calendar cal = Calendar.getInstance();
-                cal.set(Calendar.YEAR, year);
-                cal.set(Calendar.MONTH, month);
-                cal.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                cal.set(Calendar.HOUR_OF_DAY, 0);
-                cal.set(Calendar.MINUTE, 0);
-                cal.set(Calendar.SECOND, 0);
-                cal.set(Calendar.MILLISECOND, 0);
-
-                mGoal.setStartDate(cal.getTime());
-                checkGoalValidity();
-            }
-        });
-
-        /******************* END - RECURRENCE **********************************/
-        mPeriodMSTB.setElements(Goal.Period.getStringArray());
-        mPeriodMSTB.setValue(mGoal.getPeriod().ordinal());
-
-        Switch mRecurringSwitch = (Switch) v.findViewById(R.id.switch_recurring);
-        mRecurringSwitch.setChecked(mGoal.isRecurring());
-        mRecurringSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mGoal.setRecurring(isChecked);
-                if(!isChecked && mGoal.getEndType() == Goal.EndType.PERIOD) {
-                    mGoal.setEndtype(Goal.EndType.NO_END);
-                    mEndTypeMSTB.setValue(Goal.EndType.NO_END.ordinal());
-                }
-                checkGoalValidity();
-                updateRecurrenceUI();
-            }
-        });
-        mPeriodMSTB.setOnValueChangedListener(new ToggleButton.OnValueChangedListener() {
-            @Override
-            public void onValueChanged(int value) {
-                mGoal.setPeriod(Goal.Period.values()[mPeriodMSTB.getValue()]);
-                checkGoalValidity();
-                updatePeriodUI();
-            }
-        });
-        updatePeriodUI();
-        updateRecurrenceUI();
-
-        /******************* END - TYPE **********************************/
-        // mEndTypeMSTB elements are set in updateRecurrenceUI, so we don't need to do it here
-        mEndTypeMSTB.setOnValueChangedListener(new ToggleButton.OnValueChangedListener() {
-            @Override
-            public void onValueChanged(int value) {
-                mGoal.setEndtype(Goal.EndType.values()[mEndTypeMSTB.getValue()]);
-                checkGoalValidity();
-                updateEndTypeUI();
-            }
-        });
-        updateEndTypeUI();
-
-        // set initial values
-        EditText numPeriodEditText = (EditText) v.findViewById(R.id.edittext_numperiod);
-        if(mGoal.getEndType() == Goal.EndType.DATE) {
-            cal.setTime(mGoal.getEndDate());
-        }else {
-            ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
-            mGoal.setEndDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
-            mGoal.setEndDate(cal.getTime());
-            if(mGoal.getEndType() == Goal.EndType.PERIOD) {
-                numPeriodEditText.setText(Integer.toString(mGoal.getNumPeriods()));
-            }
-        }
-        // stupid workaround since there is no mDatePicker.setOnDateChangedListener()
-        mEndDatePicker.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), new DatePicker.OnDateChangedListener() {
-
-            @Override
-            public void onDateChanged(DatePicker datePicker, int year, int month, int dayOfMonth) {
-                Calendar cal = Calendar.getInstance();
-                cal.set(Calendar.YEAR, year);
-                cal.set(Calendar.MONTH, month);
-                cal.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                mGoal.setEndDate(cal.getTime());
-                checkGoalValidity();
-            }
-        });
-        numPeriodEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                try { // so we don't try to parse an empty string
-                    mGoal.setNumPeriods(Integer.parseInt(s.toString()));
-                    checkGoalValidity();
-                }catch(NumberFormatException e) {
-                }
-            }
-        });
 
         /***************** SAVE BUTTON *******************/
         mSaveButton.setEnabled(false);
@@ -374,10 +166,335 @@ public class EditGoalDialogFragment extends DialogFragment {
         return v;
     }
 
-    private void updateClimbTypeUI() {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),R.layout.support_simple_spinner_dropdown_item, mGoal.getClimbType().grades);
-        mGradeSpinner.setAdapter(adapter);
+    private void updateGoalSpannable() {
+        DateFormat df = SimpleDateFormat.getDateInstance(DateFormat.SHORT);
+        SimpleSpanBuilder ssb = new SimpleSpanBuilder();
+        ssb.append("I want to")
+                .append(SPACE_STRING)
+                .append(mGoal.getClimbType().name(),
+                        new ClickableSpan() {
+                            @Override
+                            public void onClick(View widget) {
+                                new MaterialDialog.Builder(getContext())
+                                        .title("Climb type")
+                                        .items("boulder", "ropes")
+                                        .itemsCallbackSingleChoice(mGoal.getClimbType().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
+                                            @Override
+                                            public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                                mGoal.setClimbType(Shared.ClimbType.values()[which]);
+                                                if(mGoal.getMingrade() > mGoal.getClimbType().grades.size()-1) {
+                                                    mGoal.setMingrade(mGoal.getClimbType().grades.size()-1);
+                                                }
+                                                updateGoalSpannable();
+                                                return true;
+                                            }
+                                        })
+                                        .positiveText("Choose")
+                                        .show();
+                            }
+                        })
+                .append(SPACE_STRING)
+                .append(Integer.toString(mGoal.getTarget()), new ClickableSpan() {
+                    @Override
+                    public void onClick(View widget) {
+                        new MaterialDialog.Builder(getContext())
+                                .title("Input Target")
+                                .inputType(InputType.TYPE_CLASS_NUMBER)
+                                .input("", Integer.toString(mGoal.getTarget()), new MaterialDialog.InputCallback() {
+                                    @Override
+                                    public void onInput(MaterialDialog dialog, CharSequence input) {
+                                        try {
+                                            int target = Integer.parseInt(input.toString());
+                                            if (target > 0) {
+                                                mGoal.setTarget(target);
+                                                updateGoalSpannable();
+                                            }
+                                        }catch (NumberFormatException e) {
+                                            Log.e(TAG, "Bad number format");
+                                        }
+                                    }
+                                }).show();
+                    }
+                })
+                .append(SPACE_STRING);
+
+        ClickableSpan goalUnitSpan =  new ClickableSpan() {
+            @Override
+            public void onClick(View widget) {
+                new MaterialDialog.Builder(getContext())
+                        .title("Goal unit")
+                        .items(Goal.GoalUnit.getStringArray())
+                        .itemsCallbackSingleChoice(mGoal.getGoalUnit().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
+                            @Override
+                            public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                Goal.GoalUnit gu = Goal.GoalUnit.values()[which];
+                                if(gu == Goal.GoalUnit.HEIGHT) {
+                                    new MaterialDialog.Builder(getContext())
+                                            .title("Height unit")
+                                            .items(Goal.HeightUnit.getStringArray())
+                                            .itemsCallbackSingleChoice(mGoal.getHeightunit().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
+                                                @Override
+                                                public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                                    mGoal.setGoalunit(Goal.GoalUnit.HEIGHT);
+                                                    mGoal.setHeightunit(Goal.HeightUnit.values()[which]);
+                                                    updateGoalSpannable();
+                                                    return true;
+                                                }
+                                            })
+                                            .positiveText("Choose")
+                                            .show();
+                                }else {
+                                    mGoal.setGoalunit(gu);
+                                    updateGoalSpannable();
+                                }
+                                return true;
+                            }
+                        })
+                        .positiveText("Choose")
+                        .show();
+            }
+        };
+        if(mGoal.getGoalUnit() == Goal.GoalUnit.HEIGHT) {
+            ssb.append(mGoal.getHeightunit().name(), goalUnitSpan);
+        }else {
+            ssb.append(mGoal.getGoalUnit().name(), goalUnitSpan);
+        }
+        ssb.append(SPACE_STRING)
+                .append("at least")
+                .append(SPACE_STRING)
+                .append(mGoal.getClimbType().grades.get(mGoal.getMingrade()), new ClickableSpan() {
+                    @Override
+                    public void onClick(View widget) {
+                        new MaterialDialog.Builder(getContext())
+                                .title("Select a grade")
+                                .items(mGoal.getClimbType().grades)
+                                .itemsCallback(new MaterialDialog.ListCallback() {
+                                    @Override
+                                    public void onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                        mGoal.setMingrade(which);
+                                        updateGoalSpannable();
+                                    }
+                                })
+                                .show();
+                    }
+                })
+                .append(SPACE_STRING)
+                .append("starting")
+                .append(SPACE_STRING)
+                .append(df.format(mGoal.getStartDate()), new ClickableSpan() {
+                    @Override
+                    public void onClick(View widget) {
+                        // Inflate the datepicker view and set the initial date
+                        LayoutInflater li = LayoutInflater.from(getContext());
+                        View datePickerView = li.inflate(R.layout.dialog_datepicker, null);
+                        DatePicker dp = (DatePicker) datePickerView.findViewById(R.id.datePicker);
+                        Calendar cal = Calendar.getInstance();
+                        cal.setTime(mGoal.getStartDate());
+                        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null); // HACK: stupid workaround since there is no mDatePicker.setOnDateChangedListener()
+
+                        // show the datepicker
+                        new MaterialDialog.Builder(getContext())
+                                .title("Pick start date")
+                                .customView(datePickerView, false)
+                                .positiveText(android.R.string.ok)
+                                .negativeText(android.R.string.cancel)
+                                .onPositive(new MaterialDialog.SingleButtonCallback() {
+                                    @Override
+                                    public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
+                                        DatePicker dp = (DatePicker) dialog.getCustomView().findViewById(R.id.datePicker);
+                                        Calendar cal = Calendar.getInstance();
+                                        cal.set(Calendar.YEAR, dp.getYear());
+                                        cal.set(Calendar.MONTH, dp.getMonth());
+                                        cal.set(Calendar.DAY_OF_MONTH, dp.getDayOfMonth());
+                                        cal.set(Calendar.HOUR_OF_DAY, 0);
+                                        cal.set(Calendar.MINUTE, 0);
+                                        cal.set(Calendar.SECOND, 0);
+                                        cal.set(Calendar.MILLISECOND, 0);
+
+                                        mGoal.setStartDate(cal.getTime());
+                                        updateGoalSpannable();
+                                    }
+                                })
+                                .show();
+                    }
+                })
+                .append(SPACE_STRING)
+                .append("and")
+                .append(SPACE_STRING)
+                .append(mGoal.isRecurring() ? "RECURRING" : "NOT RECURRING", new ClickableSpan() {
+                    @Override
+                    public void onClick(View widget) {
+                        new MaterialDialog.Builder(getContext())
+                                .title("Recurring?")
+                                .items("RECURRING", "NOT RECURRING")
+                                .itemsCallbackSingleChoice(mGoal.isRecurring() ? 0 : 1, new MaterialDialog.ListCallbackSingleChoice() {
+                                    @Override
+                                    public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                        mGoal.setRecurring(which == 0);
+                                        updateGoalSpannable();
+                                        return true;
+                                    }
+                                })
+                                .positiveText("Choose")
+                                .show();
+                    }
+                })
+                .append(SPACE_STRING);
+
+
+        if(mGoal.isRecurring()) {
+            ssb.append("every")
+                    .append(SPACE_STRING)
+                    .append(mGoal.getPeriod().name(), new ClickableSpan() {
+                        @Override
+                        public void onClick(View widget) {
+                            new MaterialDialog.Builder(getContext())
+                                    .title("Period")
+                                    .items(Goal.Period.getStringArray())
+                                    .itemsCallbackSingleChoice(mGoal.getPeriod().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
+                                        @Override
+                                        public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                            mGoal.setPeriod(Goal.Period.values()[which]);
+                                            updateGoalSpannable();
+                                            return true;
+                                        }
+                                    })
+                                    .positiveText("Choose")
+                                    .show();
+                        }
+                    })
+                    .append(SPACE_STRING);
+        }
+        ssb.append("ending")
+                .append(SPACE_STRING);
+
+
+        ClickableSpan endTypeSpan = new ClickableSpan() {
+            @Override
+            public void onClick(View widget) {
+                new MaterialDialog.Builder(getContext())
+                        .title("End Type")
+                        .items(Goal.EndType.getStringArray())
+                        .itemsCallbackSingleChoice(mGoal.getEndType().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
+                            @Override
+                            public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                switch (Goal.EndType.values()[which]) {
+                                    case NEVER:
+                                        mGoal.setEndtype(Goal.EndType.NEVER);
+                                        updateGoalSpannable();
+                                        break;
+                                    case DATE:
+                                        // Inflate the datepicker view and set the initial date
+                                        LayoutInflater li = LayoutInflater.from(getContext());
+                                        View datePickerView = li.inflate(R.layout.dialog_datepicker, null);
+                                        DatePicker dp = (DatePicker) datePickerView.findViewById(R.id.datePicker);
+                                        Calendar cal = Calendar.getInstance();
+                                        cal.setTime(mGoal.getEndDate() == null ? mGoal.getStartDate(): mGoal.getEndDate());
+                                        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null); // HACK: stupid workaround since there is no mDatePicker.setOnDateChangedListener()
+
+                                        // show the datepicker
+                                        new MaterialDialog.Builder(getContext())
+                                                .title("Pick end date")
+                                                .customView(datePickerView, false)
+                                                .positiveText(android.R.string.ok)
+                                                .negativeText(android.R.string.cancel)
+                                                .onPositive(new MaterialDialog.SingleButtonCallback() {
+                                                    @Override
+                                                    public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
+                                                        DatePicker dp = (DatePicker) dialog.getCustomView().findViewById(R.id.datePicker);
+                                                        Calendar cal = Calendar.getInstance();
+                                                        cal.set(Calendar.YEAR, dp.getYear());
+                                                        cal.set(Calendar.MONTH, dp.getMonth());
+                                                        cal.set(Calendar.DAY_OF_MONTH, dp.getDayOfMonth());
+                                                        cal.set(Calendar.HOUR_OF_DAY, 0);
+                                                        cal.set(Calendar.MINUTE, 0);
+                                                        cal.set(Calendar.SECOND, 0);
+                                                        cal.set(Calendar.MILLISECOND, 0);
+                                                        mGoal.setEndtype(Goal.EndType.DATE);
+                                                        mGoal.setEndDate(cal.getTime());
+                                                        updateGoalSpannable();
+                                                    }
+                                                })
+                                                .show();
+                                        break;
+                                    case PERIOD:
+                                        new MaterialDialog.Builder(getContext())
+                                                .title("Input number of periods")
+                                                .inputType(InputType.TYPE_CLASS_NUMBER)
+                                                .input("", Integer.toString(mGoal.getNumPeriods()), new MaterialDialog.InputCallback() {
+                                                    @Override
+                                                    public void onInput(MaterialDialog dialog, CharSequence input) {
+                                                        try {
+                                                            int numPeriods = Integer.parseInt(input.toString());
+                                                            if (numPeriods > 0) {
+                                                                mGoal.setNumPeriods(numPeriods);
+                                                                mGoal.setEndtype(Goal.EndType.PERIOD);
+                                                                updateGoalSpannable();
+                                                            }
+                                                        } catch (NumberFormatException e) {
+                                                            Log.e(TAG, "Bad number format");
+                                                        }
+                                                    }
+                                                }).show();
+                                        break;
+                                }
+                                return true;
+                            }
+                        })
+                        .positiveText("Choose")
+                        .show();
+            }
+        };
+        switch(mGoal.getEndType()) {
+            case NEVER:
+                ssb.append(mGoal.getEndType().name(), endTypeSpan);
+                break;
+            case DATE:
+                ssb.append(df.format(mGoal.getEndDate()), endTypeSpan);
+                break;
+            case PERIOD:
+                ssb.append(String.format(Locale.getDefault(), "after %d", mGoal.getNumPeriods()), endTypeSpan)
+                        .append(SPACE_STRING)
+                        .append(mGoal.getPeriod().name(), new ClickableSpan() {
+                            @Override
+                            public void onClick(View widget) {
+                                new MaterialDialog.Builder(getContext())
+                                        .title("Period")
+                                        .items(Goal.Period.getStringArray())
+                                        .itemsCallbackSingleChoice(mGoal.getPeriod().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
+                                            @Override
+                                            public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                                                mGoal.setPeriod(Goal.Period.values()[which]);
+                                                updateGoalSpannable();
+                                                return true;
+                                            }
+                                        })
+                                        .positiveText("Choose")
+                                        .show();
+                            }
+                        });
+                break;
+        }
+
+        mGoalSummary.setText(ssb.build());
+        mGoalSummary.setClickable(true);
+        mGoalSummary.setMovementMethod(LinkMovementMethod.getInstance()); // NOTE: https://stackoverflow.com/questions/8641343/android-clickablespan-not-calling-onclick
+
+        // I want to <BOULDER/ROPE> climb <#> <CLIMBS/POINTS/HEIGHT> at least <V#/5.##>
+        //      if HEIGHT replace with "<FEET/METERS>"
+        // starting <TODAY> and <RECURRING/NOT RECURRING>
+        //      if RECURRING add "every <SESSION/WEEK/MONTH/YEAR>" (this will automatically link to end type period)
+        // ending <DATE/PERIOD/NEVER>
+        //      if DATE replace with <MM/DD/YYYY>
+        //      if PERIOD replace with <AFTER> and add "<#> <SESSION/WEEK/MONTH/YEAR>"  (this will automatically link to recurring period)
+
+        checkGoalValidity();
     }
+
+    /*private void updateClimbTypeUI() {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),R.layout.support_simple_spinner_dropdown_item, mGoal.getClimbType().grades);
+        mGradeSpinner.setCustomAdapter(adapter);
+    }*/
 
     @Override
     public void onResume() {
@@ -391,106 +508,75 @@ public class EditGoalDialogFragment extends DialogFragment {
 
         int width = size.x;
         int height = size.y;
-        window.setLayout(WindowManager.LayoutParams.WRAP_CONTENT, (int) (height * 0.9));
+        window.setLayout((int) (width * 0.9), (int) (height * 0.9));
         window.setGravity(Gravity.CENTER);
     }
 
-    /**
-     * Call this when the end type is changed or initially set
-     */
-    private void updateEndTypeUI() {
-        switch(Goal.EndType.values()[mEndTypeMSTB.getValue()]) {
-            case NO_END:
-                mPeriodLayout.setVisibility(View.GONE);
-                mEndDatePicker.setVisibility(View.GONE);
-                break;
-            case DATE:
-                mPeriodLayout.setVisibility(View.GONE);
-                mEndDatePicker.setVisibility(View.VISIBLE);
-                break;
-            case PERIOD:
-                mPeriodLayout.setVisibility(View.VISIBLE);
-                mEndDatePicker.setVisibility(View.GONE);
-                break;
-        }
-
-    }
-
-    /**
-     * Call this when the duration is changed or initially set
-     */
-    private void updatePeriodUI() {
-        switch(Goal.Period.values()[mPeriodMSTB.getValue()]) {
-            case SESSION:
-                mPeriodSuffix.setText("sessions");
-                break;
-            case WEEKLY:
-                mPeriodSuffix.setText("weeks");
-                break;
-            case MONTHLY:
-                mPeriodSuffix.setText("months");
-                break;
-            case YEARLY:
-                mPeriodSuffix.setText("years");
-                break;
-        }
-    }
-
-    /**
-     * Call this when the unit of the goal is changed or initially set
-     */
-    private void updateUnitUI() {
-        switch(Goal.GoalUnit.values()[mGoalUnitMSTB.getValue()]) {
-            case POINTS:
-                mTargetEditText.setVisibility(View.VISIBLE);
-                mTargetSuffix.setVisibility(View.VISIBLE);
-                mHeightUnitSpinner.setVisibility(View.GONE);
-                mTargetSuffix.setText("points");
-                break;
-            case HEIGHT:
-                mTargetEditText.setVisibility(View.VISIBLE);
-                mTargetSuffix.setVisibility(View.GONE);
-                mHeightUnitSpinner.setVisibility(View.VISIBLE);
-                break;
-            case CLIMBS:
-                mTargetEditText.setVisibility(View.VISIBLE);
-                mTargetSuffix.setVisibility(View.VISIBLE);
-                mHeightUnitSpinner.setVisibility(View.GONE);
-                mTargetSuffix.setText("climbs");
-                break;
-
-        }
-    }
-
-    /**
-     * Call this when isRecurring is changed or initially set
-     */
-    private void updateRecurrenceUI() {
-        boolean isRecurring = mGoal.isRecurring();
-        mEndTypeMSTB.setElements(Goal.EndType.getStringArray(isRecurring));
-        mPeriodMSTB.setVisibility(isRecurring?View.VISIBLE:View.GONE);
-
-        // if "Period" is selected and recurring has been changed to false, then we should change mgoal to "no-end" since "period is no longer available
-        int endtype = mGoal.getEndType().ordinal();
-        if(endtype < mEndTypeMSTB.getStates().length) {
-            mEndTypeMSTB.setValue(endtype);
-        }
-
-    }
 
     private void checkGoalValidity() {
-        mGoalSummary.setText(mGoal.getSummary());
+        //mGoalSummary.setText(mGoal.getSummary());
         if(mGoal.isValidGoal()) {
             mSaveButton.setEnabled(true);
         }else {
             mSaveButton.setEnabled(false);
         }
-
     }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
         mRealm.close();
+    }
+
+    class SimpleSpanBuilder {
+        private class SpanSection{
+            private final String text;
+            private final int startIndex;
+            private final Object[] spans;
+
+            SpanSection(String text, int startIndex,Object... spans){
+                this.spans = spans;
+                this.text = text;
+                this.startIndex = startIndex;
+            }
+
+            void apply(SpannableStringBuilder spanStringBuilder){
+                if (spanStringBuilder == null) return;
+                for (Object span : spans){
+                    spanStringBuilder.setSpan(span, startIndex, startIndex + text.length(), Spannable.SPAN_INCLUSIVE_EXCLUSIVE);
+                }
+            }
+        }
+
+        private List<SpanSection> spanSections;
+        private StringBuilder stringBuilder;
+
+        public SimpleSpanBuilder(){
+            stringBuilder = new StringBuilder();
+            spanSections = new ArrayList<>();
+        }
+
+        public SimpleSpanBuilder append(String text,Object... spans){
+            if (spans != null && spans.length > 0) {
+                spanSections.add(new SpanSection(text, stringBuilder.length(),spans));
+            }
+            stringBuilder.append(text);
+            return this;
+        }
+
+
+        public SpannableStringBuilder build(){
+            SpannableStringBuilder ssb = new SpannableStringBuilder(stringBuilder.toString());
+            for (SpanSection section : spanSections){
+                section.apply(ssb);
+            }
+            return ssb;
+        }
+
+        @Override
+        public String toString() {
+            return stringBuilder.toString();
+        }
     }
 
 }

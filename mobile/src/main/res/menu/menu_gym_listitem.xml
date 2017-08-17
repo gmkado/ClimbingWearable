@@ -7,6 +7,11 @@
         android:title="Edit"
         android:visible="true"/>
     <item
+        android:id="@+id/item_editareas"
+        app:showAsAction="ifRoom|withText"
+        android:title="Add Area"
+        android:visible="true"/>
+    <item
         android:id="@+id/item_delete"
         app:showAsAction="ifRoom|withText"
         android:title="Delete"

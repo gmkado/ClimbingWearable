@@ -24,8 +24,8 @@ public class Climb extends RealmObject {
     private Date createdAt = new Date();
 
     @Index private int color; // integer representation of color
-    @Index private String gym;   // gym name
-    @Index private String area; // area name
+    private Gym gym;   // gym name
+    private Area area; // area name
     private boolean isRemoved;  // has the climb been removed?
     private String notes;   // more distinguishing notes
 
@@ -95,19 +95,19 @@ public class Climb extends RealmObject {
         this.color = color;
     }
 
-    public String getGym() {
+    public Gym getGym() {
         return gym;
     }
 
-    public void setGym(String gym) {
+    public void setGym(Gym gym) {
         this.gym = gym;
     }
 
-    public String getArea() {
+    public Area getArea() {
         return area;
     }
 
-    public void setArea(String area) {
+    public void setArea(Area area) {
         this.area = area;
     }
 

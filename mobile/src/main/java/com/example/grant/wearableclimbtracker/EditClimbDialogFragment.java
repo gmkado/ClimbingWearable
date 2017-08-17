@@ -1,29 +1,30 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.BaseAdapter;
 import android.widget.Button;
-import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
-import android.widget.TabHost;
-import android.widget.TextView;
 
+import com.afollestad.materialdialogs.color.ColorChooserDialog;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
+import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.Gym;
 import com.farbod.labelledspinner.LabelledSpinner;
-import com.larswerkman.holocolorpicker.ColorPicker;
-import com.larswerkman.holocolorpicker.SVBar;
-import com.polyak.iconswitch.IconSwitch;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -34,11 +35,14 @@ import io.realm.RealmResults;
 
 
 
+
 public class EditClimbDialogFragment extends DialogFragment {
     private static final String ARG_CLIMBTYPE = "climbtype";
     private static final String ARG_CLIMBUUID = "climbUUID";
     private static final String TAG = "EditClimbDialogFragment";
     private static final String ARG_MODE = "editmode";
+    private LabelledSpinner mAreaSpinner;
+
     public enum EditClimbMode{
         ADD_SEND,
         ADD_PROJECT,
@@ -76,6 +80,13 @@ public class EditClimbDialogFragment extends DialogFragment {
     }
 
     @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        if (!(context instanceof ColorChooserDialog.ColorCallback))  // NOTE: https://github.com/afollestad/material-dialogs/issues/1368
+            throw new RuntimeException("ColorCallback not implemented in EditClimb context");
+    }
+
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
@@ -92,22 +103,9 @@ public class EditClimbDialogFragment extends DialogFragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View v = inflater.inflate(R.layout.dialog_edit_climb, container, false);
-        TabHost host = (TabHost)v.findViewById(R.id.tab_host);
-        host.setup();
 
-        //grade tab
-        TabHost.TabSpec spec = host.newTabSpec("GRADE");
-        spec.setContent(R.id.tab_grade);
-        spec.setIndicator("GRADE");
-        host.addTab(spec);
         // set the listview to the climbtype grades
         mGradeListView = (ListView) v.findViewById(R.id.grade_listview);
-
-        //details tab
-        spec = host.newTabSpec("DETAILS");
-        spec.setContent(R.id.tab_details);
-        spec.setIndicator("DETAILS");
-        host.addTab(spec);
 
         Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         mSaveButton = (Button) v.findViewById(R.id.save_button);
@@ -158,6 +156,7 @@ public class EditClimbDialogFragment extends DialogFragment {
             mClimb.setColor(-1);
             mClimb.setOnwear(false);
             mClimb.setDelete(false);
+            // TODO: set gym and area if filter is set in app
         }
         Calendar cal = Calendar.getInstance();
         // this will reflect the current time, so use it to set "lastedit"
@@ -177,39 +176,38 @@ public class EditClimbDialogFragment extends DialogFragment {
 
         /* ********************** DETAIL FIELDS ****************/
         // -------  Gym  ------------
-        LabelledSpinner ls = (LabelledSpinner)v.findViewById(R.id.spinner_gym);
-        final EditText editTextAddGym = (EditText)v.findViewById(R.id.editText_gym);
-        RealmResults<Climb> results = mRealm.where(Climb.class).distinct("gym");
-        final ArrayList<String> gyms = new ArrayList<>();
-        gyms.add(""); // Append "blank" option
-        for(Climb climb: results) {
-            if(climb.getGym() != null) {
-                gyms.add(climb.getGym());
-            }
+        LabelledSpinner gymSpinner = (LabelledSpinner)v.findViewById(R.id.spinner_gym);
+        mAreaSpinner = (LabelledSpinner)v.findViewById(R.id.spinner_area);
+
+        final RealmResults<Gym> gymObjects = mRealm.where(Gym.class).findAll();
+        final ArrayList<String> gymNames = new ArrayList<>();
+        gymNames.add(""); // Append "blank" option
+        for(Gym gym: gymObjects) {
+            gymNames.add(gym.getName());
         }
-        gyms.add("Add new gym");
-        ls.setCustomAdapter(new ArrayAdapter<>(getContext(),android.R.layout.simple_spinner_dropdown_item, gyms));
+        gymNames.add("Add new gym");
+        gymSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(),android.R.layout.simple_spinner_dropdown_item, gymNames));
         // set item checked
-        if(mClimb.getGym() != null) {
-            ls.setSelection(gyms.indexOf(mClimb.getGym()));
+        if(mClimb.getGym() != null && gymNames.contains(mClimb.getGym().getName())) {
+            gymSpinner.setSelection(gymNames.indexOf(mClimb.getGym().getName()));
         }else {
-            ls.setSelection(0);
+            gymSpinner.setSelection(0);
+            mClimb.setGym(null);
         }
-        ls.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
+        gymSpinner.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
             @Override
             public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
                 // if it's the last item, show edit text, otherwise hide edit text
                 if(position == adapterView.getAdapter().getCount()-1) {
-                    // show edit text
-                    editTextAddGym.setVisibility(View.VISIBLE);
+                    // TODO: show dialog for adding gym and create unmanaged object on callback
                     mClimb.setGym(null);
                 }else {
-                    editTextAddGym.setVisibility(View.GONE);
                     if(position == 0) {
                         mClimb.setGym(null);
                     }else {
-                        mClimb.setGym(adapterView.getSelectedItem().toString());
+                        mClimb.setGym(gymObjects.get(position-1)); // position - 1 since first item is blank
                     }
+                    updateAreaUI();
                 }
             }
 
@@ -218,137 +216,38 @@ public class EditClimbDialogFragment extends DialogFragment {
 
             }
         });
-        editTextAddGym.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                mClimb.setGym(s.toString());
-            }
-        });
-
-        // ----- Area ------------------
-        ls = (LabelledSpinner)v.findViewById(R.id.spinner_area);
-        final EditText editTextAddArea = (EditText)v.findViewById(R.id.editText_area);
-        results = mRealm.where(Climb.class).distinct("area");
-        final ArrayList<String> areas = new ArrayList<>();
-        areas.add(""); // Append "blank" option
-        for(Climb climb: results) {
-            if(climb.getArea() != null) {
-                areas.add(climb.getArea());
-            }
-        }
-        areas.add("Add new area");
-        ls.setCustomAdapter(new ArrayAdapter<>(getContext(),android.R.layout.simple_spinner_dropdown_item, areas));
-        // set item checked
-        if(mClimb.getArea() != null) {
-            ls.setSelection(areas.indexOf(mClimb.getArea()));
-        }else {
-            ls.setSelection(0);
-        }
-        ls.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
-            @Override
-            public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
-                // if it's the last item, show edit text, otherwise hide edit text
-                if(position == adapterView.getAdapter().getCount()-1) {
-                    // show edit text
-                    editTextAddArea.setVisibility(View.VISIBLE);
-                    mClimb.setArea(null);
-                }else {
-                    editTextAddArea.setVisibility(View.GONE);
-                    if(position == 0) {
-                        mClimb.setArea(null);
-                    }else {
-                        mClimb.setArea(adapterView.getSelectedItem().toString());
-                    }
-                }
-            }
-
-            @Override
-            public void onNothingChosen(View labelledSpinner, AdapterView<?> adapterView) {
-
-            }
-        });
-        editTextAddArea.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                mClimb.setArea(s.toString());
-            }
-        });
+        updateAreaUI();
 
         // ----------- colors --------------------
-        ls = (LabelledSpinner)v.findViewById(R.id.spinner_color);
-        final View addColorLayout = v.findViewById(R.id.layout_addcolor);
-        final ColorPicker picker = (ColorPicker) v.findViewById(R.id.picker);
-        SVBar svBar = (SVBar) v.findViewById(R.id.svbar);
-        picker.addSVBar(svBar);
-        picker.setShowOldCenterColor(false);
+        ImageButton colorImageButton = (ImageButton)v.findViewById(R.id.imagebutton_color);
+        RealmResults<Climb> distinctColorClimbs = mRealm.where(Climb.class).distinct("color");
 
-        results = mRealm.where(Climb.class).distinct("color");
         final ArrayList<Integer> colors = new ArrayList<>();
         colors.add(0); // Append "blank" option
-        for(Climb climb: results) {
+        for(Climb climb: distinctColorClimbs) {
             colors.add(climb.getColor());
         }
         colors.add(0); // add a color
-        ls.setCustomAdapter(new CustomColorSpinnerAdapter<>(getContext(), colors));
+        colorImageButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Pass a context, along with the title of the dialog
+                new ColorChooserDialog.Builder(getContext(), R.string.colorchooser_title)
+                        .accentMode(false)  // when true, will display accent palette instead of primary palette
+                        .preselect(mClimb.getColor())  // optionally preselects a color
+                        .dynamicButtonColor(true)  // defaults to true, false will disable changing action buttons' color to currently selected color
+                        .show(getActivity()); // an AppCompatActivity which implements ColorCallback
+            }
+        });
         // set item checked
         if(mClimb.getColor() != -1) {
-            ls.setSelection(colors.indexOf(mClimb.getColor()));
+            colorImageButton.setBackgroundColor(mClimb.getColor());
         }else {
-            ls.setSelection(0);
+            colorImageButton.setBackgroundColor(Color.WHITE);
         }
-        ls.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
-            @Override
-            public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
-                // if it's the last item, show edit text, otherwise hide edit text
-                if(position == adapterView.getAdapter().getCount()-1) {
-                    // show edit color
-                    addColorLayout.setVisibility(View.VISIBLE);
-                    mClimb.setColor(picker.getColor());
-                }else {
-                    addColorLayout.setVisibility(View.GONE);
-                    if(position == 0) {
-                        mClimb.setColor(-1);
-                    }else {
-                        mClimb.setColor(colors.get(position));
-                    }
-                }
-            }
-
-            @Override
-            public void onNothingChosen(View labelledSpinner, AdapterView<?> adapterView) {
-
-            }
-        });
-
-        picker.setOnColorSelectedListener(new ColorPicker.OnColorSelectedListener() {
-            @Override
-            public void onColorSelected(int color) {
-                mClimb.setColor(color);
-            }
-        });
 
 
-        // Add notes to edit text
+        // TODO: Add notes to edit text
         // Add change listener after notes are entered
 
         /* ****************** SAVE BUTTON ***************************/
@@ -381,6 +280,56 @@ public class EditClimbDialogFragment extends DialogFragment {
         return v;
     }
 
+    /**
+     * Something changed that requires area GUI update.
+     */
+    private void updateAreaUI() {
+        if (mClimb.getGym() != null) {
+            // show area spinner
+            mAreaSpinner.setEnabled(true);
+
+            final RealmResults<Area> areaObjects = mRealm.where(Area.class).equalTo("gym.id", mClimb.getGym().getId()).findAll();
+            final ArrayList<String> areaNames = new ArrayList<>();
+            areaNames.add(""); // Append "blank" option
+            for (Area area : areaObjects) {
+                areaNames.add(area.getName());
+            }
+            areaNames.add("Add new area");
+            mAreaSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_dropdown_item, areaNames));
+            // set item checked
+            if (mClimb.getArea() != null && areaNames.contains(mClimb.getArea().getName())) {
+                mAreaSpinner.setSelection(areaNames.indexOf(mClimb.getArea().getName()));
+            } else {
+                mAreaSpinner.setSelection(0);
+                mClimb.setArea(null);
+            }
+            mAreaSpinner.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
+                @Override
+                public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
+                    // if it's the last item, show edit text, otherwise hide edit text
+                    if (position == adapterView.getAdapter().getCount() - 1) {
+                        // show edit text
+                        // TODO: show dialog for adding area and create unmanaged object on callback
+                        mClimb.setArea(null);
+                    } else {
+                        if (position == 0) {
+                            mClimb.setArea(null);
+                        } else {
+                            mClimb.setArea(areaObjects.get(position-1)); // position - 1 since first item is blank
+                        }
+                    }
+                }
+
+                @Override
+                public void onNothingChosen(View labelledSpinner, AdapterView<?> adapterView) {
+
+                }
+            });
+        } else {
+            mAreaSpinner.setEnabled(false);
+        }
+    }
+
     private void invalidateGradeList() {
         mGradeListView.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_activated_1, mClimb.getType().grades));
     }
@@ -401,70 +350,22 @@ public class EditClimbDialogFragment extends DialogFragment {
         mRealm.close();
     }
 
-    private class CustomColorSpinnerAdapter<T> extends BaseAdapter {
-        private final Context mContext;
-        private final LayoutInflater mInflater;
-        private final int mResource;
-        private final ArrayList<T> mColors;
-        private final int mDropDownResource;
-
-        public CustomColorSpinnerAdapter(Context context, ArrayList<T> colors) {
-            mContext = context;
-            mInflater = LayoutInflater.from(context);
-            mResource = mDropDownResource = android.R.layout.simple_spinner_dropdown_item; // Note that this is hardcoded so this will only work well for dropdown spinners
-            mColors = colors;
-        }
-
-        @Override
-        public View getDropDownView(int position, View convertView, ViewGroup parent) {
-            return createViewFromResource(mInflater, position, convertView, parent);
-        }
-
-        @Override
-        public int getCount() {
-            return mColors.size();
-        }
-
-        @Override
-        public T getItem(int position) {
-            return mColors.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            return createViewFromResource(mInflater, position, convertView, parent);
-        }
-
-        private View createViewFromResource(LayoutInflater mInflater, int position, View convertView, ViewGroup parent) {
-            final View view;
-            final TextView text;
-
-            if (convertView == null) {
-                view = mInflater.inflate(mResource, parent, false);
-            } else {
-                view = convertView;
-            }
-
-            text = (TextView) view;
-
-            int item = (Integer)getItem(position);
-            text.setBackgroundColor(item);
-
-            if(position == 0) {
-                text.setText("No Color");
-            }else if(position == mColors.size()-1) {
-                text.setText("Add a color");
-            }else {
-                text.setText("");
-            }
-            return view;
-        }
-
-
+    @Override
+    public void onStop() {
+        super.onStop();
+        EventBus.getDefault().unregister(this);
     }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onClimbColorEvent(ClimbColorSelectedEvent event) {
+        mClimb.setColor(event.color);
+    }
+
+
 }

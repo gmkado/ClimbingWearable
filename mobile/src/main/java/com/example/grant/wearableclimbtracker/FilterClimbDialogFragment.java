@@ -1,6 +1,5 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -15,14 +14,17 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
-import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
+import com.example.mysynclibrary.realm.Area;
+import com.example.mysynclibrary.realm.Gym;
 import com.farbod.labelledspinner.LabelledSpinner;
+
+import org.greenrobot.eventbus.EventBus;
 
 import java.util.ArrayList;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
-import io.realm.Sort;
 
 
 /**
@@ -33,17 +35,16 @@ import io.realm.Sort;
 public class FilterClimbDialogFragment extends DialogFragment {
     public static final String PREF_SORT_BY = "pref_sortby";
     public static final String PREF_FILTER_GYM = "pref_filter_gym";
-    public static final String PREF_FILTER_GYM_VAL = "pref_filter_gym_val";
+    public static final String PREF_FILTER_GYM_NAME = "pref_filter_gym_val";
     public static final String PREF_FILTER_AREA = "pref_filter_area";
-    public static final String PREF_FILTER_AREA_VAL = "pref_filter_area_val";
+    public static final String PREF_FILTER_AREA_NAME = "pref_filter_area_val";
     public static final String PREF_FILTER_PROJECTS = "pref_filter_projects";
     public static final String PREF_FILTER_SET = "pref_filter_set";
     private SortByField mSortByField;
-    private OnDialogClosedListener mListener;
     private boolean mFilterGym;
-    private String mFilterGymVal;
+    private String mFilterGymId;
     private boolean mFilterArea;
-    private String mFilterAreaVal;
+    private String mFilterAreaId;
     private boolean mFilterProjects;
     private boolean mFilterSet;
     private LabelledSpinner mSortSpinner;
@@ -85,13 +86,6 @@ public class FilterClimbDialogFragment extends DialogFragment {
             return list;
         }
     }
-    public interface OnDialogClosedListener {
-        void onClose();
-    }
-
-    public void setOnDialogClosedListener(OnDialogClosedListener listener){
-        mListener = listener;
-    }
 
     public FilterClimbDialogFragment() {
         // Required empty public constructor
@@ -117,9 +111,9 @@ public class FilterClimbDialogFragment extends DialogFragment {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         mSortByField = mSortByField.values()[pref.getInt(PREF_SORT_BY, SortByField.lastadded.ordinal())];
         mFilterGym = pref.getBoolean(PREF_FILTER_GYM, false);
-        mFilterGymVal = pref.getString(PREF_FILTER_GYM_VAL, null);
+        mFilterGymId = pref.getString(PREF_FILTER_GYM_NAME, null);
         mFilterArea = pref.getBoolean(PREF_FILTER_AREA, false);
-        mFilterAreaVal = pref.getString(PREF_FILTER_AREA_VAL, null);
+        mFilterAreaId = pref.getString(PREF_FILTER_AREA_NAME, null);
         mFilterProjects = pref.getBoolean(PREF_FILTER_PROJECTS, false);
         mFilterSet = pref.getBoolean(PREF_FILTER_SET, false);
 
@@ -161,21 +155,23 @@ public class FilterClimbDialogFragment extends DialogFragment {
 
             }
         });
-        RealmResults<Climb> results = mRealm.where(Climb.class).distinct("gym");
-        final ArrayList<String> gyms = new ArrayList<>();
-        for(Climb climb: results) {
-            if(climb.getGym() != null) {
-                gyms.add(climb.getGym());
-            }
+        RealmResults<Gym> gymObjects = mRealm.where(Gym.class).findAll();
+        final ArrayList<String> gymNames = new ArrayList<>();
+        for(Gym gym: gymObjects) {
+            gymNames.add(gym.getName());
         }
         // if the gym list is empty, disable the filter switch
-        if(gyms.isEmpty()) {
+        if(gymObjects.isEmpty()) {
             mGymSwitch.setEnabled(false);
             mGymSwitch.setChecked(false);
         }else {
-            mGymSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_dropdown_item, gyms));
-            if(gyms.contains(mFilterGymVal)) {
-                mGymSpinner.setSelection(gyms.indexOf(mFilterGymVal));
+            mGymSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(),android.R.layout.simple_spinner_dropdown_item, gymNames));
+            int filterGymIndex = gymObjects.indexOf(gymObjects.where().equalTo("id", mFilterGymId).findFirst());
+            if(filterGymIndex !=-1) {
+                mGymSpinner.setSelection(filterGymIndex);
+            }else {
+                // unselect
+                mGymSpinner.setSelected(false);
             }
         }
         updateGymUI();
@@ -211,20 +207,21 @@ public class FilterClimbDialogFragment extends DialogFragment {
                 SharedPreferences.Editor editor = pref.edit();
                 editor.putInt(PREF_SORT_BY, (int) mSortSpinner.getSpinner().getSelectedItemId());
                 editor.putBoolean(PREF_FILTER_GYM, mGymSwitch.isChecked());
-                if(mGymSpinner.getSpinner().getSelectedItem()!=null) {
-                    editor.putString(PREF_FILTER_GYM_VAL, mGymSpinner.getSpinner().getSelectedItem().toString());
+                if(mGymSwitch.isChecked() && mGymSpinner.getSpinner().getSelectedItem()!=null) {
+                    editor.putString(PREF_FILTER_GYM_NAME, mGymSpinner.getSpinner().getSelectedItem().toString());
                 }
+
                 editor.putBoolean(PREF_FILTER_AREA, mAreaSwitch.isChecked());
-                if(mAreaSpinner.getSpinner().getSelectedItem()!=null) {
-                    editor.putString(PREF_FILTER_AREA_VAL, mAreaSpinner.getSpinner().getSelectedItem().toString());
+                if(mAreaSwitch.isChecked() && mAreaSpinner.getSpinner().getSelectedItem()!=null) {
+                    editor.putString(PREF_FILTER_AREA_NAME, mAreaSpinner.getSpinner().getSelectedItem().toString());
                 }
+
                 editor.putBoolean(PREF_FILTER_PROJECTS, mProjectSwitch.isChecked());
                 editor.putBoolean(PREF_FILTER_SET, mSetSwitch.isChecked());
                 editor.apply();
-                // save the current fields
-                if(mListener!=null) {
-                    mListener.onClose();
-                }
+
+                // post event to notify climblist fragment
+                EventBus.getDefault().post(new ClimbSortFilterEvent());
                 dismiss();
             }
         });
@@ -244,26 +241,31 @@ public class FilterClimbDialogFragment extends DialogFragment {
     }
 
     private void populateAreaSpinner() {
-        RealmResults<Climb> results;
-        if(mGymSwitch.isChecked() && mGymSpinner.getSpinner().getSelectedItem()!=null) {
-            results = mRealm.where(Climb.class).equalTo("gym", mGymSpinner.getSpinner().getSelectedItem().toString()).distinct("area");
-        }else {
-            results = mRealm.where(Climb.class).distinct("area");
+        if(!mGymSwitch.isChecked() || mGymSpinner.getSpinner().getSelectedItem()==null) {
+            // hide all area UI elements
+            mAreaSwitch.setVisibility(View.GONE);
+            mAreaSwitch.setChecked(false);
+            mAreaSpinner.setVisibility(View.GONE);
+            return;
         }
-        final ArrayList<String> areas = new ArrayList<>();
-        for(Climb climb: results) {
-            if(climb.getArea() != null) {
-                areas.add(climb.getArea());
-            }
+        String gymName = (String) mGymSpinner.getSpinner().getSelectedItem();
+        RealmResults<Area> areaObjects = mRealm.where(Area.class).equalTo("gym.name",gymName).findAll();
+        final ArrayList<String> areaNames = new ArrayList<>();
+        for (Area area : areaObjects) {
+            areaNames.add(area.getName());
         }
         // if the Area list is empty, disable the filter switch
-        if(areas.isEmpty()) {
+        if(areaObjects.isEmpty()) {
             mAreaSwitch.setEnabled(false);
             mAreaSwitch.setChecked(false);
         }else {
-            mAreaSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_dropdown_item, areas));
-            if(areas.contains(mFilterAreaVal)) {
-                mAreaSpinner.setSelection(areas.indexOf(mFilterAreaVal));
+            mAreaSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_dropdown_item, areaNames));
+            int filterAreaIndex = areaObjects.indexOf(areaObjects.where().equalTo("id", mFilterAreaId).findFirst());
+            if(filterAreaIndex !=-1) {
+                mAreaSpinner.setSelection(filterAreaIndex);
+            }else {
+                // unselect
+                mAreaSpinner.setSelected(false);
             }
         }
     }

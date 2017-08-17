@@ -7,128 +7,56 @@
     xmlns:ls="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     tools:context="com.example.grant.wearableclimbtracker.EditClimbDialogFragment">
-
-
-    <TabHost
-        android:id="@+id/tab_host"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <ListView
+            android:id="@+id/grade_listview"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:choiceMode="singleChoice"
+            android:listSelector="#666666" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:layout_height="80dp"
+            android:orientation="horizontal">
 
-            <TabWidget
-                android:id="@android:id/tabs"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-            <FrameLayout
-                android:id="@android:id/tabcontent"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-                <ScrollView
-                    android:id="@+id/tab_details"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-                            <com.farbod.labelledspinner.LabelledSpinner
-                            android:id="@+id/spinner_gym"
-                            ls:labelText="Select Gym"
-                            ls:widgetColor="#F44336"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content" />
+            <com.farbod.labelledspinner.LabelledSpinner
+                android:id="@+id/spinner_gym"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                ls:labelText="Select Gym" />
 
-                        <EditText
-                            android:id="@+id/editText_gym"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ems="10"
-                            android:hint="Enter new gym name"
-                            android:inputType="textPersonName"
-                            android:visibility="gone" />
-
-                        <com.farbod.labelledspinner.LabelledSpinner
-                            android:id="@+id/spinner_area"
-                            ls:labelText="Select Area"
-                            ls:widgetColor="#F44336"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content" />
-
-                        <EditText
-                            android:id="@+id/editText_area"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ems="10"
-                            android:hint="Enter new area name"
-                            android:inputType="textPersonName"
-                            android:visibility="gone" />
-
-                        <com.farbod.labelledspinner.LabelledSpinner
-                            android:id="@+id/spinner_color"
-                            ls:labelText="Select Climb Color"
-                            ls:widgetColor="#F44336"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content" />
-
-                        <LinearLayout
-                            android:id="@+id/layout_addcolor"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:visibility="gone">
-
-                            <com.larswerkman.holocolorpicker.ColorPicker
-                                android:id="@+id/picker"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center"
-                                android:visibility="visible" />
-
-                            <com.larswerkman.holocolorpicker.SVBar
-                                android:id="@+id/svbar"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:visibility="visible" />
-
-                        </LinearLayout>
-
-                        <EditText
-                            android:id="@+id/editText_notes"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ems="10"
-                            android:hint="Notes"
-                            android:inputType="textMultiLine" />
-
-                    </LinearLayout>
-                </ScrollView>
-                <LinearLayout
-                    android:id="@+id/tab_grade"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:visibility="visible">
-
-                    <ListView
-                        android:id="@+id/grade_listview"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:choiceMode="singleChoice"
-                        android:listSelector="#666666" />
-                </LinearLayout>
-
-
-            </FrameLayout>
-
+            <com.farbod.labelledspinner.LabelledSpinner
+                android:id="@+id/spinner_area"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="match_parent"
+                ls:labelText="Select Area" />
+            <ImageButton
+                android:id="@+id/imagebutton_color"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="match_parent"
+                 />
         </LinearLayout>
-    </TabHost>
 
+        <EditText
+            android:id="@+id/editText_notes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:hint="Notes"
+            android:inputType="textMultiLine" />
+
+
+    </LinearLayout>
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"

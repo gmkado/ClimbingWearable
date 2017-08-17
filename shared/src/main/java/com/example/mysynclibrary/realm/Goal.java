@@ -1,7 +1,5 @@
 package com.example.mysynclibrary.realm;
 
-import android.os.Parcelable;
-
 import com.example.mysynclibrary.Shared;
 
 import org.threeten.bp.temporal.ChronoUnit;
@@ -27,6 +25,7 @@ public class Goal extends RealmObject {
     @PrimaryKey private String id;
     private int climbtype;
     private int goalunit;
+    private boolean includeAttempts;
 
     public int getMingrade() {
         return mingrade;
@@ -86,7 +85,7 @@ public class Goal extends RealmObject {
         summary = summary.concat("starting " + sdf.format(startDate) + " ");
 
         switch(getEndType()) {
-            case NO_END:
+            case NEVER:
                 break;
             case DATE:
                 summary = summary.concat("until " + sdf.format(endDate));
@@ -114,6 +113,14 @@ public class Goal extends RealmObject {
 
     public String getUUID() {
         return id;
+    }
+
+    public boolean getIncludeAttempts() {
+        return includeAttempts;
+    }
+
+    public void setIncludeAttempts(boolean includeAttempts) {
+        this.includeAttempts = includeAttempts;
     }
 
     public enum HeightUnit {
@@ -165,16 +172,14 @@ public class Goal extends RealmObject {
     }
 
     public enum EndType {
-        NO_END,
+        NEVER,
         DATE,
         PERIOD;  // This needs to be at the end since we will take it off if the goal is not recurring
 
-        public static List<String> getStringArray(boolean isRecurring) {
+        public static List<String> getStringArray() {
             ArrayList list = new ArrayList();
             for(EndType type:EndType.values()) {
-                if(isRecurring || type!= PERIOD) {
-                    list.add(type.name());
-                }
+                list.add(type.name());
             }
             return list;
         }
@@ -275,7 +280,7 @@ public class Goal extends RealmObject {
         if (target <=0) return false;
 
         switch(EndType.values()[endtype]) {
-            case NO_END:
+            case NEVER:
                 break;
             case DATE:
                 if (endDate == null || endDate.before(startDate)) {
@@ -283,9 +288,6 @@ public class Goal extends RealmObject {
                 }
                 break;
             case PERIOD:
-                if(!recurring) {
-                    return false;  // period should only be possible with recurring
-                }
                 if (numPeriods <= 0) {
                     return false;
                 }

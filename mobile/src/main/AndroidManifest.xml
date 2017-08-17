@@ -52,6 +52,10 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
+        <meta-data
+            android:name="io.fabric.ApiKey"
+            android:value="22325fae494a3d6f867ece25bc4d6b2cc1b43536" />
     </application>
 
+    <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

@@ -6,7 +6,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 
+import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.florent37.androidslidr.Slidr;
@@ -101,6 +104,7 @@ public class EditAttemptsDialogFragment extends DialogFragment {
             // create unmanaged attempt and initialize all default fields here
             mAttempt = new Attempt();
             mAttempt.setClimb(mClimb);
+            mAttempt.setOnLead(false);
             mAttempt.setDate(Calendar.getInstance().getTime());
             mAttempt.setId(UUID.randomUUID().toString());
             // Try to set the current progress to the most recent progress
@@ -127,6 +131,22 @@ public class EditAttemptsDialogFragment extends DialogFragment {
         Slidr slidr = (Slidr) v.findViewById(R.id.slidr_progress);
         slidr.setMax(100);
 
+        // is lead
+        Switch leadSwitch = (Switch)v.findViewById(R.id.switch_leadAttempt);
+        if(mClimb.getType() == Shared.ClimbType.bouldering) {
+            leadSwitch.setVisibility(View.GONE);
+        }else {
+            leadSwitch.setVisibility(View.VISIBLE);
+            if (mAttempt.isOnLead()) {
+                leadSwitch.setChecked(true);
+            }
+            leadSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    mAttempt.setOnLead(isChecked);
+                }
+            });
+        }
         slidr.setTextFormatter(new PercentTextFormatter());
         slidr.setCurrentValue(mAttempt.getProgress());
         slidr.setListener(new Slidr.Listener() {

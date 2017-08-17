@@ -6,9 +6,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
+import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.ShareCompat;
 import android.support.v4.content.FileProvider;
@@ -24,7 +23,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.afollestad.materialdialogs.color.ColorChooserDialog;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
 import com.example.mysynclibrary.realm.Climb;
 import com.google.android.gms.common.ConnectionResult;
@@ -56,7 +57,7 @@ import io.realm.Realm;
 import io.realm.RealmResults;
 
 public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener {
+        implements NavigationView.OnNavigationItemSelectedListener, ColorChooserDialog.ColorCallback {
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREF_LASTSYNC = "prefLastSync";
@@ -208,6 +209,12 @@ public class MainActivity extends AppCompatActivity
                 getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
 
                 item.setChecked(true); // Highlight the selected item has been done by NavigationView
+                setTitle(item.getTitle()); // Set action bar title
+                break;
+            case R.id.nav_editgyms:
+                fragment = GymListFragment.newInstance();
+                getSupportFragmentManager().beginTransaction().addToBackStack(null)
+                        .replace(R.id.content_main, fragment).commit();  // Add to backstack so back button brings us back to main page
                 setTitle(item.getTitle()); // Set action bar title
                 break;
             case R.id.nav_sync:
@@ -433,4 +440,14 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    @Override
+    public void onColorSelection(@NonNull ColorChooserDialog dialog, @ColorInt int selectedColor) {
+        // notify the edit color dialog
+        EventBus.getDefault().post(new ClimbColorSelectedEvent(selectedColor));
+    }
+
+    @Override
+    public void onColorChooserDismissed(@NonNull ColorChooserDialog dialog) {
+
+    }
 }

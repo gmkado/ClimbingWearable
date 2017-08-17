@@ -18,6 +18,7 @@ public class Attempt extends RealmObject {
 
     // All fields are by default persisted.
     private boolean isSend;
+    private boolean onLead;
     private Climb climb;
     private Date datetime;
     @Index private String date;
@@ -86,5 +87,13 @@ public class Attempt extends RealmObject {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public boolean isOnLead() {
+        return onLead;
+    }
+
+    public void setOnLead(boolean onLead) {
+        this.onLead = onLead;
     }
 }

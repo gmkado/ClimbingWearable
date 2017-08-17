@@ -38,5 +38,6 @@ dependencies {
     compile 'com.github.PhilJay:MPAndroidChart-Realm:v1.1.0@aar'
     compile 'com.github.PhilJay:MPAndroidChart:v3.0.0-beta1'
     compile 'com.jakewharton.threetenabp:threetenabp:1.0.5'
+    compile 'org.jetbrains:annotations-java5:15.0'
 }
 

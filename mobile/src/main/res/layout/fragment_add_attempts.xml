@@ -37,6 +37,12 @@
         app:slidr_regions_centerText="false"
         app:slidr_region_leftColor="#4CAF50" />
 
+    <Switch
+        android:id="@+id/switch_leadAttempt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lead Attempt?" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

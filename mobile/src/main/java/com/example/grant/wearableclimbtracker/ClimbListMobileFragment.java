@@ -1,5 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -30,11 +31,17 @@ import android.widget.TextView;
 import com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar;
 import com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.SortByField;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.eventbus.ClimbResultChangedEvent;
+import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.clans.fab.FloatingActionButton;
 import com.github.clans.fab.FloatingActionMenu;
 import com.polyak.iconswitch.IconSwitch;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.Date;
 import java.text.DateFormat;
@@ -52,9 +59,9 @@ import io.realm.RealmResults;
 import io.realm.Sort;
 
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_AREA;
-import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_AREA_VAL;
+import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_AREA_NAME;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_GYM;
-import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_GYM_VAL;
+import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_GYM_NAME;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_PROJECTS;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_SET;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_SORT_BY;
@@ -70,6 +77,13 @@ public class ClimbListMobileFragment extends Fragment {
     private Realm mRealm;
     private final String PREF_CLIMBTYPE = "prefClimbType";
     private Shared.ClimbType mClimbType;
+    private SortByField sortByField;
+    private boolean filterGym;
+    private String filterGymName;
+    private boolean filterArea;
+    private String filterAreaName;
+    private boolean filterProjects;
+    private boolean filterSet;
 
     public ClimbListMobileFragment() {
 
@@ -81,14 +95,7 @@ public class ClimbListMobileFragment extends Fragment {
             case R.id.item_filter:
                 // show the filter dialog
                 FilterClimbDialogFragment fragment = FilterClimbDialogFragment.newInstance();
-                fragment.setOnDialogClosedListener(new FilterClimbDialogFragment.OnDialogClosedListener() {
-                    @Override
-                    public void onClose() {
-                        invalidateRealmResult();  // invalidate to include new filter/sort requirments
-                    }
-                });
                 showDialogFragment(fragment);
-
                 return true;
         }
         return false;
@@ -128,17 +135,28 @@ public class ClimbListMobileFragment extends Fragment {
     }
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
+        getSortFilterPref();
+    }
 
+    private void getSortFilterPref() {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
-
+        filterGym = pref.getBoolean(PREF_FILTER_GYM, false);
+        filterGymName = pref.getString(PREF_FILTER_GYM_NAME, null);
+        filterArea = pref.getBoolean(PREF_FILTER_AREA, false);
+        filterAreaName = pref.getString(PREF_FILTER_AREA_NAME, null);
+        filterProjects = pref.getBoolean(PREF_FILTER_PROJECTS, false);
+        filterSet = pref.getBoolean(PREF_FILTER_SET, false);
+        sortByField = SortByField.values()[pref.getInt(PREF_SORT_BY, SortByField.lastadded.ordinal())];
     }
 
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView");
         View rootView = inflater.inflate(R.layout.fragment_climb_list, container, false);
 
         // Add fab listeners
@@ -156,6 +174,14 @@ public class ClimbListMobileFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 showDialogFragment(EditClimbDialogFragment.newInstance(mClimbType, null, EditClimbDialogFragment.EditClimbMode.ADD_SEND));
+            }
+        });
+        // add goal button listener
+        FloatingActionButton fabAddGoal = (FloatingActionButton) rootView.findViewById(R.id.fab_add_goal);
+        fabAddGoal.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, null));
             }
         });
 
@@ -191,32 +217,26 @@ public class ClimbListMobileFragment extends Fragment {
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onDestroyView() {
+        super.onDestroyView();
+        mResult.removeAllChangeListeners();
         mRealm.close();
     }
 
     private void invalidateRealmResult() {
-        // get filter results
-        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        boolean filterGym = pref.getBoolean(PREF_FILTER_GYM, false);
-        String filterGymVal = pref.getString(PREF_FILTER_GYM_VAL, null);
-        boolean filterArea = pref.getBoolean(PREF_FILTER_AREA, false);
-        String filterAreaVal = pref.getString(PREF_FILTER_AREA_VAL, null);
-        boolean filterProjects = pref.getBoolean(PREF_FILTER_PROJECTS, false);
-        boolean filterSet = pref.getBoolean(PREF_FILTER_SET, false);
-
+        // The way this works is any time the sort/filter fields change we need to invalidate the realm result to create the new query
+        // If the underlying data changes it will call the changelistener, which will sort and update the list, so we don't need to call invalidate or notifydataset
         RealmQuery<Climb> query = mRealm.where(Climb.class).equalTo("type", mClimbType.ordinal());
         if(filterGym) {
-            query.equalTo("gym", filterGymVal);
+            query.equalTo("gym.name", filterGymName);
         }
 
         if(filterArea) {
-            query.equalTo("area", filterAreaVal);
+            query.equalTo("area.name", filterAreaName);
         }
         if(filterProjects) {
-            query.beginGroup()
-                    .equalTo("attempts.isSend", false).or().isEmpty("attempts")
+            query.not().beginGroup()
+                    .equalTo("attempts.isSend", true)
                     .endGroup();
         }
         if(filterSet) {
@@ -227,7 +247,8 @@ public class ClimbListMobileFragment extends Fragment {
         mResult.addChangeListener(new RealmChangeListener<RealmResults<Climb>>() {
             @Override
             public void onChange(RealmResults<Climb> climbs) {
-                sortResultAndUpdateAdapter(climbs);
+                // NOTE: this is to fix context = null error when calling "init" from another thread.  Use Eventbus so we can respond to this in the UI thread
+                EventBus.getDefault().post(new ClimbResultChangedEvent(climbs));
             }
         });
         sortResultAndUpdateAdapter(mResult);
@@ -236,11 +257,9 @@ public class ClimbListMobileFragment extends Fragment {
     }
 
     private void sortResultAndUpdateAdapter(RealmResults<Climb> realmResults) {
-        // TODO: had to change ClimbListAdapter to an array adapter instead of RealmBaseAdapter, janky way to do this, this is tracked here: https://github.com/realm/realm-java/issues/4501
-        // TODO: also here https://github.com/realm/realm-java/issues/2313
+        // HACK: had to change ClimbListAdapter to an array adapter instead of RealmBaseAdapter, janky way to do this, this is tracked here: https://github.com/realm/realm-java/issues/4501
+        // also here https://github.com/realm/realm-java/issues/2313
         // Need to make sure that we call this when mResult is updated, since list adapter is no longer automatically watching for changes
-        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        SortByField sortByField = SortByField.values()[pref.getInt(PREF_SORT_BY, SortByField.lastadded.ordinal())];
 
         ArrayList<Climb> sortedResults = new ArrayList<>();
         switch(sortByField) {
@@ -307,7 +326,7 @@ public class ClimbListMobileFragment extends Fragment {
                 sortedResults.addAll(mRealm.copyFromRealm(realmResults.sort("grade", Sort.DESCENDING)));
                 break;
         }
-        mAdapter = new ClimbListAdapter(sortedResults);
+        mAdapter = new ClimbListAdapter(getContext(),sortedResults);
         mListView.setAdapter(mAdapter);
     }
 
@@ -321,22 +340,33 @@ public class ClimbListMobileFragment extends Fragment {
     @Override
     public void onStop() {
         super.onStop();
-        //EventBus.getDefault().unregister(this);
+        EventBus.getDefault().unregister(this);
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        //EventBus.getDefault().register(this);
+        EventBus.getDefault().register(this);
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onClimbResultChanged(ClimbResultChangedEvent event) {
+        sortResultAndUpdateAdapter(event.climbs);
+    }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onClimbSortFilterChanged(ClimbSortFilterEvent event) {
+        // HACK: I tried using a listener to respond to FilterClimbDialogFragment in conjunction with a preferenceChangedListener, but the pref changed would sometimes not get called (when the app was quit via backpress and reopened).  Logcat showed onCreate being called (where pref listener was added), so not sure what the issue is
+        getSortFilterPref();
+        invalidateRealmResult();  // NOTE: if only sort pref has changed, we would really only need to call sortResultAndUpdateAdapter, but we'll call it anyways b/c it's not expensive
+    }
 
     private class ClimbListAdapter extends ArrayAdapter<Climb> implements ListAdapter {
         private static final int MENU_EDIT = 0;
-        private static final int MENU_SEND = 1;
+        private static final int MENU_SEND_NOTLEAD = 1;
         private static final int MENU_ATTEMPT = 2;
         private static final int MENU_REMOVE = 3;
+        private static final int MENU_SEND_LEAD = 4;
 
         private class ViewHolder {
             TextView grade;
@@ -349,12 +379,14 @@ public class ClimbListMobileFragment extends Fragment {
             View card;
             ImageButton menu;
             ImageView status;
+            ImageView leadSend;
+            ImageView leadAttempt;
             TextRoundCornerProgressBar progress;
             View expandable;
         }
 
-        ClimbListAdapter(ArrayList<Climb> data) {
-            super(ClimbListMobileFragment.this.getContext(), 0 , data);
+        ClimbListAdapter(Context context, ArrayList<Climb> data) {
+            super(context, 0 , data);
         }
 
         @NonNull
@@ -377,6 +409,7 @@ public class ClimbListMobileFragment extends Fragment {
                 viewHolder.progress = (TextRoundCornerProgressBar) viewHolder.expandable.findViewById(R.id.rcprogress);
                 viewHolder.progress.setMax(100);
                 viewHolder.status = (ImageView) convertView.findViewById(R.id.imageView_status);
+                viewHolder.leadSend = (ImageView) convertView.findViewById(R.id.imageView_sendLead);
 
                 convertView.setTag(viewHolder);
             }else {
@@ -385,19 +418,18 @@ public class ClimbListMobileFragment extends Fragment {
 
             final Climb unmanagedClimb = getItem(position);
 
-            int gradeInd = unmanagedClimb.getGrade();
-            Shared.ClimbType type = unmanagedClimb.getType();
-
-            viewHolder.grade.setText(type.grades.get(gradeInd));
+            // set all fields
+            viewHolder.grade.setText(unmanagedClimb.getType().grades.get(unmanagedClimb.getGrade()));
             if(unmanagedClimb.isRemoved()) {
                  viewHolder.grade.setPaintFlags(viewHolder.grade.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
             }else {
                 viewHolder.grade.setPaintFlags(viewHolder.grade.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
             }
-            viewHolder.gym.setText(unmanagedClimb.getGym()==null?"":unmanagedClimb.getGym());
-            viewHolder.area.setText(unmanagedClimb.getArea()==null? "" : unmanagedClimb.getArea());
+            viewHolder.gym.setText(unmanagedClimb.getGym()==null?"":unmanagedClimb.getGym().getName());
+            viewHolder.area.setText(unmanagedClimb.getArea()==null? "" : unmanagedClimb.getArea().getName());
             viewHolder.dateCreated.setText("Created: "+ SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(unmanagedClimb.getDateCreated()));
 
+            // Set background color
             if (unmanagedClimb.getColor() != -1) {
                 viewHolder.card.setBackgroundColor(
                         ColorUtils.setAlphaComponent(unmanagedClimb.getColor(), (int) (0.5*255)));
@@ -423,24 +455,16 @@ public class ClimbListMobileFragment extends Fragment {
                                     showDialogFragment(EditClimbDialogFragment.newInstance(mClimbType, unmanagedClimb.getId(), EditClimbDialogFragment.EditClimbMode.EDIT));
                                     break;
                                 case MENU_ATTEMPT:
-                                    FragmentTransaction ft = getActivity().getSupportFragmentManager().beginTransaction();
-                                    Fragment prev = getActivity().getSupportFragmentManager().findFragmentByTag("dialog");
-                                    if (prev != null) {
-                                        ft.remove(prev);
-                                    }
-                                    ft.addToBackStack(null);
-
-                                    // Create and show the dialog.
-                                    DialogFragment newFragment = EditAttemptsDialogFragment.newInstance(unmanagedClimb.getId(), null);
-                                    newFragment.show(ft, "dialog");
+                                    showDialogFragment(EditAttemptsDialogFragment.newInstance(unmanagedClimb.getId(), null));
                                     break;
-                                case MENU_SEND:
+                                case MENU_SEND_LEAD:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
                                             Climb managedClimb = realm.where(Climb.class).equalTo("id", unmanagedClimb.getId()).findFirst();
                                             Attempt send = realm.createObject(Attempt.class,UUID.randomUUID().toString());
                                             send.setSend(true);
+                                            send.setOnLead(true);
                                             send.setDate(Calendar.getInstance().getTime());
                                             send.setCount(1);
                                             send.setProgress(100);
@@ -450,7 +474,34 @@ public class ClimbListMobileFragment extends Fragment {
                                         @Override
                                         public void onSuccess() {
                                             // Transaction was a success.
-                                            invalidateRealmResult();
+                                            invalidateRealmResult();  // NOTE: since this block doesn't change a climb, our realm change listener doesn't get called so we have to manually invalidate realm result
+                                        }
+                                    }, new Realm.Transaction.OnError() {
+                                        @Override
+                                        public void onError(Throwable error) {
+                                            // Transaction failed and was automatically canceled.
+                                            Log.e(TAG, error.getMessage());
+                                        }
+                                    });
+                                    break;
+                                case MENU_SEND_NOTLEAD:
+                                    mRealm.executeTransactionAsync(new Realm.Transaction() {
+                                        @Override
+                                        public void execute(Realm realm) {
+                                            Climb managedClimb = realm.where(Climb.class).equalTo("id", unmanagedClimb.getId()).findFirst();
+                                            Attempt send = realm.createObject(Attempt.class,UUID.randomUUID().toString());
+                                            send.setSend(true);
+                                            send.setOnLead(false);
+                                            send.setDate(Calendar.getInstance().getTime());
+                                            send.setCount(1);
+                                            send.setProgress(100);
+                                            send.setClimb(managedClimb);
+                                        }
+                                    }, new Realm.Transaction.OnSuccess() {
+                                        @Override
+                                        public void onSuccess() {
+                                            // Transaction was a success.
+                                            invalidateRealmResult();  // NOTE: since this block doesn't change a climb, our realm change listener doesn't get called so we have to manually invalidate realm result
                                         }
                                     }, new Realm.Transaction.OnError() {
                                         @Override
@@ -467,7 +518,8 @@ public class ClimbListMobileFragment extends Fragment {
                                             Climb managedClimb = realm.where(Climb.class).equalTo("id", unmanagedClimb.getId()).findFirst();
                                             managedClimb.setRemoved(!managedClimb.isRemoved());
                                         }
-                                    }, null, new Realm.Transaction.OnError() {
+                                    }, null, // NOTE: since we changed a climb, the listener gets called which refreshes the list adapter, so we don't need to invalidate realm results
+                                    new Realm.Transaction.OnError() {
                                         @Override
                                         public void onError(Throwable error) {
                                             // Transaction failed and was automatically canceled.
@@ -480,7 +532,12 @@ public class ClimbListMobileFragment extends Fragment {
                         }
                     });
                     menu.getMenu().add(Menu.NONE, MENU_EDIT, 0, "Edit");
-                    menu.getMenu().add(Menu.NONE, MENU_SEND, 2, "Add Send");
+                    if(unmanagedClimb.getType() == Shared.ClimbType.ropes) {
+                        menu.getMenu().add(Menu.NONE, MENU_SEND_NOTLEAD, 1, "Add TR Send");
+                        menu.getMenu().add(Menu.NONE, MENU_SEND_LEAD, 2, "Add Lead Send");
+                    }else {
+                        menu.getMenu().add(Menu.NONE, MENU_SEND_NOTLEAD, 1, "Add Send");
+                    }
                     menu.getMenu().add(Menu.NONE, MENU_ATTEMPT, 3, "Add Attempt");
                     menu.getMenu().add(Menu.NONE, MENU_REMOVE, 4, unmanagedClimb.isRemoved()?"Set as not removed":"Set as removed");
                     menu.show();
@@ -534,6 +591,23 @@ public class ClimbListMobileFragment extends Fragment {
                 viewHolder.sends.setVisibility(View.INVISIBLE);
                 viewHolder.attempts.setVisibility(View.INVISIBLE);
                 viewHolder.dateAttempted.setVisibility(View.INVISIBLE);
+            }
+
+            // set lead icon
+            if(unmanagedClimb.getType() == Shared.ClimbType.bouldering) {
+                viewHolder.leadSend.setVisibility(View.GONE);
+            }else {
+                if(attempts.isEmpty()) {
+                    viewHolder.leadSend.setVisibility(View.GONE);
+                }else {
+                    if (attempts.where().equalTo("isSend", true).equalTo("onLead", true).findAll().isEmpty()) {
+                        // no lead sends
+                        viewHolder.leadSend.setVisibility(View.GONE);
+                    } else {
+                        viewHolder.leadSend.setVisibility(View.VISIBLE);
+                    }
+
+                }
             }
             return convertView;
         }

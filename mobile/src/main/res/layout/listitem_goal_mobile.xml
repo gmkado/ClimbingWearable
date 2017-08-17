@@ -37,10 +37,41 @@
                 android:src="@drawable/ic_menu_moreoverflow_normal_holo_light" />
 
         </LinearLayout>
-        <include layout="@layout/view_expandable_progress"
-            android:id="@+id/layout_nonrecurring"/>
-        <include layout="@layout/view_expandable_progress"
-            android:id="@+id/layout_recurring"/>
+        <com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar
+            android:id="@+id/rcprogress_currperiod"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:padding="5dp"
+            app:rcBackgroundPadding="5dp"
+            app:rcIconPadding="5dp"
+            app:rcIconSize="30dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="5dp"
+            android:orientation="horizontal"
+            android:id="@+id/layout_prev_periods">
+
+
+
+            <TextView
+                android:id="@+id/textView10"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/round" />
+
+            <TextView
+                android:id="@+id/textView9"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/round" />
+
+        </LinearLayout>
 
 
     </LinearLayout>
