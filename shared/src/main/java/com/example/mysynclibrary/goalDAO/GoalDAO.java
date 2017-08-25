@@ -1,6 +1,10 @@
 package com.example.mysynclibrary.goalDAO;
 
+import android.text.SpannableStringBuilder;
+import android.text.style.RelativeSizeSpan;
+
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Goal;
 
@@ -31,16 +35,18 @@ public class GoalDAO {
     private RealmResults<Attempt> mFullRangeResults;
     private Date mStartDate;
     private Date mEndDate;
+    private int mNumSuccessfulPeriods;
+    private Date mCurrPeriodEndDate;
 
     public GoalDAO(Goal goal) {
         super();
         mGoal = goal; // NOTE: we don't have a changelistener on goal because anytime the goals change, GoalListFragment repopulates the list anyways
         listener = null;
 
-        getStartAndEndDate();
+        getDateLimits();
         getRealmResult();
         if(mGoal.isRecurring()) {
-            populateGoalMap();
+            populateGoalMapAndGetRecurringStats();
         }
     }
 
@@ -56,8 +62,7 @@ public class GoalDAO {
         return mGoal;
     }
 
-
-    private void getStartAndEndDate() {
+    private void getDateLimits() {
         switch(mGoal.getEndType()) {
             case NEVER:
                 mStartDate = mGoal.getStartDate();
@@ -69,7 +74,7 @@ public class GoalDAO {
                 break;
             case PERIOD:
                 if(mGoal.getPeriod() == Goal.Period.SESSION) {
-                    evaluateSessionPeriod();
+                    getSessionDateLimits();
                 }else {
                     mStartDate = mGoal.getStartDate();
                     mEndDate = getIncrementedDate(getIncrementedDate(mStartDate, mGoal.getPeriod().unit, mGoal.getNumPeriods()+1), ChronoUnit.DAYS, -1); // end date for 4 wks = 5 wks from start - 1 day
@@ -80,7 +85,8 @@ public class GoalDAO {
         }
     }
 
-    private void evaluateSessionPeriod() {
+    private void getSessionDateLimits() {
+        // Get the start and end date for the special case of Sessions
         try(Realm realm = Realm.getDefaultInstance()) {
             // No need to close the Realm instance manually since this is wrapped in try statement
             // https://realm.io/docs/java/latest/#closing-realm-instances
@@ -113,10 +119,7 @@ public class GoalDAO {
             // NOTE: if not recurring, goallist will not use the map but rather the entire data set.
 
             // get start and end date
-
-
             // get the realm results dealing with the "nonrecurring" goal
-            // TODO: if enddate == null, then just use start date
             RealmQuery<Attempt> query = realm.where(Attempt.class)
                     .greaterThanOrEqualTo("datetime", mStartDate)
                     .equalTo("climb.type", mGoal.getClimbType().ordinal())
@@ -135,12 +138,14 @@ public class GoalDAO {
                 @Override
                 public void onChange(RealmResults<Attempt> attempts) {
                     if (mGoal.getEndType() == Goal.EndType.PERIOD && mGoal.getPeriod() == Goal.Period.SESSION) {
-                        evaluateSessionPeriod(); // session might have been deleted, so we need to revaluate start/end dates and re-get the realm results
+                        // session might have been deleted, so we need to revaluate start/end dates and re-get the realm results
+                        getSessionDateLimits();
                         getRealmResult();
                     }
                     if (mGoal.isRecurring()) {
-                        populateGoalMap();
+                        populateGoalMapAndGetRecurringStats();
                     }
+
                     if (listener != null) {
                         listener.onGoalResultsChanged();  // notify the listener that the underlying data has changed
                     }
@@ -149,28 +154,45 @@ public class GoalDAO {
         }
     }
 
-    private void populateGoalMap() {
-        //      loop through dates and add <date, realmresult> to map
+    private void populateGoalMapAndGetRecurringStats() {
+        // loop through dates and add <date, realmresult> to map
         Date periodStartDate = mStartDate;
         Date periodEndDate = getIncrementedDate(mStartDate, mGoal.getPeriod().unit, 1);
         Date today = getTruncatedDate(Calendar.getInstance().getTime(), ChronoUnit.DAYS); // start of today
 
+        mNumSuccessfulPeriods = 0;
         mPeriodResultMap = new TreeMap<>();
-        do {
+
+        Date pastResultsEndDate = mEndDate == null?   // the end date for past results is today or the goal end date, whichever comes first
+                today:
+                mEndDate.before(today)?
+                        mEndDate:
+                        today;
+
+        while(!periodStartDate.after(pastResultsEndDate)){
             RealmResults<Attempt> periodResults = mFullRangeResults.where().between("datetime", periodStartDate, periodEndDate).findAll();
-            // every entry in map will be a "block" in the listview, so entries for sessions should only be added if realmresult is not empty or startdate >= start of today
-            if(mGoal.getPeriod() == Goal.Period.SESSION) {
-                if(!periodResults.isEmpty() || periodStartDate.equals(today))
-                {
-                    mPeriodResultMap.put(periodStartDate, periodResults);
-                }
-            }else {
+
+            // tally the recurring period successes.  if period is session then results need to be not empty or  today to be counted
+            if(mGoal.getPeriod() != Goal.Period.SESSION || periodStartDate.equals(today) || !periodResults.isEmpty()) {
                 mPeriodResultMap.put(periodStartDate, periodResults);
+                if (getProgressForPeriod(periodResults) >= mGoal.getTarget()) {
+                    mNumSuccessfulPeriods++;
+                }
             }
+            mCurrPeriodEndDate = periodEndDate; // used to determine remaining time
             periodStartDate = periodEndDate;
             periodEndDate = getIncrementedDate(periodEndDate, mGoal.getPeriod().unit, 1);
-        } while (!periodStartDate.after(mEndDate == null ? today : mEndDate));
+        }
 
+    }
+
+    private boolean isGoalExpired() {
+        if(mEndDate==null) {
+            return false; // no end
+        } else {
+            Date today = getTruncatedDate(Calendar.getInstance().getTime(), ChronoUnit.DAYS); // start of today
+            return today.after(mEndDate);
+        }
     }
 
     public int getProgressForPeriod(RealmResults < Attempt > periodResults) {
@@ -238,7 +260,106 @@ public class GoalDAO {
         return Shared.ZDTToDate(zdt);
     }
 
+    public SpannableStringBuilder getPastProgressText() {
+        // 9 out of 10 sessions (90%), 3 days remaining
+        if(mGoal.isRecurring()) {
+            SimpleSpanBuilder ssb = new SimpleSpanBuilder();
+            ssb.append("Previous " + mGoal.getPeriod().getPlural(), new RelativeSizeSpan(2));
+            int numPastPeriods = mPeriodResultMap.size();
+            int percent = mNumSuccessfulPeriods *100/ numPastPeriods;
+
+            ssb.append(String.format(Locale.getDefault(),
+                    "\n%d out of %d %s (%d%%)",
+                    mNumSuccessfulPeriods,
+                    numPastPeriods,
+                    numPastPeriods==1?mGoal.getPeriod().getSingular(): mGoal.getPeriod().getPlural(),
+                    percent));
+            if(mGoal.getEndType() != Goal.EndType.NEVER) {
+                // enddate = (endtype = period && period = sessions) -> numPeriods-numPastPeriods, else enddate = date
+                int numPeriodsRemaining;
+                if(mGoal.getEndType() == Goal.EndType.PERIOD && mGoal.getPeriod() == Goal.Period.SESSION) {
+                    numPeriodsRemaining = mGoal.getNumPeriods() - numPastPeriods;
+                }else {
+                    numPeriodsRemaining = (int)getPeriodsBetweenDates(mCurrPeriodEndDate, mEndDate, mGoal.getPeriod().unit);
+                }
+
+                ssb.append(String.format(Locale.getDefault(),
+                    "\n%d %s remaining",
+                    numPeriodsRemaining,
+                    numPeriodsRemaining == 1? mGoal.getPeriod().getSingular():mGoal.getPeriod().getSingular()));
+            }
+            return ssb.build();
+        } else {
+            return null;
+        }
+    }
+
+    public SpannableStringBuilder getCurrentProgressText() {
+        SimpleSpanBuilder ssb = new SimpleSpanBuilder();
+        if(mGoal.isRecurring()) {
+            ssb.append("Current " + mGoal.getPeriod().getSingular(), new RelativeSizeSpan(2));
+        }else {
+            ssb.append("Current Progress", new RelativeSizeSpan(2));
+        }
+
+        ssb.append(String.format(Locale.getDefault(),
+                "\n%d out of %d %s over %s",
+                getCurrentProgress(),
+                mGoal.getTarget(), mGoal.getGoalUnit().name(),
+                mGoal.getClimbType().grades.get(mGoal.getMingrade())));
+
+        // now get the remaining period
+        // if this is recurring, unit = (period = days) -> hours, (period = weeks) -> days, etc
+        // if this is nonrecurring, unit = (endtype = period) -> period, (endtype = date) -> days
+        if(mGoal.getEndType()!= Goal.EndType.NEVER) {
+            Date today = getTruncatedDate(Calendar.getInstance().getTime(), ChronoUnit.DAYS); // start of today
+            ChronoUnit remainderUnit = null;
+            if (mGoal.isRecurring()) {
+                switch (mGoal.getPeriod()) {
+                    case SESSION:
+                        today = Calendar.getInstance().getTime();
+                        remainderUnit = ChronoUnit.HOURS;
+                        break;
+                    case WEEKLY:
+                        remainderUnit = ChronoUnit.DAYS;
+                        break;
+                    case MONTHLY:
+                        remainderUnit = ChronoUnit.DAYS;
+                        break;
+                    case YEARLY:
+                        remainderUnit = ChronoUnit.MONTHS;
+                        break;
+                }
+            } else {
+                if (mGoal.getEndType() == Goal.EndType.PERIOD) {
+                    remainderUnit = mGoal.getPeriod().unit;
+                } else if (mGoal.getEndType() == Goal.EndType.DATE) {
+                    remainderUnit = ChronoUnit.DAYS;
+                }
+                mCurrPeriodEndDate = mEndDate;
+            }
+            if (remainderUnit != null && mCurrPeriodEndDate!=null) {
+                ssb.append(String.format(Locale.getDefault(), "\n%d %s remaining",
+                        getPeriodsBetweenDates(today, mCurrPeriodEndDate, remainderUnit),
+                        remainderUnit.name()
+                ));
+            }
+        }
+        return ssb.build();
+    }
+
+    public int getCurrentProgress() {
+        return getProgressForPeriod(mGoal.isRecurring()? mPeriodResultMap.lastEntry().getValue():mFullRangeResults);
+    }
+
     public interface GoalDAOListener {
-        void onGoalResultsChanged();
+            void onGoalResultsChanged();
+        }
+
+
+    private long getPeriodsBetweenDates(Date start, Date end, ChronoUnit unit) {
+        ZonedDateTime startzdt = Shared.DateToZDT(start);
+        ZonedDateTime endzdt = Shared.DateToZDT(end);
+        return unit.between(startzdt, endzdt);
     }
 }

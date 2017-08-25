@@ -4,12 +4,15 @@ import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
 
@@ -42,6 +45,7 @@ public class EditClimbDialogFragment extends DialogFragment {
     private static final String TAG = "EditClimbDialogFragment";
     private static final String ARG_MODE = "editmode";
     private LabelledSpinner mAreaSpinner;
+    private Button mColorButton;
 
     public enum EditClimbMode{
         ADD_SEND,
@@ -219,7 +223,7 @@ public class EditClimbDialogFragment extends DialogFragment {
         updateAreaUI();
 
         // ----------- colors --------------------
-        ImageButton colorImageButton = (ImageButton)v.findViewById(R.id.imagebutton_color);
+        mColorButton = (Button)v.findViewById(R.id.button_color);
         RealmResults<Climb> distinctColorClimbs = mRealm.where(Climb.class).distinct("color");
 
         final ArrayList<Integer> colors = new ArrayList<>();
@@ -228,27 +232,45 @@ public class EditClimbDialogFragment extends DialogFragment {
             colors.add(climb.getColor());
         }
         colors.add(0); // add a color
-        colorImageButton.setOnClickListener(new View.OnClickListener() {
+        mColorButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 // Pass a context, along with the title of the dialog
-                new ColorChooserDialog.Builder(getContext(), R.string.colorchooser_title)
+                ColorChooserDialog.Builder colorChooserBuilder = new ColorChooserDialog.Builder(getContext(), R.string.colorchooser_title)
                         .accentMode(false)  // when true, will display accent palette instead of primary palette
+                        .allowUserColorInput(false)
                         .preselect(mClimb.getColor())  // optionally preselects a color
-                        .dynamicButtonColor(true)  // defaults to true, false will disable changing action buttons' color to currently selected color
-                        .show(getActivity()); // an AppCompatActivity which implements ColorCallback
+                        .dynamicButtonColor(true);  // defaults to true, false will disable changing action buttons' color to currently selected color
+
+                colorChooserBuilder.show(getActivity());
             }
         });
         // set item checked
         if(mClimb.getColor() != -1) {
-            colorImageButton.setBackgroundColor(mClimb.getColor());
+            mColorButton.setBackgroundColor(mClimb.getColor());
         }else {
-            colorImageButton.setBackgroundColor(Color.WHITE);
+            mColorButton.setBackgroundColor(Color.WHITE);
         }
 
+        EditText noteText = (EditText) v.findViewById(R.id.editText_notes);
 
-        // TODO: Add notes to edit text
         // Add change listener after notes are entered
+        noteText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                mClimb.setNotes(s.toString());
+            }
+        });
 
         /* ****************** SAVE BUTTON ***************************/
         mSaveButton.setEnabled(false);
@@ -288,7 +310,16 @@ public class EditClimbDialogFragment extends DialogFragment {
             // show area spinner
             mAreaSpinner.setEnabled(true);
 
-            final RealmResults<Area> areaObjects = mRealm.where(Area.class).equalTo("gym.id", mClimb.getGym().getId()).findAll();
+            final RealmResults<Area> areaObjects = mRealm.where(Area.class)
+                    .equalTo("gym.id", mClimb.getGym().getId())
+                    .equalTo("type",
+                            mClimb.getType()==Shared.ClimbType.bouldering?
+                                    Area.AreaType.BOULDER_ONLY.ordinal():
+                                    Area.AreaType.ROPES_ONLY.ordinal()
+                    )
+                    .or()
+                    .equalTo("type", Area.AreaType.MIXED.ordinal())
+                    .findAll();
             final ArrayList<String> areaNames = new ArrayList<>();
             areaNames.add(""); // Append "blank" option
             for (Area area : areaObjects) {
@@ -364,6 +395,8 @@ public class EditClimbDialogFragment extends DialogFragment {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onClimbColorEvent(ClimbColorSelectedEvent event) {
+        // HACK: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
+        mColorButton.setBackgroundColor(event.color);
         mClimb.setColor(event.color);
     }
 

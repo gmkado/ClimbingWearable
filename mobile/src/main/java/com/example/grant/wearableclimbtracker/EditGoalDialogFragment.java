@@ -35,6 +35,7 @@ import android.widget.TextView;
 import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.realm.Goal;
 import com.farbod.labelledspinner.LabelledSpinner;
 import com.github.clans.fab.Label;
@@ -167,6 +168,14 @@ public class EditGoalDialogFragment extends DialogFragment {
     }
 
     private void updateGoalSpannable() {
+        // I want to <BOULDER/ROPE> climb <#> <CLIMBS/POINTS/HEIGHT> at least <V#/5.##>
+        //      if HEIGHT replace with "<FEET/METERS>"
+        // starting <TODAY> and <RECURRING/NOT RECURRING>
+        //      if RECURRING add "every <SESSION/WEEK/MONTH/YEAR>" (this will automatically link to end type period)
+        // ending <DATE/PERIOD/NEVER>
+        //      if DATE replace with <MM/DD/YYYY>
+        //      if PERIOD replace with <AFTER> and add "<#> <SESSION/WEEK/MONTH/YEAR>"  (this will automatically link to recurring period)
+
         DateFormat df = SimpleDateFormat.getDateInstance(DateFormat.SHORT);
         SimpleSpanBuilder ssb = new SimpleSpanBuilder();
         ssb.append("I want to")
@@ -480,13 +489,6 @@ public class EditGoalDialogFragment extends DialogFragment {
         mGoalSummary.setClickable(true);
         mGoalSummary.setMovementMethod(LinkMovementMethod.getInstance()); // NOTE: https://stackoverflow.com/questions/8641343/android-clickablespan-not-calling-onclick
 
-        // I want to <BOULDER/ROPE> climb <#> <CLIMBS/POINTS/HEIGHT> at least <V#/5.##>
-        //      if HEIGHT replace with "<FEET/METERS>"
-        // starting <TODAY> and <RECURRING/NOT RECURRING>
-        //      if RECURRING add "every <SESSION/WEEK/MONTH/YEAR>" (this will automatically link to end type period)
-        // ending <DATE/PERIOD/NEVER>
-        //      if DATE replace with <MM/DD/YYYY>
-        //      if PERIOD replace with <AFTER> and add "<#> <SESSION/WEEK/MONTH/YEAR>"  (this will automatically link to recurring period)
 
         checkGoalValidity();
     }
@@ -528,55 +530,5 @@ public class EditGoalDialogFragment extends DialogFragment {
         mRealm.close();
     }
 
-    class SimpleSpanBuilder {
-        private class SpanSection{
-            private final String text;
-            private final int startIndex;
-            private final Object[] spans;
-
-            SpanSection(String text, int startIndex,Object... spans){
-                this.spans = spans;
-                this.text = text;
-                this.startIndex = startIndex;
-            }
-
-            void apply(SpannableStringBuilder spanStringBuilder){
-                if (spanStringBuilder == null) return;
-                for (Object span : spans){
-                    spanStringBuilder.setSpan(span, startIndex, startIndex + text.length(), Spannable.SPAN_INCLUSIVE_EXCLUSIVE);
-                }
-            }
-        }
-
-        private List<SpanSection> spanSections;
-        private StringBuilder stringBuilder;
-
-        public SimpleSpanBuilder(){
-            stringBuilder = new StringBuilder();
-            spanSections = new ArrayList<>();
-        }
-
-        public SimpleSpanBuilder append(String text,Object... spans){
-            if (spans != null && spans.length > 0) {
-                spanSections.add(new SpanSection(text, stringBuilder.length(),spans));
-            }
-            stringBuilder.append(text);
-            return this;
-        }
-
-
-        public SpannableStringBuilder build(){
-            SpannableStringBuilder ssb = new SpannableStringBuilder(stringBuilder.toString());
-            for (SpanSection section : spanSections){
-                section.apply(ssb);
-            }
-            return ssb;
-        }
-
-        @Override
-        public String toString() {
-            return stringBuilder.toString();
-        }
-    }
 
 }

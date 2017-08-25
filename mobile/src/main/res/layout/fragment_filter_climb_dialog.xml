@@ -19,7 +19,8 @@
         android:id="@+id/switch_gym"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Filter by Gym" />
+        android:text="Filter by Gym"
+        android:textAlignment="viewEnd" />
 
     <com.farbod.labelledspinner.LabelledSpinner
         android:id="@+id/spinner_gyms"
@@ -32,7 +33,8 @@
         android:id="@+id/switch_area"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Filter by Area" />
+        android:text="Filter by Area"
+        android:textAlignment="viewEnd" />
 
     <com.farbod.labelledspinner.LabelledSpinner
         android:id="@+id/spinner_areas"
@@ -40,17 +42,20 @@
         android:layout_height="match_parent"
         ls:labelText="Areas"
         ls:widgetColor="#F44336" />
+
     <Switch
         android:id="@+id/switch_project"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Show Projects Only" />
+        android:text="Show Projects Only"
+        android:textAlignment="viewEnd" />
 
     <Switch
         android:id="@+id/switch_set"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Show Current Set Only" />
+        android:text="Show Current Set Only"
+        android:textAlignment="viewEnd" />
 
     <LinearLayout
         android:layout_width="match_parent"

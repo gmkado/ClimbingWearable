@@ -1,5 +1,6 @@
 package com.example.mysynclibrary.realm;
 
+import com.example.mysynclibrary.R;
 import com.example.mysynclibrary.Shared;
 
 import org.threeten.bp.temporal.ChronoUnit;
@@ -51,7 +52,7 @@ public class Goal extends RealmObject {
      * @return
      */
     public String getSummary() {
-        String summary = "I want to " + (getClimbType()==Shared.ClimbType.bouldering?"boulder ": "rope climb ");
+        String summary = (getClimbType()==Shared.ClimbType.bouldering?"Boulder ": "Rope climb ");
         switch(getGoalUnit()) {
             case CLIMBS:
                 summary = summary.concat(Integer.toString(target) + " climbs ");
@@ -128,7 +129,7 @@ public class Goal extends RealmObject {
         M;
 
         public static List<String> getStringArray() {
-            ArrayList list = new ArrayList();
+            ArrayList<String> list = new ArrayList();
             for(HeightUnit heightUnit : HeightUnit.values()) {
                 list.add(heightUnit.name());
             }
@@ -137,12 +138,21 @@ public class Goal extends RealmObject {
     }
 
     public enum GoalUnit {
-        CLIMBS,
-        HEIGHT,
-        POINTS;
+        CLIMBS(R.drawable.ic_climb),
+        HEIGHT(R.drawable.ic_height),
+        POINTS(R.drawable.ic_points);
 
+        private final int drawableId;
+
+        GoalUnit(int drawableResourceId) {
+            this.drawableId = drawableResourceId;
+        }
+
+        public int getDrawableId() {
+            return drawableId;
+        }
         public static List<String> getStringArray() {
-            ArrayList list = new ArrayList();
+            ArrayList<String> list = new ArrayList();
             for(GoalUnit goalUnit : GoalUnit.values()) {
                 list.add(goalUnit.name());
             }
@@ -151,15 +161,19 @@ public class Goal extends RealmObject {
     }
 
     public enum Period {
-        SESSION(ChronoUnit.DAYS),
-        WEEKLY(ChronoUnit.WEEKS),
-        MONTHLY(ChronoUnit.MONTHS),
-        YEARLY(ChronoUnit.YEARS);
+        SESSION(ChronoUnit.DAYS, "session", "sessions"),
+        WEEKLY(ChronoUnit.WEEKS, "week", "weeks"),
+        MONTHLY(ChronoUnit.MONTHS,"month", "months"),
+        YEARLY(ChronoUnit.YEARS,"year", "years");
 
         public ChronoUnit unit;
+        private String plural;
+        private String singular;
 
-        Period(ChronoUnit unit) {
+        Period(ChronoUnit unit, String singular, String plural) {
             this.unit = unit;
+            this.singular = singular;
+            this.plural = plural;
         }
 
         public static List<String> getStringArray() {
@@ -168,6 +182,14 @@ public class Goal extends RealmObject {
                 list.add(period.name());
             }
             return list;
+        }
+
+        public String getPlural() {
+            return plural;
+        }
+
+        public String getSingular() {
+            return singular;
         }
     }
 

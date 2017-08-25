@@ -1,7 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -15,25 +14,16 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.LinearLayout;
-import android.widget.TableLayout;
 import android.widget.TextView;
 
-import com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar;
+import com.akexorcist.roundcornerprogressbar.IconRoundCornerProgressBar;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.goalDAO.GoalDAO;
-import com.example.mysynclibrary.realm.Attempt;
-import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
 import com.github.clans.fab.FloatingActionButton;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
-import java.util.Map;
-import java.util.Date;
 
 import io.realm.Realm;
 import io.realm.RealmChangeListener;
@@ -179,11 +169,10 @@ public class GoalListFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(final ViewHolder holder, int position) {
-            holder.mItem = mValues.get(position);
-            holder.mTitleTextView.setText(holder.mItem.getGoal().getSummary());
-            holder.mMenu.setVisibility(View.VISIBLE);
+            holder.mGoalDAO = mValues.get(position);
+            holder.mTitleTextView.setText(holder.mGoalDAO.getGoal().getSummary());
             // populate mMenu and add onclicklistener
-            final String goalId = holder.mItem.getGoal().getUUID();
+            final String goalId = holder.mGoalDAO.getGoal().getUUID();
             holder.mMenu.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -195,7 +184,7 @@ public class GoalListFragment extends Fragment {
                             int id = item.getItemId();
                             switch (id) {
                                 case R.id.item_edit:
-                                    showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, holder.mItem.getGoal().getUUID()));
+                                    showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, holder.mGoalDAO.getGoal().getUUID()));
                                     break;
                                 case R.id.item_delete:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
@@ -221,26 +210,18 @@ public class GoalListFragment extends Fragment {
                     menu.show();
                 }
             });
-            holder.mCurrPeriodProgressBar.setProgressColor(Color.parseColor("#56d2c2"));
-            holder.mCurrPeriodProgressBar.setProgressBackgroundColor(Color.parseColor("#757575"));
+            holder.mCurrProgressBar.setProgressColor(Color.parseColor("#56d2c2"));
+            holder.mCurrProgressBar.setProgressBackgroundColor(Color.parseColor("#757575"));
+            holder.mCurrProgressBar.setIconImageResource(holder.mGoalDAO.getGoal().getGoalUnit().getDrawableId());
             holder.refreshGoalView();
 
-            holder.mItem.setGoalListener(new GoalDAO.GoalDAOListener() {
+            holder.mGoalDAO.setGoalListener(new GoalDAO.GoalDAOListener() {
 
                 @Override
                 public void onGoalResultsChanged() {
                     holder.refreshGoalView();
                 }
             });
-
-            if(holder.mItem.getGoal().isRecurring()) {
-
-            }else {
-                holder.mPrevPeriodsView.setVisibility(View.GONE);
-            }
-
-            //holder.mTitleTextView.setText(mValues.get(position).id);
-            //holder.mCurrPeriodProgressBar.setText(mValues.get(position).content);
         }
 
 
@@ -250,108 +231,40 @@ public class GoalListFragment extends Fragment {
         }
 
         class ViewHolder extends RecyclerView.ViewHolder {
-            final View mView;
-            final TextView mTitleTextView;
-            private ImageButton mMenu;
-            final TextRoundCornerProgressBar mCurrPeriodProgressBar;
-            private final LinearLayout mPrevPeriodsView;
-
-
-            GoalDAO mItem;
+            View mView;
+            TextView mTitleTextView;
+            TextView mCurrProgressTextView;
+            TextView mPastProgressTextView;
+            ImageButton mMenu;
+            IconRoundCornerProgressBar mCurrProgressBar;
+            GoalDAO mGoalDAO;
 
             ViewHolder(final View view) {
                 super(view);
                 mView = view;
                 mTitleTextView = (TextView) view.findViewById(R.id.textview_title);
                 mMenu = (ImageButton) view.findViewById(R.id.imagebutton_menu);
-                mCurrPeriodProgressBar = (TextRoundCornerProgressBar) view.findViewById(R.id.rcprogress_currperiod);
-                mPrevPeriodsView = (LinearLayout) view.findViewById(R.id.layout_prev_periods);
+                mCurrProgressBar = (IconRoundCornerProgressBar) view.findViewById(R.id.rcprogress_currperiod);
+                mPastProgressTextView = (TextView) view.findViewById(R.id.textview_pastprogress);
+                mCurrProgressTextView = (TextView) view.findViewById(R.id.textview_currentprogress);
             }
 
             public void refreshProgressBar(int progress) {
-                mCurrPeriodProgressBar.setMax(mItem.getGoal().getTarget());
-                mCurrPeriodProgressBar.setProgress(progress);
-                mCurrPeriodProgressBar.setProgressText(Integer.toString(progress));
-                mCurrPeriodProgressBar.invalidate();
+                mCurrProgressBar.setMax(mGoalDAO.getGoal().getTarget());
+                mCurrProgressBar.setProgress(progress);
+                mCurrProgressBar.invalidate();
             }
 
             public void refreshGoalView() {
-                // clear the linear layout
-                mPrevPeriodsView.removeAllViews();
-                if(mItem.getGoal().isRecurring()) {
-                    mPrevPeriodsView.setVisibility(View.VISIBLE);
-                    /* TODO: fit this in here instead of GoalDAO, show only prev N periods if NEVER
-                    // if recurring, start date = N periods prior to today (7 days, 4 weeks, 12 months, 4 years), or start date, whichever is later
-                    if (mGoal.isRecurring()) {
-                        int incr;
-                        switch (mGoal.getPeriod()) {
-                            case SESSION:
-                                incr = -7;
-                                break;
-                            case WEEKLY:
-                                incr = -4;
-                                break;
-                            case MONTHLY:
-                                incr = -12;
-                                break;
-                            case YEARLY:
-                                incr = -4;
-                                break;
-                            default:
-                                throw new IllegalArgumentException("Illegal period type found");
-                        }
-                        Date earliestStart = getIncrementedDate(endDate, mGoal.getPeriod().unit, incr);
-                        startDate = earliestStart.before(startDate) ? startDate : earliestStart;  // Choose whatever comes later
-                    } */
-                    for(Map.Entry<Date, RealmResults<Attempt>> entry: mItem.getPeriodResultMap().entrySet()) {
-                        // for each entry, add a bar to linear layout
-                        Date periodDate = entry.getKey();
-
-                        int progress = mItem.getProgressForPeriod(entry.getValue());
-                        float periodPercent = progress*1f/mItem.getGoal().getTarget();
-                        TextView tv = getPeriodView(periodPercent);
-                        tv.setText(SimpleDateFormat.getDateInstance(DateFormat.SHORT).format(periodDate)); // TODO: format date depending on goal
-                        mPrevPeriodsView.addView(tv);
-
-                        // if today is in the daterange, refreshProgressbar with this periods progress
-                        Date today = Calendar.getInstance().getTime();
-                        if(today.after(periodDate) && today.before(GoalDAO.getIncrementedDate(periodDate, mItem.getGoal().getPeriod().unit, 1))) {
-                            refreshProgressBar(progress);
-                        }
-                    }
-                    mPrevPeriodsView.invalidate();
+                if(mGoalDAO.getGoal().isRecurring()) {
+                    mPastProgressTextView.setVisibility(View.VISIBLE);
+                    mPastProgressTextView.setText(mGoalDAO.getPastProgressText());
                 }else {
-                    mPrevPeriodsView.setVisibility(View.GONE);
-                    refreshProgressBar(mItem.getProgressForPeriod(mItem.getFullRangeResults()));
+                    mPastProgressTextView.setVisibility(View.GONE);
                 }
-            }
 
-            private TextView getPeriodView(float periodPercent) {
-                /*<TextView
-                android:id="@+id/textView8"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="5dp"
-                android:layout_weight="1"
-                android:background="@drawable/round"/>*/
-                periodPercent = periodPercent<0?0:periodPercent;
-                periodPercent = periodPercent>1?1:periodPercent;
-
-                TextView periodView = new TextView(getContext());
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                        TableLayout.LayoutParams.WRAP_CONTENT,
-                        TableLayout.LayoutParams.WRAP_CONTENT, 1f);
-                params.setMargins(5,5,5,5);
-                periodView.setLayoutParams(params);
-                periodView.setBackgroundResource(R.drawable.round);
-
-                GradientDrawable drawable = (GradientDrawable) periodView.getBackground();
-
-                // set the color as a function of period percent
-                int baseColor = Color.RED;
-                int adjustedColor = Color.argb((int)(periodPercent*255), Color.red(baseColor), Color.green(baseColor),Color.blue(baseColor));
-                drawable.setColor(adjustedColor);
-                return periodView;
+                mCurrProgressTextView.setText(mGoalDAO.getCurrentProgressText());
+                refreshProgressBar(mGoalDAO.getCurrentProgress());
             }
         }
     }

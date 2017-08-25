@@ -61,7 +61,9 @@ public class MainActivity extends AppCompatActivity
     private static final String TAG = "MainActivity";
     private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREF_LASTSYNC = "prefLastSync";
+    private static final String PREF_NAV_CURRID = "prefCurrNavID"; // the last opened nav view id
     private static final long SYNC_TIMOUT_MS = 3000; // time to wait for response from wearable
+    private int mCurrNavId; // keep track of current view id so we can save it on exiting
 
     private static final String FILE_AUTHORITY = "com.example.grant.wearableclimbtracker.fileprovider";
     private GoogleApiClient mGoogleApiClient;
@@ -84,6 +86,12 @@ public class MainActivity extends AppCompatActivity
         }
 
         EventBus.getDefault().unregister(this);
+
+        // Save the current page
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putInt(PREF_NAV_CURRID, mCurrNavId);
+        editor.apply();
     }
 
     @Override
@@ -151,10 +159,17 @@ public class MainActivity extends AppCompatActivity
         Fragment fragment = ClimbListMobileFragment.newInstance();
         getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
 
-        MenuItem item = navigationView.getMenu().getItem(0);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+
+        int currItemId = preferences.getInt(PREF_NAV_CURRID, -1);
+        MenuItem item;
+        if(currItemId == -1) {
+            item = navigationView.getMenu().getItem(0);
+        }else {
+            item = navigationView.getMenu().findItem(currItemId);
+        }
         item.setChecked(true);
         setTitle(item.getTitle()); // Set action bar title
-
     }
 
     @Override
@@ -195,6 +210,8 @@ public class MainActivity extends AppCompatActivity
         // Handle navigation view item clicks here.
         Fragment fragment;
         Intent intent;
+
+        mCurrNavId = item.getItemId();
         switch(item.getItemId()) {
             case R.id.nav_climb:
                 // show the climb fragment
@@ -331,6 +348,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+
     private void sendMessage(String path, byte[] data) {
         Wearable.MessageApi.sendMessage(mGoogleApiClient, mNodeId,
                 path, data).setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
@@ -400,7 +418,7 @@ public class MainActivity extends AppCompatActivity
 
                         final String newSyncDate = df.format(new Date());
                         editor.putString(PREF_LASTSYNC, newSyncDate);
-                        editor.commit();
+                        editor.apply();
 
                         runOnUiThread(new Runnable() {
                             @Override
@@ -442,7 +460,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onColorSelection(@NonNull ColorChooserDialog dialog, @ColorInt int selectedColor) {
-        // notify the edit color dialog
+        // HACK: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
         EventBus.getDefault().post(new ClimbColorSelectedEvent(selectedColor));
     }
 

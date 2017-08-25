@@ -39,12 +39,14 @@
                 android:layout_weight="1"
                 android:layout_height="match_parent"
                 ls:labelText="Select Area" />
-            <ImageButton
-                android:id="@+id/imagebutton_color"
+
+            <Button
+                android:id="@+id/button_color"
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="match_parent"
-                 />
+                android:layout_weight="1"
+                android:text="Select Color"
+                android:textAllCaps="false" />
         </LinearLayout>
 
         <EditText

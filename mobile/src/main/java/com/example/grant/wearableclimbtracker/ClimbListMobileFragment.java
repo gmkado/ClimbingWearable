@@ -28,11 +28,13 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.afollestad.materialdialogs.MaterialDialog;
 import com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar;
 import com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.SortByField;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.ClimbResultChangedEvent;
 import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
+import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
 import com.github.clans.fab.FloatingActionButton;
@@ -94,7 +96,7 @@ public class ClimbListMobileFragment extends Fragment {
         switch(item.getItemId()) {
             case R.id.item_filter:
                 // show the filter dialog
-                FilterClimbDialogFragment fragment = FilterClimbDialogFragment.newInstance();
+                FilterClimbDialogFragment fragment = FilterClimbDialogFragment.newInstance(mClimbType);
                 showDialogFragment(fragment);
                 return true;
         }
@@ -232,7 +234,11 @@ public class ClimbListMobileFragment extends Fragment {
         }
 
         if(filterArea) {
-            query.equalTo("area.name", filterAreaName);
+            Area area = mRealm.where(Area.class).equalTo("name", filterAreaName).findFirst();
+
+            if(area!=null && Area.AreaType.matches(area.getType(), mClimbType)) {
+                query.equalTo("area.name", filterAreaName);
+            }
         }
         if(filterProjects) {
             query.not().beginGroup()
@@ -361,13 +367,16 @@ public class ClimbListMobileFragment extends Fragment {
         invalidateRealmResult();  // NOTE: if only sort pref has changed, we would really only need to call sortResultAndUpdateAdapter, but we'll call it anyways b/c it's not expensive
     }
 
-    private class ClimbListAdapter extends ArrayAdapter<Climb> implements ListAdapter {
-        private static final int MENU_EDIT = 0;
-        private static final int MENU_SEND_NOTLEAD = 1;
-        private static final int MENU_ATTEMPT = 2;
-        private static final int MENU_REMOVE = 3;
-        private static final int MENU_SEND_LEAD = 4;
+    enum ClimbMenuItems {
+        EDIT,
+        SEND_LEAD,
+        SEND_NOTLEAD,
+        ATTEMPT,
+        REMOVE,
+        SHOW_NOTES
+    }
 
+    private class ClimbListAdapter extends ArrayAdapter<Climb> implements ListAdapter {
         private class ViewHolder {
             TextView grade;
             TextView gym;
@@ -380,7 +389,6 @@ public class ClimbListMobileFragment extends Fragment {
             ImageButton menu;
             ImageView status;
             ImageView leadSend;
-            ImageView leadAttempt;
             TextRoundCornerProgressBar progress;
             View expandable;
         }
@@ -449,15 +457,15 @@ public class ClimbListMobileFragment extends Fragment {
                         public boolean onMenuItemClick (MenuItem item)
                         {
                             int id = item.getItemId();
-                            switch (id)
+                            switch (ClimbMenuItems.values()[id])
                             {
-                                case MENU_EDIT:
+                                case EDIT:
                                     showDialogFragment(EditClimbDialogFragment.newInstance(mClimbType, unmanagedClimb.getId(), EditClimbDialogFragment.EditClimbMode.EDIT));
                                     break;
-                                case MENU_ATTEMPT:
+                                case ATTEMPT:
                                     showDialogFragment(EditAttemptsDialogFragment.newInstance(unmanagedClimb.getId(), null));
                                     break;
-                                case MENU_SEND_LEAD:
+                                case SEND_LEAD:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
@@ -484,7 +492,7 @@ public class ClimbListMobileFragment extends Fragment {
                                         }
                                     });
                                     break;
-                                case MENU_SEND_NOTLEAD:
+                                case SEND_NOTLEAD:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
@@ -511,7 +519,7 @@ public class ClimbListMobileFragment extends Fragment {
                                         }
                                     });
                                     break;
-                                case MENU_REMOVE:
+                                case REMOVE:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
@@ -527,19 +535,28 @@ public class ClimbListMobileFragment extends Fragment {
                                         }
                                     });
                                     break;
+                                case SHOW_NOTES:
+                                    new MaterialDialog.Builder(getContext())
+                                            .content(unmanagedClimb.getNotes())
+                                            .positiveText("OK")
+                                            .show();
+                                    break;
                             }
                             return true;
                         }
                     });
-                    menu.getMenu().add(Menu.NONE, MENU_EDIT, 0, "Edit");
+                    menu.getMenu().add(Menu.NONE, ClimbMenuItems.EDIT.ordinal(), ClimbMenuItems.EDIT.ordinal(), "Edit");
                     if(unmanagedClimb.getType() == Shared.ClimbType.ropes) {
-                        menu.getMenu().add(Menu.NONE, MENU_SEND_NOTLEAD, 1, "Add TR Send");
-                        menu.getMenu().add(Menu.NONE, MENU_SEND_LEAD, 2, "Add Lead Send");
+                        menu.getMenu().add(Menu.NONE, ClimbMenuItems.SEND_NOTLEAD.ordinal(), ClimbMenuItems.SEND_NOTLEAD.ordinal(), "Add TR Send");
+                        menu.getMenu().add(Menu.NONE, ClimbMenuItems.SEND_LEAD.ordinal(), ClimbMenuItems.SEND_LEAD.ordinal(), "Add Lead Send");
                     }else {
-                        menu.getMenu().add(Menu.NONE, MENU_SEND_NOTLEAD, 1, "Add Send");
+                        menu.getMenu().add(Menu.NONE, ClimbMenuItems.SEND_NOTLEAD.ordinal(), ClimbMenuItems.SEND_NOTLEAD.ordinal(), "Add Send");
                     }
-                    menu.getMenu().add(Menu.NONE, MENU_ATTEMPT, 3, "Add Attempt");
-                    menu.getMenu().add(Menu.NONE, MENU_REMOVE, 4, unmanagedClimb.isRemoved()?"Set as not removed":"Set as removed");
+                    menu.getMenu().add(Menu.NONE, ClimbMenuItems.ATTEMPT.ordinal(), ClimbMenuItems.ATTEMPT.ordinal(), "Add Attempt");
+                    menu.getMenu().add(Menu.NONE, ClimbMenuItems.REMOVE.ordinal(),  ClimbMenuItems.REMOVE.ordinal(), unmanagedClimb.isRemoved()?"Set as not removed":"Set as removed");
+                    if(unmanagedClimb.getNotes()!=null && !unmanagedClimb.getNotes().isEmpty()) {
+                        menu.getMenu().add(Menu.NONE, ClimbMenuItems.SHOW_NOTES.ordinal(), ClimbMenuItems.SHOW_NOTES.ordinal(), "Show Notes");
+                    }
                     menu.show();
                 }
             });
