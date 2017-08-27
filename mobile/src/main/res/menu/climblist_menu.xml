@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-   <item android:id="@+id/item_switch_climbtype"
-       app:showAsAction="always"
-       app:actionLayout="@layout/view_toggle_climbtype"
-       android:title="Climbtype" />
+    <item android:id="@+id/item_location"
+        app:showAsAction="ifRoom"
+        android:icon="@drawable/ic_location"
+        android:title="Location" />
+
     <item android:id="@+id/item_filter"
-        app:showAsAction="always"
+        app:showAsAction="ifRoom"
         android:icon="@android:drawable/ic_menu_sort_by_size"
         android:title="Filter" />
+
 </menu>

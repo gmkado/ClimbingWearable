@@ -35,36 +35,13 @@ import io.realm.RealmResults;
  */
 public class FilterClimbDialogFragment extends DialogFragment {
     public static final String PREF_SORT_BY = "pref_sortby";
-    public static final String PREF_FILTER_GYM = "pref_filter_gym";
-    public static final String PREF_FILTER_GYM_NAME = "pref_filter_gym_val";
-    public static final String PREF_FILTER_AREA = "pref_filter_area";
-    public static final String PREF_FILTER_AREA_NAME = "pref_filter_area_val";
     public static final String PREF_FILTER_PROJECTS = "pref_filter_projects";
     public static final String PREF_FILTER_SET = "pref_filter_set";
-    private static final String ARG_CLIMBTYPE = "arg_climbtype";
-    private SortByField mSortByField;
-    private boolean mFilterGym;
-    private String mFilterGymName;
-    private boolean mFilterArea;
-    private String mFilterAreaName;
-    private boolean mFilterProjects;
-    private boolean mFilterSet;
     private LabelledSpinner mSortSpinner;
-    private LabelledSpinner mGymSpinner;
-    private Switch mGymSwitch;
-    private Switch mAreaSwitch;
-    private LabelledSpinner mAreaSpinner;
     private Switch mProjectSwitch;
     private Switch mSetSwitch;
-    private Shared.ClimbType mClimbType;
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        mRealm.close();
-    }
 
-    private Realm mRealm;
 
 
     enum SortByField{
@@ -100,34 +77,11 @@ public class FilterClimbDialogFragment extends DialogFragment {
      *
      * @return A new instance of fragment FilterClimbDialogFragment.
      */
-    // TODO: Rename and change types and number of parameters
-    public static FilterClimbDialogFragment newInstance(Shared.ClimbType type) {
+    public static FilterClimbDialogFragment newInstance() {
         FilterClimbDialogFragment fragment = new FilterClimbDialogFragment();
-        Bundle args = new Bundle();
-        args.putInt(ARG_CLIMBTYPE, type.ordinal());
-        fragment.setArguments(args);
         return fragment;
     }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        Bundle args = getArguments();
-        mClimbType = Shared.ClimbType.values()[args.getInt(ARG_CLIMBTYPE)];
-
-        // get all previously saved preferences
-        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        mSortByField = SortByField.values()[pref.getInt(PREF_SORT_BY, SortByField.lastadded.ordinal())];
-        mFilterGym = pref.getBoolean(PREF_FILTER_GYM, false);
-        mFilterGymName = pref.getString(PREF_FILTER_GYM_NAME, null);
-        mFilterArea = pref.getBoolean(PREF_FILTER_AREA, false);
-        mFilterAreaName = pref.getString(PREF_FILTER_AREA_NAME, null);
-        mFilterProjects = pref.getBoolean(PREF_FILTER_PROJECTS, false);
-        mFilterSet = pref.getBoolean(PREF_FILTER_SET, false);
-
-        mRealm = Realm.getDefaultInstance();
-    }
 
 
     @Override
@@ -137,77 +91,18 @@ public class FilterClimbDialogFragment extends DialogFragment {
         View view = inflater.inflate(R.layout.fragment_filter_climb_dialog, container, false);
         getDialog().setTitle("Sort and Filter");
 
+        // get all previously saved preferences
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
+
         // sort behavior
         mSortSpinner = (LabelledSpinner) view.findViewById(R.id.spinner_sortby);
         mSortSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_dropdown_item, SortByField.getTitles()));
-        mSortSpinner.setSelection(mSortByField.ordinal());
+        mSortSpinner.setSelection(pref.getInt(PREF_SORT_BY, SortByField.lastadded.ordinal()));
 
-        // filter -- gym
-        mGymSwitch = (Switch) view.findViewById(R.id.switch_gym);
-        mGymSwitch.setChecked(mFilterGym);
-        mGymSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                updateGymUI();
-                updateAreaUI();
-            }
-        });
-
-        mGymSpinner = (LabelledSpinner) view.findViewById(R.id.spinner_gyms);
-        mGymSpinner.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
-            @Override
-            public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
-                updateAreaUI(); // only show areas in selected gym
-            }
-
-            @Override
-            public void onNothingChosen(View labelledSpinner, AdapterView<?> adapterView) {
-
-            }
-        });
-        RealmResults<Gym> gymObjects = mRealm.where(Gym.class).findAll();
-        final ArrayList<String> gymNames = new ArrayList<>();
-        int filterGymIndex = -1;
-        for(Gym gym: gymObjects) {
-            gymNames.add(gym.getName());
-            if(gym.getName().equals(mFilterGymName)) {
-                filterGymIndex = gymObjects.size() - 1;
-            }
-
-        }
-        // if the gym list is empty, disable the filter switch
-        if(gymObjects.isEmpty()) {
-            mGymSwitch.setEnabled(false);
-            mGymSwitch.setChecked(false);
-        }else {
-            mGymSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(),android.R.layout.simple_spinner_dropdown_item, gymNames));
-            if(filterGymIndex !=-1) {
-                mGymSpinner.setSelection(filterGymIndex);
-            }else {
-                // un-select
-                mGymSpinner.setSelected(false);
-            }
-        }
-
-        // filter -- area
-        mAreaSwitch = (Switch) view.findViewById(R.id.switch_area);
-        mAreaSwitch.setChecked(mFilterArea);
-        mAreaSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                updateAreaUI();
-            }
-        });
-
-        mAreaSpinner = (LabelledSpinner) view.findViewById(R.id.spinner_areas);
-        updateGymUI();
-        updateAreaUI();
-
-        // Other filters
         mProjectSwitch = (Switch) view.findViewById(R.id.switch_project);
-        mProjectSwitch.setChecked(mFilterProjects);
+        mProjectSwitch.setChecked(pref.getBoolean(PREF_FILTER_PROJECTS, false));
         mSetSwitch = (Switch)view.findViewById(R.id.switch_set);
-        mSetSwitch.setChecked(mFilterSet);
+        mSetSwitch.setChecked(pref.getBoolean(PREF_FILTER_SET, false));
 
 
         // save/cancel
@@ -219,15 +114,6 @@ public class FilterClimbDialogFragment extends DialogFragment {
                 SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
                 SharedPreferences.Editor editor = pref.edit();
                 editor.putInt(PREF_SORT_BY, (int) mSortSpinner.getSpinner().getSelectedItemId());
-                editor.putBoolean(PREF_FILTER_GYM, mGymSwitch.isChecked());
-                if(mGymSwitch.isChecked() && mGymSpinner.getSpinner().getSelectedItem()!=null) {
-                    editor.putString(PREF_FILTER_GYM_NAME, mGymSpinner.getSpinner().getSelectedItem().toString());
-                }
-
-                editor.putBoolean(PREF_FILTER_AREA, mAreaSwitch.isChecked());
-                if(mAreaSwitch.isChecked() && mAreaSpinner.getSpinner().getSelectedItem()!=null) {
-                    editor.putString(PREF_FILTER_AREA_NAME, mAreaSpinner.getSpinner().getSelectedItem().toString());
-                }
 
                 editor.putBoolean(PREF_FILTER_PROJECTS, mProjectSwitch.isChecked());
                 editor.putBoolean(PREF_FILTER_SET, mSetSwitch.isChecked());
@@ -248,52 +134,4 @@ public class FilterClimbDialogFragment extends DialogFragment {
         });
         return view;
     }
-
-    private void updateAreaUI() {
-        if(!mGymSwitch.isChecked() || mGymSpinner.getSpinner().getSelectedItem()==null) {
-            // hide all area UI elements
-            mAreaSwitch.setVisibility(View.GONE);
-            //mAreaSwitch.setChecked(false);
-            mAreaSpinner.setVisibility(View.GONE);
-        }else {
-            mAreaSwitch.setVisibility(View.VISIBLE);
-
-            String gymName = (String) mGymSpinner.getSpinner().getSelectedItem();
-            RealmResults<Area> areaObjects = mRealm.where(Area.class)
-                    .equalTo("gym.name", gymName)
-                    .in("type", new Integer[] {Area.AreaType.MIXED.ordinal(), mClimbType== Shared.ClimbType.bouldering?
-                            Area.AreaType.BOULDER_ONLY.ordinal():
-                            Area.AreaType.ROPES_ONLY.ordinal()})
-                    .findAll();
-            final ArrayList<String> areaNames = new ArrayList<>();
-            int filterAreaIndex = -1;
-            for (Area area : areaObjects) {
-                areaNames.add(area.getName());
-                if(area.getName().equals(mFilterAreaName)) {
-                    filterAreaIndex = areaObjects.size()-1;
-                }
-            }
-            // if the Area list is empty, disable the filter switch
-            if (areaObjects.isEmpty()) {
-                mAreaSwitch.setEnabled(false);
-                mAreaSwitch.setChecked(false);
-            } else {
-                mAreaSpinner.setCustomAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_dropdown_item, areaNames));
-                if (filterAreaIndex != -1) {
-                    mAreaSpinner.setSelection(filterAreaIndex);
-                } else {
-                    // un-select
-                    mAreaSpinner.setSelected(false);
-                }
-            }
-            mAreaSpinner.setVisibility(mAreaSwitch.isChecked()?View.VISIBLE:View.GONE);
-        }
-    }
-
-
-    private void updateGymUI() {
-        mGymSpinner.setVisibility(mGymSwitch.isChecked()?View.VISIBLE:View.GONE);
-    }
-
-
 }

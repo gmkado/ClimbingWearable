@@ -27,6 +27,7 @@ public class Goal extends RealmObject {
     private int climbtype;
     private int goalunit;
     private boolean includeAttempts;
+    private String name;
 
     public int getMingrade() {
         return mingrade;
@@ -122,6 +123,14 @@ public class Goal extends RealmObject {
 
     public void setIncludeAttempts(boolean includeAttempts) {
         this.includeAttempts = includeAttempts;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public enum HeightUnit {

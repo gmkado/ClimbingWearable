@@ -1,8 +1,10 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -36,7 +38,8 @@ import java.util.UUID;
 import io.realm.Realm;
 import io.realm.RealmResults;
 
-
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_AREA_ID;
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_GYM_ID;
 
 
 public class EditClimbDialogFragment extends DialogFragment {
@@ -160,7 +163,17 @@ public class EditClimbDialogFragment extends DialogFragment {
             mClimb.setColor(-1);
             mClimb.setOnwear(false);
             mClimb.setDelete(false);
-            // TODO: set gym and area if filter is set in app
+
+            SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getContext());
+            String gymId = pref.getString(PREF_FILTER_GYM_ID, null);
+            if(gymId !=null) {
+                mClimb.setGym(mRealm.where(Gym.class).equalTo("id", gymId).findFirst());
+
+                String areaId = pref.getString(PREF_FILTER_AREA_ID, null);
+                if(areaId !=null) {
+                    mClimb.setArea(mRealm.where(Area.class).equalTo("id", areaId).findFirst());
+                }
+            }
         }
         Calendar cal = Calendar.getInstance();
         // this will reflect the current time, so use it to set "lastedit"

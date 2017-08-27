@@ -6,6 +6,11 @@
     xmlns:ls="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     tools:context="com.example.grant.wearableclimbtracker.EditClimbDialogFragment">
+    <EditText
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Unnamed Goal"
+        android:id="@+id/editText_goalName"/>
     <TextView
         android:id="@+id/textView_goalSummary"
         android:layout_width="match_parent"

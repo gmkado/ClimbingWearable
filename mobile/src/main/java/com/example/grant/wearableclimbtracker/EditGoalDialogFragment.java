@@ -6,9 +6,6 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.text.Editable;
 import android.text.InputType;
-import android.text.ParcelableSpan;
-import android.text.Spannable;
-import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
@@ -19,17 +16,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
-import android.view.WindowManager;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.DatePicker;
 import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.Spinner;
-import android.widget.Switch;
-import android.widget.TabHost;
 import android.widget.TextView;
 
 import com.afollestad.materialdialogs.DialogAction;
@@ -37,20 +26,13 @@ import com.afollestad.materialdialogs.MaterialDialog;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.realm.Goal;
-import com.farbod.labelledspinner.LabelledSpinner;
-import com.github.clans.fab.Label;
-import com.polyak.iconswitch.IconSwitch;
 
-import org.honorato.multistatetogglebutton.MultiStateToggleButton;
-import org.honorato.multistatetogglebutton.ToggleButton;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -140,8 +122,34 @@ public class EditGoalDialogFragment extends DialogFragment {
             mGoal.setStartDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
             mGoal.setMingrade(0);
             mGoal.setIncludeAttempts(false);
+            mGoal.setName("Untitled");
             deleteButton.setVisibility(View.GONE);
         }
+
+        // update name text
+        EditText et = (EditText) v.findViewById(R.id.editText_goalName);
+        et.setText(mGoal.getName());
+        et.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if(s.toString().isEmpty()) {
+                    mSaveButton.setEnabled(false);
+                }else {
+                    mSaveButton.setEnabled(true);
+                    mGoal.setName(s.toString());
+                }
+            }
+        });
         updateGoalSpannable();
 
 

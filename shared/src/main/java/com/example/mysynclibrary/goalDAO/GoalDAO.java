@@ -264,7 +264,7 @@ public class GoalDAO {
         // 9 out of 10 sessions (90%), 3 days remaining
         if(mGoal.isRecurring()) {
             SimpleSpanBuilder ssb = new SimpleSpanBuilder();
-            ssb.append("Previous " + mGoal.getPeriod().getPlural(), new RelativeSizeSpan(2));
+            ssb.append("Previous " + mGoal.getPeriod().getPlural(), new RelativeSizeSpan(1.5f));
             int numPastPeriods = mPeriodResultMap.size();
             int percent = mNumSuccessfulPeriods *100/ numPastPeriods;
 
@@ -297,9 +297,9 @@ public class GoalDAO {
     public SpannableStringBuilder getCurrentProgressText() {
         SimpleSpanBuilder ssb = new SimpleSpanBuilder();
         if(mGoal.isRecurring()) {
-            ssb.append("Current " + mGoal.getPeriod().getSingular(), new RelativeSizeSpan(2));
+            ssb.append("Current " + mGoal.getPeriod().getSingular(), new RelativeSizeSpan(1.5f));
         }else {
-            ssb.append("Current Progress", new RelativeSizeSpan(2));
+            ssb.append("Current Progress", new RelativeSizeSpan(1.5f));
         }
 
         ssb.append(String.format(Locale.getDefault(),

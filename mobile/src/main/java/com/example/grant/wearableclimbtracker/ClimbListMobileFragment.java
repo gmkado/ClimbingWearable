@@ -34,6 +34,7 @@ import com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.SortByFi
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.ClimbResultChangedEvent;
 import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
+import com.example.mysynclibrary.eventbus.LocationFilterEvent;
 import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
@@ -60,13 +61,12 @@ import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import io.realm.Sort;
 
-import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_AREA;
-import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_AREA_NAME;
-import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_GYM;
-import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_GYM_NAME;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_PROJECTS;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_FILTER_SET;
 import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.PREF_SORT_BY;
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_AREA_ID;
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_CLIMBTYPE;
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_GYM_ID;
 
 /**
  * Created by Grant on 10/17/2016.
@@ -77,15 +77,12 @@ public class ClimbListMobileFragment extends Fragment {
     private ClimbListAdapter mAdapter;
     private RealmResults<Climb> mResult;
     private Realm mRealm;
-    private final String PREF_CLIMBTYPE = "prefClimbType";
-    private Shared.ClimbType mClimbType;
     private SortByField sortByField;
-    private boolean filterGym;
-    private String filterGymName;
-    private boolean filterArea;
-    private String filterAreaName;
     private boolean filterProjects;
     private boolean filterSet;
+    private Shared.ClimbType filterClimbType;
+    private String filterGymId;
+    private String filterAreaId;
 
     public ClimbListMobileFragment() {
 
@@ -96,8 +93,13 @@ public class ClimbListMobileFragment extends Fragment {
         switch(item.getItemId()) {
             case R.id.item_filter:
                 // show the filter dialog
-                FilterClimbDialogFragment fragment = FilterClimbDialogFragment.newInstance(mClimbType);
-                showDialogFragment(fragment);
+                FilterClimbDialogFragment filterFragment = FilterClimbDialogFragment.newInstance();
+                showDialogFragment(filterFragment);
+                return true;
+            case R.id.item_location:
+                // show the location filter dialog
+                FilterLocationDialogFragment locationFragment = FilterLocationDialogFragment.newInstance();
+                showDialogFragment(locationFragment);
                 return true;
         }
         return false;
@@ -107,27 +109,6 @@ public class ClimbListMobileFragment extends Fragment {
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
         inflater.inflate(R.menu.climblist_menu,menu);
-
-        /* ********************* Climbtype *************************/
-        MenuItem item = menu.findItem(R.id.item_switch_climbtype);
-        View view = item.getActionView();
-        IconSwitch typeSwitch = (IconSwitch) view.findViewById(R.id.switch_climbtype);
-        // set to last checked
-        typeSwitch.setChecked(mClimbType == Shared.ClimbType.bouldering? IconSwitch.Checked.LEFT: IconSwitch.Checked.RIGHT);
-        typeSwitch.setCheckedChangeListener(new IconSwitch.CheckedChangeListener() {
-            @Override
-            public void onCheckChanged(IconSwitch.Checked current) {
-                SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-                if(current== IconSwitch.Checked.LEFT) {
-                    mClimbType = Shared.ClimbType.bouldering;
-                    pref.edit().putInt(PREF_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal()).apply();
-                }else {
-                    mClimbType = Shared.ClimbType.ropes;
-                    pref.edit().putInt(PREF_CLIMBTYPE, Shared.ClimbType.ropes.ordinal()).apply();
-                }
-                invalidateRealmResult();
-            }
-        });
     }
 
     public static ClimbListMobileFragment newInstance() {
@@ -141,18 +122,21 @@ public class ClimbListMobileFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         getSortFilterPref();
+        getLocationFilterPref();
     }
 
     private void getSortFilterPref() {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
-        filterGym = pref.getBoolean(PREF_FILTER_GYM, false);
-        filterGymName = pref.getString(PREF_FILTER_GYM_NAME, null);
-        filterArea = pref.getBoolean(PREF_FILTER_AREA, false);
-        filterAreaName = pref.getString(PREF_FILTER_AREA_NAME, null);
         filterProjects = pref.getBoolean(PREF_FILTER_PROJECTS, false);
         filterSet = pref.getBoolean(PREF_FILTER_SET, false);
         sortByField = SortByField.values()[pref.getInt(PREF_SORT_BY, SortByField.lastadded.ordinal())];
+    }
+
+    private void getLocationFilterPref() {
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        filterClimbType = Shared.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
+        filterGymId = pref.getString(PREF_FILTER_GYM_ID, null);
+        filterAreaId = pref.getString(PREF_FILTER_AREA_ID, null);
     }
 
     @Nullable
@@ -168,14 +152,14 @@ public class ClimbListMobileFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 // Create and show the dialog.
-                showDialogFragment(EditClimbDialogFragment.newInstance(mClimbType, null, EditClimbDialogFragment.EditClimbMode.ADD_PROJECT));
+                showDialogFragment(EditClimbDialogFragment.newInstance(filterClimbType, null, EditClimbDialogFragment.EditClimbMode.ADD_PROJECT));
             }
         });
         FloatingActionButton fabAddSend = (FloatingActionButton) rootView.findViewById(R.id.fab_add_send);
         fabAddSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showDialogFragment(EditClimbDialogFragment.newInstance(mClimbType, null, EditClimbDialogFragment.EditClimbMode.ADD_SEND));
+                showDialogFragment(EditClimbDialogFragment.newInstance(filterClimbType, null, EditClimbDialogFragment.EditClimbMode.ADD_SEND));
             }
         });
         // add goal button listener
@@ -228,18 +212,15 @@ public class ClimbListMobileFragment extends Fragment {
     private void invalidateRealmResult() {
         // The way this works is any time the sort/filter fields change we need to invalidate the realm result to create the new query
         // If the underlying data changes it will call the changelistener, which will sort and update the list, so we don't need to call invalidate or notifydataset
-        RealmQuery<Climb> query = mRealm.where(Climb.class).equalTo("type", mClimbType.ordinal());
-        if(filterGym) {
-            query.equalTo("gym.name", filterGymName);
+        RealmQuery<Climb> query = mRealm.where(Climb.class).equalTo("type", filterClimbType.ordinal());
+        if(filterGymId != null) {
+            query.equalTo("gym.id", filterGymId);
         }
 
-        if(filterArea) {
-            Area area = mRealm.where(Area.class).equalTo("name", filterAreaName).findFirst();
-
-            if(area!=null && Area.AreaType.matches(area.getType(), mClimbType)) {
-                query.equalTo("area.name", filterAreaName);
-            }
+        if(filterAreaId != null) {
+            query.equalTo("area.id", filterAreaId);
         }
+
         if(filterProjects) {
             query.not().beginGroup()
                     .equalTo("attempts.isSend", true)
@@ -367,6 +348,12 @@ public class ClimbListMobileFragment extends Fragment {
         invalidateRealmResult();  // NOTE: if only sort pref has changed, we would really only need to call sortResultAndUpdateAdapter, but we'll call it anyways b/c it's not expensive
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onLocationFilterChanged(LocationFilterEvent event) {
+        getLocationFilterPref();
+        invalidateRealmResult();
+    }
+
     enum ClimbMenuItems {
         EDIT,
         SEND_LEAD,
@@ -460,7 +447,7 @@ public class ClimbListMobileFragment extends Fragment {
                             switch (ClimbMenuItems.values()[id])
                             {
                                 case EDIT:
-                                    showDialogFragment(EditClimbDialogFragment.newInstance(mClimbType, unmanagedClimb.getId(), EditClimbDialogFragment.EditClimbMode.EDIT));
+                                    showDialogFragment(EditClimbDialogFragment.newInstance(filterClimbType, unmanagedClimb.getId(), EditClimbDialogFragment.EditClimbMode.EDIT));
                                     break;
                                 case ATTEMPT:
                                     showDialogFragment(EditAttemptsDialogFragment.newInstance(unmanagedClimb.getId(), null));

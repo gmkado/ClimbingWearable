@@ -170,7 +170,7 @@ public class GoalListFragment extends Fragment {
         @Override
         public void onBindViewHolder(final ViewHolder holder, int position) {
             holder.mGoalDAO = mValues.get(position);
-            holder.mTitleTextView.setText(holder.mGoalDAO.getGoal().getSummary());
+            holder.mSummaryTextView.setText(holder.mGoalDAO.getGoal().getSummary());
             // populate mMenu and add onclicklistener
             final String goalId = holder.mGoalDAO.getGoal().getUUID();
             holder.mMenu.setOnClickListener(new View.OnClickListener() {
@@ -210,6 +210,7 @@ public class GoalListFragment extends Fragment {
                     menu.show();
                 }
             });
+            holder.mNameTextView.setText(holder.mGoalDAO.getGoal().getName());
             holder.mCurrProgressBar.setProgressColor(Color.parseColor("#56d2c2"));
             holder.mCurrProgressBar.setProgressBackgroundColor(Color.parseColor("#757575"));
             holder.mCurrProgressBar.setIconImageResource(holder.mGoalDAO.getGoal().getGoalUnit().getDrawableId());
@@ -232,17 +233,21 @@ public class GoalListFragment extends Fragment {
 
         class ViewHolder extends RecyclerView.ViewHolder {
             View mView;
-            TextView mTitleTextView;
+            TextView mSummaryTextView;
+            TextView mNameTextView;
             TextView mCurrProgressTextView;
             TextView mPastProgressTextView;
+
             ImageButton mMenu;
             IconRoundCornerProgressBar mCurrProgressBar;
             GoalDAO mGoalDAO;
 
+
             ViewHolder(final View view) {
                 super(view);
                 mView = view;
-                mTitleTextView = (TextView) view.findViewById(R.id.textview_title);
+                mSummaryTextView = (TextView) view.findViewById(R.id.textview_summary);
+                mNameTextView = (TextView) view.findViewById(R.id.textview_name);
                 mMenu = (ImageButton) view.findViewById(R.id.imagebutton_menu);
                 mCurrProgressBar = (IconRoundCornerProgressBar) view.findViewById(R.id.rcprogress_currperiod);
                 mPastProgressTextView = (TextView) view.findViewById(R.id.textview_pastprogress);

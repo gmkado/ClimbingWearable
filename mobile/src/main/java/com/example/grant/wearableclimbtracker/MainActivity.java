@@ -2,6 +2,7 @@ package com.example.grant.wearableclimbtracker;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -25,9 +26,13 @@ import android.widget.Toast;
 
 import com.afollestad.materialdialogs.color.ColorChooserDialog;
 import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
+import com.example.mysynclibrary.eventbus.LocationFilterEvent;
 import com.example.mysynclibrary.eventbus.WearMessageEvent;
+import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.Gym;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -55,6 +60,10 @@ import java.util.Set;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
+
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_AREA_ID;
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_CLIMBTYPE;
+import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_GYM_ID;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener, ColorChooserDialog.ColorCallback {
@@ -168,8 +177,10 @@ public class MainActivity extends AppCompatActivity
         }else {
             item = navigationView.getMenu().findItem(currItemId);
         }
-        item.setChecked(true);
-        setTitle(item.getTitle()); // Set action bar title
+        onNavigationItemSelected(item); // NOTE: https://stackoverflow.com/questions/31233279/navigation-drawer-how-do-i-set-the-selected-item-at-startup
+        //item.setChecked(true);
+        //setTitle(item.getTitle()); // Set action bar title
+
     }
 
     @Override
@@ -211,6 +222,9 @@ public class MainActivity extends AppCompatActivity
         Fragment fragment;
         Intent intent;
 
+        // reset the title
+        getSupportActionBar().setTitle("");
+        getSupportActionBar().setSubtitle("");
         mCurrNavId = item.getItemId();
         switch(item.getItemId()) {
             case R.id.nav_climb:
@@ -219,20 +233,20 @@ public class MainActivity extends AppCompatActivity
                 getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
 
                 item.setChecked(true); // Highlight the selected item has been done by NavigationView
-                setTitle(item.getTitle()); // Set action bar title
+                setClimbFragmentTitle();
                 break;
             case R.id.nav_goal:
                 fragment = GoalListFragment.newInstance();
                 getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
 
                 item.setChecked(true); // Highlight the selected item has been done by NavigationView
-                setTitle(item.getTitle()); // Set action bar title
+                getSupportActionBar().setTitle(item.getTitle()); // Set action bar title
                 break;
             case R.id.nav_editgyms:
                 fragment = GymListFragment.newInstance();
                 getSupportFragmentManager().beginTransaction().addToBackStack(null)
                         .replace(R.id.content_main, fragment).commit();  // Add to backstack so back button brings us back to main page
-                setTitle(item.getTitle()); // Set action bar title
+                getSupportActionBar().setTitle(item.getTitle()); // Set action bar title
                 break;
             case R.id.nav_sync:
                 // start sync process
@@ -458,6 +472,29 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    private void setClimbFragmentTitle() {
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+        Shared.ClimbType filterClimbType = Shared.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
+        String filterGymId = pref.getString(PREF_FILTER_GYM_ID, null);
+        String filterAreaId = pref.getString(PREF_FILTER_AREA_ID, null);
+        getSupportActionBar().setTitle(filterClimbType.title);
+
+        SimpleSpanBuilder ssb = new SimpleSpanBuilder();
+        if(filterGymId!=null) {
+            ssb.append(mRealm.where(Gym.class).equalTo("id", filterGymId).findFirst().getName() + "\n");
+            if (filterAreaId != null) {
+                ssb.append(mRealm.where(Area.class).equalTo("id", filterAreaId).findFirst().getName() + "\n");
+            }
+        }
+        getSupportActionBar().setSubtitle(ssb.build().toString());
+    }
+
+    @Subscribe
+    public void onLocationFilterEvent(LocationFilterEvent event) {
+        // we've sorted the location, so update the title
+        setClimbFragmentTitle();
+    }
+
     @Override
     public void onColorSelection(@NonNull ColorChooserDialog dialog, @ColorInt int selectedColor) {
         // HACK: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
@@ -468,4 +505,6 @@ public class MainActivity extends AppCompatActivity
     public void onColorChooserDismissed(@NonNull ColorChooserDialog dialog) {
 
     }
+
+
 }

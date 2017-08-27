@@ -7,27 +7,29 @@
     tools:context="com.example.grant.wearableclimbtracker.FilterClimbDialogFragment">
 
     <com.farbod.labelledspinner.LabelledSpinner
-        android:id="@+id/spinner_sortby"
+        android:id="@+id/spinner_gyms"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        ls:labelText="Gyms"
+        ls:widgetColor="#F44336" />
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        ls:labelText="Sort By"
-        ls:widgetColor="#F44336">
+        android:orientation="horizontal">
 
-    </com.farbod.labelledspinner.LabelledSpinner>
-
-    <Switch
-        android:id="@+id/switch_project"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Show Projects Only"
-        android:textAlignment="viewEnd" />
-
-    <Switch
-        android:id="@+id/switch_set"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Show Current Set Only"
-        android:textAlignment="viewEnd" />
+        <com.polyak.iconswitch.IconSwitch
+            android:id="@+id/switch_climbtype"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            ls:isw_icon_left="@drawable/icon_boulder"
+            ls:isw_icon_right="@drawable/icon_ropes" />
+        <com.farbod.labelledspinner.LabelledSpinner
+            android:id="@+id/spinner_areas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            ls:labelText="Areas"
+            ls:widgetColor="#F44336" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

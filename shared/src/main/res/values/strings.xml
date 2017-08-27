@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">My Sync Library</string>
+    <string name="icon_credits">
+        Location by Daily icons from the Noun Project
+        loading status by Magicon from the Noun Project
+
+    </string>
 </resources>
