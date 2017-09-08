@@ -18,6 +18,7 @@ import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
 import com.example.mysynclibrary.eventbus.LocationFilterEvent;
 import com.example.mysynclibrary.realm.Area;
+import com.example.mysynclibrary.realm.AreaFields;
 import com.example.mysynclibrary.realm.Gym;
 import com.farbod.labelledspinner.LabelledSpinner;
 import com.polyak.iconswitch.IconSwitch;
@@ -178,8 +179,8 @@ public class FilterLocationDialogFragment extends DialogFragment {
             mAreaSpinner.setEnabled(true);
             String gymName = (String) mGymSpinner.getSpinner().getSelectedItem();
             mAreaObjects = mRealm.where(Area.class)
-                    .equalTo("gym.name", gymName)
-                    .in("type", new Integer[] {Area.AreaType.MIXED.ordinal(), mClimbType == Shared.ClimbType.bouldering?
+                    .equalTo(AreaFields.GYM.NAME, gymName)
+                    .in(AreaFields.TYPE, new Integer[] {Area.AreaType.MIXED.ordinal(), mClimbType == Shared.ClimbType.bouldering?
                             Area.AreaType.BOULDER_ONLY.ordinal():
                             Area.AreaType.ROPES_ONLY.ordinal()})
                     .findAll();

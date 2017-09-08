@@ -3,13 +3,16 @@ package com.example.mysynclibrary.realm;
 import com.example.mysynclibrary.R;
 import com.example.mysynclibrary.Shared;
 
+import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
@@ -17,7 +20,7 @@ import io.realm.annotations.Required;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
-public class Goal extends RealmObject {
+public class Goal extends RealmObject implements ISyncableRealmObject{
 
     // All fields are by default persisted.
 
@@ -28,6 +31,7 @@ public class Goal extends RealmObject {
     private int goalunit;
     private boolean includeAttempts;
     private String name;
+
 
     public int getMingrade() {
         return mingrade;
@@ -47,6 +51,24 @@ public class Goal extends RealmObject {
     private Date endDate;
     private boolean recurring;
     private int heightunit;
+
+    SyncState syncState;
+
+    public Goal() {
+        // NOTE: DON'T USE THIS CONSTRUCTOR!!!
+        id = UUID.randomUUID().toString();
+        ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
+        startDate = Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS));
+        mingrade = 0;
+        includeAttempts = false;
+        name = "Untitled";
+        syncState = new SyncState();
+    }
+
+    public Goal(Shared.ClimbType type) {
+        super();
+        climbtype = type.ordinal();
+    }
 
     /**
      * Parses the fields and returns a readable summary of this goal
@@ -113,15 +135,12 @@ public class Goal extends RealmObject {
         return summary;
     }
 
-    public String getUUID() {
-        return id;
-    }
-
     public boolean getIncludeAttempts() {
         return includeAttempts;
     }
 
     public void setIncludeAttempts(boolean includeAttempts) {
+        edited();
         this.includeAttempts = includeAttempts;
     }
 
@@ -130,9 +149,48 @@ public class Goal extends RealmObject {
     }
 
     public void setName(String name) {
+        edited();
         this.name = name;
     }
 
+    @Override
+    public void edited() {
+        syncState.edited();
+    }
+
+    @Override
+    public void synced() {
+        syncState.synced();
+    }
+
+    @Override
+    public void safeDelete() {
+        syncState.safeDelete(this);
+    }
+    @Override
+    public boolean isOnRemote() {
+        return syncState.isOnRemote();
+    }
+
+    @Override
+    public boolean isDelete() {
+        return syncState.isDelete();
+    }
+
+    @Override
+    public Date getLastEdit() {
+        return syncState.getLastEdit();
+    }
+
+    @Override
+    public void setDirty(boolean dirty) {
+        syncState.setDirty(dirty);
+    }
+
+    @Override
+    public String getId() {
+        return id;
+    }
     public enum HeightUnit {
         FT,
         M;
@@ -216,15 +274,12 @@ public class Goal extends RealmObject {
         }
     }
 
-    public void setId(String id) {
-        this.id = id;
-    }
-
     public GoalUnit getGoalUnit() {
         return GoalUnit.values()[goalunit];
     }
 
     public void setGoalunit(GoalUnit goalUnit) {
+        edited();
         this.goalunit = goalUnit.ordinal();
     }
 
@@ -233,6 +288,7 @@ public class Goal extends RealmObject {
     }
 
     public void setStartDate(Date startDate) {
+        edited();
         this.startDate = startDate;
     }
 
@@ -241,6 +297,7 @@ public class Goal extends RealmObject {
     }
 
     public void setEndDate(Date endDate) {
+        edited();
         this.endDate = endDate;
     }
 
@@ -249,10 +306,12 @@ public class Goal extends RealmObject {
     }
 
     public void setTarget(int target) {
+        edited();
         this.target = target;
     }
 
     public void setClimbType(Shared.ClimbType type) {
+        edited();
         this.climbtype = type.ordinal();
     }
 
@@ -265,6 +324,7 @@ public class Goal extends RealmObject {
     }
 
     public void setEndtype(EndType endtype) {
+        edited();
         this.endtype = endtype.ordinal();
     }
 
@@ -273,6 +333,7 @@ public class Goal extends RealmObject {
     }
 
     public void setPeriod(Period period) {
+        edited();
         this.period = period.ordinal();
     }
 
@@ -281,6 +342,7 @@ public class Goal extends RealmObject {
     }
 
     public void setNumPeriods(int numPeriods) {
+        edited();
         this.numPeriods = numPeriods;
     }
 
@@ -289,6 +351,7 @@ public class Goal extends RealmObject {
     }
 
     public void setRecurring(boolean recurring){
+        edited();
         this.recurring = recurring;
     }
 
@@ -297,6 +360,7 @@ public class Goal extends RealmObject {
     }
 
     public void setHeightunit(HeightUnit heightunit) {
+        edited();
         this.heightunit = heightunit.ordinal();
     }
 
@@ -326,4 +390,6 @@ public class Goal extends RealmObject {
         return true;
 
     }
+
+
 }

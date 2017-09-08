@@ -28,10 +28,10 @@ dependencies {
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    compile 'com.android.support:appcompat-v7:25.2.0'
+    compile 'com.android.support:appcompat-v7:25.3.1'
     testCompile 'junit:junit:4.12'
-    compile 'com.google.android.gms:play-services-base:10.2.0'
-    compile 'com.google.android.gms:play-services-wearable:10.2.0'
+    compile 'com.google.android.gms:play-services-base:11.0.2'
+    compile 'com.google.android.gms:play-services-wearable:11.0.2'
     compile 'io.realm:realm-android-library:1.1.0'
     compile 'com.google.code.gson:gson:2.7'
     compile 'org.greenrobot:eventbus:3.0.0'
@@ -39,5 +39,7 @@ dependencies {
     compile 'com.github.PhilJay:MPAndroidChart:v3.0.0-beta1'
     compile 'com.jakewharton.threetenabp:threetenabp:1.0.5'
     compile 'org.jetbrains:annotations-java5:15.0'
+    annotationProcessor 'dk.ilios:realmfieldnameshelper:1.1.1'
+    compile group: 'commons-io', name: 'commons-io', version: '2.5'
 }
 

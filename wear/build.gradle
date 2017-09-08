@@ -27,11 +27,11 @@ repositories {
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    provided 'com.google.android.wearable:wearable:2.0.0'
-    compile 'com.google.android.support:wearable:2.0.0'
-    compile 'com.google.android.gms:play-services-wearable:10.2.0'
-    compile 'com.android.support:support-v4:25.2.0'
-    compile 'com.android.support:recyclerview-v7:25.2.0'
+    provided 'com.google.android.wearable:wearable:2.0.3'
+    compile 'com.google.android.support:wearable:2.0.3'
+    //NOTE: this is done in shared gradle, is it needed here? compile 'com.google.android.gms:play-services-wearable:11.0.2'
+    compile 'com.android.support:support-v4:25.3.1'
+    compile 'com.android.support:recyclerview-v7:25.3.1'
     compile project(':shared')
     compile 'com.android.support.constraint:constraint-layout:1.0.1'
     compile 'com.facebook.stetho:stetho:1.4.1'

@@ -21,6 +21,7 @@ import android.widget.TextView;
 import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.example.mysynclibrary.realm.Area;
+import com.example.mysynclibrary.realm.AreaFields;
 import com.example.mysynclibrary.realm.Gym;
 import com.farbod.labelledspinner.LabelledSpinner;
 import com.github.clans.fab.FloatingActionButton;
@@ -72,7 +73,7 @@ public class AreaListFragment extends Fragment {
 
         mGymID = getArguments().getString(ARG_GYMUUID);
 
-        recyclerView.setAdapter(new MyAreaRecyclerViewAdapter(mRealm.where(Area.class).equalTo("gym.id", mGymID).findAll()));
+        recyclerView.setAdapter(new MyAreaRecyclerViewAdapter(mRealm.where(Area.class).equalTo(AreaFields.GYM.ID, mGymID).findAll()));
 
         FloatingActionButton addAreaButton = (FloatingActionButton)view.findViewById(R.id.fab_add_area);
         addAreaButton.setOnClickListener(new View.OnClickListener() {
@@ -85,10 +86,10 @@ public class AreaListFragment extends Fragment {
     }
 
     private void createEditAreaDialog(final String areaId) {
-        // show an edit dialog
+        // show an edited dialog
         Area area = null;
         if(areaId != null) {
-            area = mRealm.where(Area.class).equalTo("id", areaId).findFirst();
+            area = mRealm.where(Area.class).equalTo(AreaFields.ID, areaId).findFirst();
         }
 
         final MaterialDialog dialog = new MaterialDialog.Builder(getActivity())
@@ -102,21 +103,26 @@ public class AreaListFragment extends Fragment {
                         mRealm.executeTransactionAsync(new Realm.Transaction() {
                             @Override
                             public void execute(Realm realm) {
+                                // get the name from the edittext
+                                String name = ((EditText)dialog.getCustomView().findViewById(R.id.editText_areaname)).
+                                        getText().toString();
+                                // get the type from the spinner
+                                Area.AreaType type = Area.AreaType.values()[((
+                                        LabelledSpinner) dialog.getCustomView().findViewById(R.id.spinner_areatype))
+                                        .getSpinner().getSelectedItemPosition()];
+
                                 Area area;
                                 if(areaId != null) {
-                                    area = realm.where(Area.class).equalTo("id", areaId).findFirst();
+                                    area = realm.where(Area.class).equalTo(AreaFields.ID, areaId).findFirst();
+                                    area.setName(name);
+                                    area.setType(type);
                                 }else {
-                                    area = realm.createObject(Area.class, UUID.randomUUID().toString());
-                                    area.setGym(realm.where(Gym.class).equalTo("id", mGymID).findFirst());
+                                    Gym managedGym = realm.where(Gym.class).equalTo(AreaFields.ID, mGymID).findFirst();
+                                    Area unmanagedArea = new Area(name, type, managedGym);
+                                    realm.copyToRealm(unmanagedArea);
                                 }
 
-                                // get the name from the edittext
-                                EditText edittext = (EditText)dialog.getCustomView().findViewById(R.id.editText_areaname);
-                                area.setName(edittext.getText().toString());
 
-                                // get the type from the spinner
-                                LabelledSpinner spinner = (LabelledSpinner) dialog.getCustomView().findViewById(R.id.spinner_areatype);
-                                area.setType(Area.AreaType.values()[spinner.getSpinner().getSelectedItemPosition()]);
                             }
                         });
 
@@ -193,7 +199,7 @@ public class AreaListFragment extends Fragment {
                         public boolean onMenuItemClick(MenuItem item) {
                             switch(item.getItemId()) {
                                 case R.id.item_edit:
-                                    // show an edit dialog
+                                    // show an edited dialog
                                     createEditAreaDialog(areaId);
                                     break;
                                 case R.id.item_delete:

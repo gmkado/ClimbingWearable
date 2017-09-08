@@ -17,6 +17,7 @@ import android.widget.TextView;
 
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 
 import java.util.Date;
 import java.util.List;
@@ -84,7 +85,7 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
             }
 
             // get all climbs from today
-            long numClimbs = mRealm.where(Climb.class).equalTo("type", mClimbType.ordinal()).greaterThanOrEqualTo("date", Shared.getStartofDate(null)).count();
+            long numClimbs = mRealm.where(Climb.class).equalTo(ClimbFields.TYPE, mClimbType.ordinal()).greaterThanOrEqualTo("date", Shared.getStartofDate(null)).count();
             if (numClimbs < pref.getInt(numClimbsKey, 0)) {
                 // New Listadapter (shortlist)
 
@@ -137,14 +138,9 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
 
             @Override
             public void execute(Realm realm) {
-                Climb climb = mRealm.createObject(Climb.class, UUID.randomUUID().toString());
-
-                Date now = new Date();
-                // set climb fields
-                climb.setLastedit(now);
-                climb.setGrade(mSelectedPosition);
-                climb.setType(mClimbType);
-                climb.setDelete(false);
+                // TODO: restructure this like mobile -> climb.setGrade(mSelectedPosition);
+                Climb climb = new Climb(mClimbType, null, null);
+                climb.safeDelete();
 
 
             }

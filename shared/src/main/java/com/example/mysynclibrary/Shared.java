@@ -6,30 +6,42 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
+import com.example.mysynclibrary.realm.Area;
+import com.example.mysynclibrary.realm.Attempt;
+import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 import com.example.mysynclibrary.realm.ClimbingModule;
-import com.example.mysynclibrary.realm.MyMigration;
+import com.example.mysynclibrary.realm.Goal;
+import com.example.mysynclibrary.realm.Gym;
+import com.example.mysynclibrary.realm.ISyncableRealmObject;
 import com.google.android.gms.wearable.Asset;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import org.threeten.bp.DateTimeUtils;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
-import org.threeten.bp.temporal.TemporalField;
 import org.threeten.bp.temporal.WeekFields;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
+import io.realm.RealmModel;
+import io.realm.RealmObject;
+import io.realm.RealmResults;
 
 /**
  * Created by Grant on 9/28/2016.
@@ -39,9 +51,6 @@ import io.realm.RealmConfiguration;
 public class Shared {
     private static final String TAG = "Shared";
 
-    //message api paths
-    public static final String REALM_SYNC_PATH = "/sync-data"; // changes here need to be changed in mobile manifest
-    public static final String REALM_ACK_PATH = "/sync-ack";
 
     // ********** shared preference keys ***********//
     public static final String KEY_WEAR_ENABLED = "wear_enabled_switch";
@@ -61,12 +70,20 @@ public class Shared {
     public static final String KEY_GOAL_NUMCLIMBS_ROPES = "goal_numclimbs_ropes";
     public static final String KEY_GOAL_VPOINTS_ROPES = "goal_vpoints_ropes";
     public static final String KEY_GOAL_NUMSESSIONS_ROPES = "goal_numsessions_ropes";
-
-
+    private static final String SYNC_KEY_CLIMBS = "key_climbs";
+    private static final String SYNC_KEY_ATTEMPTS = "key_attempts";
+    private static final String SYNC_KEY_GYMS = "key_gyms";
+    private static final String SYNC_KEY_AREAS = "key_areas";
+    private static final String SYNC_KEY_GOALS = "key_goals";
+    private static final Type SYNC_MAP_TYPE = new TypeToken<HashMap<String, String>>() {}.getType();
+    private static Gson mGson;
 
 
     public static Gson getGson() {
-        return new Gson();
+        if(mGson == null) {
+            mGson = new Gson();
+        }
+        return mGson;
         /*
         // see https://gist.github.com/cmelchior/ddac8efd018123a1e53a
 
@@ -94,14 +111,19 @@ public class Shared {
         Realm.init(context);
 
         // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
-        RealmConfiguration config = new RealmConfiguration.Builder()
+        Realm.setDefaultConfiguration(getRealmConfig(null));
+    }
+
+    public static RealmConfiguration getRealmConfig(String name) {
+        RealmConfiguration.Builder builder = new RealmConfiguration.Builder()
                 //.schemaVersion(0)
                 //.migration(new MyMigration())
                 .deleteRealmIfMigrationNeeded()
-                .modules(new ClimbingModule()) // this is necessary for library modules
-                .build();
-
-        Realm.setDefaultConfiguration(config);
+                .modules(new ClimbingModule()); // this is necessary for library module
+        if(name !=null) {
+            builder.name(name);
+        }
+        return builder.build();
     }
 
     /* Datetime utils*/
@@ -194,23 +216,6 @@ public class Shared {
     }
 
 
-    /*public enum DateRange{
-        DAY,
-        WEEK,
-        MONTH,
-        YEAR,
-        ALL;
-
-        DateRange() {}
-
-        public static ArrayList<String> getLabels() {
-            ArrayList<String> labels = new ArrayList<>();
-            for (DateRange dr: DateRange.values()) {
-                labels.add(dr.name());
-            }
-            return labels;
-        }
-    }*/
 
     public enum ClimbLevel{
         beginner("Beginner"),
@@ -288,43 +293,7 @@ public class Shared {
         }
     }
 
-    public static Asset assetFromFile(String path) {
-        try {
-            return Asset.createFromBytes(readFile(path));
-        } catch (IOException e) {
-            return null;
-        }
-    }
 
-    public static Asset assetFromFile(File file) {
-        try {
-            return Asset.createFromBytes(readFile(file));
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    public static byte[] readFile(String file) throws IOException {
-        return readFile(new File(file));
-    }
-
-    public static byte[] readFile(File file) throws IOException {
-        // Open file
-        RandomAccessFile f = new RandomAccessFile(file, "r");
-        try {
-            // Get and check length
-            long longlength = f.length();
-            int length = (int) longlength;
-            if (length != longlength)
-                throw new IOException("File size >= 2 GB");
-            // Read file and return data
-            byte[] data = new byte[length];
-            f.readFully(data);
-            return data;
-        } finally {
-            f.close();
-        }
-    }
 
 
 }

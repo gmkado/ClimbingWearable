@@ -2,21 +2,21 @@ package com.example.mysynclibrary.realm;
 
 import com.example.mysynclibrary.Shared;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.UUID;
 
-import io.realm.RealmList;
 import io.realm.RealmObject;
 import io.realm.RealmResults;
 import io.realm.annotations.Index;
 import io.realm.annotations.LinkingObjects;
 import io.realm.annotations.PrimaryKey;
+import io.realm.annotations.RealmClass;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
-public class Climb extends RealmObject {
 
+@RealmClass
+public class Climb extends RealmObject implements ISyncableRealmObject{
     // All fields are by default persisted.
     @PrimaryKey private String id;
     @Index private int grade;
@@ -32,43 +32,20 @@ public class Climb extends RealmObject {
     @LinkingObjects("climb")
     private final RealmResults<Attempt> attempts = null;
 
-    // sync fields
-    private boolean delete;
-    private Date lastedit;
-    private boolean onwear;
+    private SyncState syncState;
 
-    public boolean isOnwear() {
-        return onwear;
+    public Climb() {
+        // NOTE: DON'T USE THIS CONSTRUCTOR!!!
+        id = UUID.randomUUID().toString();
+        grade = 0;
+        color = -1;
+        syncState = new SyncState();
     }
-
-    public void setOnwear(boolean onwear) {
-        this.onwear = onwear;
-    }
-
-    // Let your IDE generate getters and setters for you!
-    // Or if you like you can even have public fields and no accessors! See Dog.java and Cat.java
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public Date getLastedit() {
-        return lastedit;
-    }
-
-    public void setLastedit(Date lastedit) {
-        this.lastedit = lastedit;
-    }
-
-    public boolean isDelete() {
-        return delete;
-    }
-
-    public void setDelete(boolean delete) {
-        this.delete = delete;
+    public Climb(Shared.ClimbType type, Gym gym, Area area) {
+        super();
+        this.type = type.ordinal();
+        this.gym = gym;
+        this.area = area;
     }
 
     public int getGrade() {
@@ -76,6 +53,7 @@ public class Climb extends RealmObject {
     }
 
     public void setGrade(int grade) {
+        edited();
         this.grade = grade;
     }
 
@@ -84,6 +62,7 @@ public class Climb extends RealmObject {
     }
 
     public void setType(Shared.ClimbType type) {
+        edited();
         this.type = type.ordinal();
     }
 
@@ -92,6 +71,7 @@ public class Climb extends RealmObject {
     }
 
     public void setColor(int color) {
+        edited();
         this.color = color;
     }
 
@@ -108,6 +88,7 @@ public class Climb extends RealmObject {
     }
 
     public void setArea(Area area) {
+        edited();
         this.area = area;
     }
 
@@ -116,6 +97,7 @@ public class Climb extends RealmObject {
     }
 
     public void setNotes(String notes) {
+        edited();
         this.notes = notes;
     }
 
@@ -141,6 +123,7 @@ public class Climb extends RealmObject {
     }
 
     public void setRemoved(boolean removed) {
+        edited();
         isRemoved = removed;
     }
 
@@ -150,5 +133,45 @@ public class Climb extends RealmObject {
 
     public Date getDateCreated() {
         return createdAt;
+    }
+
+    @Override
+    public void edited() {
+        syncState.edited();
+    }
+
+    @Override
+    public void synced() {
+        syncState.synced();
+    }
+
+    @Override
+    public void safeDelete() {
+        syncState.safeDelete(this);
+    }
+
+    @Override
+    public boolean isOnRemote() {
+        return syncState.isOnRemote();
+    }
+
+    @Override
+    public boolean isDelete() {
+        return syncState.isDelete();
+    }
+
+    @Override
+    public Date getLastEdit() {
+        return syncState.getLastEdit();
+    }
+
+    @Override
+    public void setDirty(boolean dirty) {
+        syncState.setDirty(dirty);
+    }
+
+    @Override
+    public String getId() {
+        return id;
     }
 }

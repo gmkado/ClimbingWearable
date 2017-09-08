@@ -11,7 +11,9 @@ import android.widget.Switch;
 
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Attempt;
+import com.example.mysynclibrary.realm.AttemptFields;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 import com.github.florent37.androidslidr.Slidr;
 import com.shawnlin.numberpicker.NumberPicker;
 
@@ -63,7 +65,7 @@ public class EditAttemptsDialogFragment extends DialogFragment {
         super.onCreate(savedInstanceState);
         mRealm = Realm.getDefaultInstance();
         if (getArguments() != null) {
-            mClimb = mRealm.copyFromRealm(mRealm.where(Climb.class).equalTo("id",getArguments().getString(ARG_CLIMB_ID)).findFirst()); // Have to use an unmanaged object
+            mClimb = mRealm.copyFromRealm(mRealm.where(Climb.class).equalTo(ClimbFields.ID,getArguments().getString(ARG_CLIMB_ID)).findFirst()); // Have to use an unmanaged object
             mAttemptId = getArguments().getString(ARG_ATTEMPT_ID);
         }else {
             // shouldn't get here
@@ -81,41 +83,36 @@ public class EditAttemptsDialogFragment extends DialogFragment {
         mSaveButton = (Button) v.findViewById(R.id.save_button);
 
         if(mAttemptId != null) {
-            Attempt attempt = mRealm.where(Attempt.class).equalTo("id", mAttemptId).findFirst();
+            Attempt attempt = mRealm.where(Attempt.class).equalTo(AttemptFields.ID, mAttemptId).findFirst();
             mAttempt = mRealm.copyFromRealm(attempt);  // detach from realm so changes can be made without saving until save button is pressed
             deleteButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    Realm realm = Realm.getDefaultInstance();
-                    try {
+                    try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
-                        // TODO: sync issues, see editclimbdialogfragment
-                        Attempt attempt = realm.where(Attempt.class).equalTo("id", mAttemptId).findFirst();
-                        attempt.deleteFromRealm();
+                        Attempt attempt = realm.where(Attempt.class).equalTo(AttemptFields.ID, mAttemptId).findFirst();
+                        attempt.safeDelete();
                         realm.commitTransaction();
                     } finally {
-                        realm.close();
                         dismiss();
                     }
                 }
             });
 
         }else {
-            // create unmanaged attempt and initialize all default fields here
-            mAttempt = new Attempt();
-            mAttempt.setClimb(mClimb);
-            mAttempt.setOnLead(false);
-            mAttempt.setDate(Calendar.getInstance().getTime());
-            mAttempt.setId(UUID.randomUUID().toString());
             // Try to set the current progress to the most recent progress
-            RealmResults<Attempt> attempts = mRealm.where(Attempt.class).equalTo("climb.id", mClimb.getId()).findAllSorted("date");
+            RealmResults<Attempt> attempts = mRealm.where(Attempt.class)
+                    .equalTo(AttemptFields.CLIMB.ID, mClimb.getId())
+                    .equalTo(AttemptFields.SYNC_STATE.DELETE, false).findAllSorted("date");
+            float progress = 0f;
             if(!attempts.isEmpty()) {
-                mAttempt.setProgress(attempts.last().getProgress());
-            }else {
-                mAttempt.setProgress(0f);
+                progress = attempts.last().getProgress();
             }
-            mAttempt.setCount(1);
+            // create unmanaged attempt
+            mAttempt = Attempt.createAttempt(mClimb, progress, 1, false);
+
         }
+
 
         // count
         NumberPicker np = (NumberPicker)v.findViewById(R.id.number_picker);
@@ -165,13 +162,11 @@ public class EditAttemptsDialogFragment extends DialogFragment {
             @Override
             public void onClick(View view) {
                 // save the climb
-                Realm realm = Realm.getDefaultInstance();
-                try {
+                try (Realm realm = Realm.getDefaultInstance()) {
                     realm.beginTransaction();
                     realm.copyToRealmOrUpdate(mAttempt);
                     realm.commitTransaction();
-                }finally{
-                    realm.close();
+                } finally {
                     dismiss();
                 }
             }

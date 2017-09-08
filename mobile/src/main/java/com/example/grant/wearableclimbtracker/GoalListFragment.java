@@ -20,6 +20,7 @@ import com.akexorcist.roundcornerprogressbar.IconRoundCornerProgressBar;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.goalDAO.GoalDAO;
 import com.example.mysynclibrary.realm.Goal;
+import com.example.mysynclibrary.realm.GoalFields;
 import com.github.clans.fab.FloatingActionButton;
 
 import java.util.ArrayList;
@@ -172,7 +173,7 @@ public class GoalListFragment extends Fragment {
             holder.mGoalDAO = mValues.get(position);
             holder.mSummaryTextView.setText(holder.mGoalDAO.getGoal().getSummary());
             // populate mMenu and add onclicklistener
-            final String goalId = holder.mGoalDAO.getGoal().getUUID();
+            final String goalId = holder.mGoalDAO.getGoal().getId();
             holder.mMenu.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -184,14 +185,14 @@ public class GoalListFragment extends Fragment {
                             int id = item.getItemId();
                             switch (id) {
                                 case R.id.item_edit:
-                                    showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, holder.mGoalDAO.getGoal().getUUID()));
+                                    showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, holder.mGoalDAO.getGoal().getId()));
                                     break;
                                 case R.id.item_delete:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                                @Override
                                                public void execute(Realm realm) {
-                                                   Goal goal = realm.where(Goal.class).equalTo("id", goalId).findFirst();
-                                                   goal.deleteFromRealm(); // TODO: wearable sync need to check if onwear
+                                                   Goal goal = realm.where(Goal.class).equalTo(GoalFields.ID, goalId).findFirst();
+                                                   goal.safeDelete();
                                                }
                                            }, null, // NOTE: since we changed a goal, the listener gets called which refreshes the list adapter, so we don't need to invalidate realm results
                                             new Realm.Transaction.OnError() {

@@ -2,10 +2,8 @@ package com.example.grant.wearableclimbtracker;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
@@ -13,7 +11,6 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.ShareCompat;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
-import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
@@ -27,35 +24,23 @@ import android.widget.Toast;
 import com.afollestad.materialdialogs.color.ColorChooserDialog;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.SimpleSpanBuilder;
+import com.example.mysynclibrary.SyncHelper;
 import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
 import com.example.mysynclibrary.eventbus.LocationFilterEvent;
-import com.example.mysynclibrary.eventbus.WearMessageEvent;
+import com.example.mysynclibrary.eventbus.RealmSyncEvent;
 import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 import com.example.mysynclibrary.realm.Gym;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.wearable.CapabilityApi;
-import com.google.android.gms.wearable.MessageApi;
-import com.google.android.gms.wearable.Node;
-import com.google.android.gms.wearable.Wearable;
-import com.google.gson.Gson;
+import com.example.mysynclibrary.realm.GymFields;
 import com.opencsv.CSVWriter;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
-import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
 import java.util.Set;
 
 import io.realm.Realm;
@@ -68,32 +53,17 @@ import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragmen
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener, ColorChooserDialog.ColorCallback {
     private static final String TAG = "MainActivity";
-    private static final String REALM_CONTENT_CREATOR_CAPABILITY = "realm_content_creator";//Note: capability name defined in wear module values/wear.xml
     private static final String PREF_LASTSYNC = "prefLastSync";
     private static final String PREF_NAV_CURRID = "prefCurrNavID"; // the last opened nav view id
     private static final long SYNC_TIMOUT_MS = 3000; // time to wait for response from wearable
     private int mCurrNavId; // keep track of current view id so we can save it on exiting
 
     private static final String FILE_AUTHORITY = "com.example.grant.wearableclimbtracker.fileprovider";
-    private GoogleApiClient mGoogleApiClient;
-    private String mNodeId;
     private Realm mRealm;
+    private SyncHelper.ServerSide mServerHelper;
 
-    private Handler mTimerHandler = new Handler();
-    private Runnable mTimerRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Toast.makeText(MainActivity.this,"No response from wear. Check that wear settings is enabled and app is open on wearable", Toast.LENGTH_LONG).show();
-        }
-    };
-
-    @Override
     protected void onStop() {
         super.onStop();
-        if(mGoogleApiClient!=null && mGoogleApiClient.isConnected()) {
-            mGoogleApiClient.disconnect();
-        }
-
         EventBus.getDefault().unregister(this);
 
         // Save the current page
@@ -106,8 +76,6 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onStart() {
         super.onStart();
-        mGoogleApiClient.connect();
-
         EventBus.getDefault().register(this);
     }
 
@@ -136,33 +104,9 @@ public class MainActivity extends AppCompatActivity
 
         mRealm = Realm.getDefaultInstance();
 
-        // TODO:set sync menu title to last update
+        // TODO: set sync menu title to last update
         //getSupportActionBar().setSubtitle("Last sync: " + pref.getString(PREF_LASTSYNC, "never"));
-
-        // setup google api
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle connectionHint) {
-                        Log.d(TAG, "onConnected: " + connectionHint);
-
-                        // Now request a sync
-                        //sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
-                    }
-                    @Override
-                    public void onConnectionSuspended(int cause) {
-                        Log.d(TAG, "onConnectionSuspended: " + cause);
-                    }
-                })
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult result) {
-                        Log.d(TAG, "onConnectionFailed: " + result);
-                    }
-                })
-                // Request access only to the Wearable API
-                .addApi(Wearable.API)
-                .build();
+        mServerHelper = new SyncHelper(this).new ServerSide();
 
         // Show climbs fragment
         Fragment fragment = ClimbListMobileFragment.newInstance();
@@ -251,10 +195,10 @@ public class MainActivity extends AppCompatActivity
             case R.id.nav_sync:
                 // start sync process
                 Log.d(TAG, "requesting sync");
-                sendMessageToRealmCreator(Shared.REALM_SYNC_PATH, null);
+                mServerHelper.sendSyncRequest();
 
                 // start a timer to see if we get a response
-                mTimerHandler.postDelayed(mTimerRunnable, SYNC_TIMOUT_MS);
+                //mTimerHandler.postDelayed(mTimerRunnable, SYNC_TIMOUT_MS);
                 break;
             case R.id.nav_settings:
                 // open settings
@@ -274,7 +218,7 @@ public class MainActivity extends AppCompatActivity
                         CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
                         writer.writeNext(Climb.getTitleRow());
 
-                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo("delete", true).findAll();
+                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo(ClimbFields.SYNC_STATE.DELETE, true).findAll();
                         for (Climb climb : result) {
                             writer.writeNext(climb.toStringArray());
                         }
@@ -331,146 +275,43 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
-    private void sendMessageToRealmCreator(final String path, final byte[] data) {
-        //Log.d(TAG,"sendMessageToRealmCreator");
-        if(mNodeId == null) {
-            // need to find a capable node
-            PendingResult result = Wearable.CapabilityApi.getCapability(
-                    mGoogleApiClient, REALM_CONTENT_CREATOR_CAPABILITY,
-                    CapabilityApi.FILTER_REACHABLE);
-            result.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
-                @Override
-                public void onResult(@NonNull CapabilityApi.GetCapabilityResult result) {
-                    Set<Node> connectedNodes = result.getCapability().getNodes();
-
-                    // for now only anticipate single node with this capability
-                    // see message api docs if this changes
-                    if (connectedNodes.size() > 1) {
-                        Log.e(TAG, "More than one capable node connected.  This shouldn't happen");
-                    } else if(connectedNodes.isEmpty()) {
-                        Toast.makeText(MainActivity.this,"No wearable found", Toast.LENGTH_LONG).show();
-                    } else{
-                        Log.d(TAG, "setting node id");
-                        mNodeId = connectedNodes.iterator().next().getId();
-                        sendMessage(path, data);
-                    }
-                }
-            });
-        }
-        else{
-            sendMessage(path, data);
-        }
-    }
 
 
-    private void sendMessage(String path, byte[] data) {
-        Wearable.MessageApi.sendMessage(mGoogleApiClient, mNodeId,
-                path, data).setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
-            @Override
-            public void onResult(@NonNull MessageApi.SendMessageResult sendMessageResult) {
-                if(sendMessageResult.getStatus().isSuccess()) {
-                    Log.d(TAG, "Message sent");
-                }else{
-                    // failed message
-                    Log.e(TAG, "Message failed");
-                }
-
-            }
-        });
-    }
 
     /**************** EVENT BUS LISTENERS ***************************/
-    @Subscribe(threadMode = ThreadMode.MAIN)
+    /*@Subscribe(threadMode = ThreadMode.MAIN)
     public void onWearMessageReceived(WearMessageEvent event) {
+        String data;
         switch(event.messageEvent.getPath()) {
             case Shared.REALM_SYNC_PATH:
                 // stop timer since we got a response
                 mTimerHandler.removeCallbacks(mTimerRunnable);
 
                 // received the sync data
-                final SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
-                String data =  new String(event.messageEvent.getData(), StandardCharsets.UTF_8);
+                data =  new String(event.messageEvent.getData(), StandardCharsets.UTF_8);
+                Log.d(TAG, "got sync = " + data);
+                Shared.deserializeAndMerge(mRealm, data);
 
-                Log.d(TAG, "got message = " + data);
+                // now send dirty and deleted
+                data = Shared.serializeObjectsToSync(mRealm);
+                Log.d(TAG, "Sending ack:" + data);
+                sendMessageToRealmCreator(Shared.REALM_ACK_PATH, data.getBytes(StandardCharsets.UTF_8));
 
-                //get the start of DAY of last data sync
-                final Gson gson = Shared.getGson();
-                final Climb[] climbList = gson.fromJson(data, Climb[].class);
+                //set today as the new last sync gym
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
+                DateFormat df = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
-                // convert data to realm and add
-                mRealm.executeTransactionAsync(new Realm.Transaction() {
-
-                    @Override
-                    public void execute(Realm realm) {
-                        for (Climb wearClimb : climbList) {
-                            // get the climb on mobile
-                            Climb mobileClimb = realm.where(Climb.class).equalTo("id", wearClimb.getId()).findFirst();
-                            if(wearClimb.isDelete() && mobileClimb!=null) {
-                                // wear climb marked for deletion which takes precedence over mobile climb
-                                mobileClimb.deleteFromRealm();
-                            }else if(mobileClimb!=null){
-                                if(mobileClimb.isDelete()) {
-                                    // mobile climb marked for deletion, which takes precedence over wear climb
-                                    mobileClimb.deleteFromRealm();
-                                }else if (wearClimb.getLastedit().after(mobileClimb.getLastedit())) {
-                                    // use wear climb if it was edited last, otherwise keep mobile
-                                    realm.copyToRealmOrUpdate(wearClimb);
-                                }
-                            }else {
-                                // climb doesn't exist on mobile, so add it
-                                realm.copyToRealm(wearClimb);
-                            }
-                        }
-                        // query all marked for deletion and delete
-                        RealmResults<Climb> deleteClimbs = realm.where(Climb.class).equalTo("delete", true).findAll();
-                        deleteClimbs.deleteAllFromRealm();
-
-
-                        //set today as the new last sync gym
-                        SharedPreferences.Editor editor = settings.edit();
-                        DateFormat df = SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
-
-                        final String newSyncDate = df.format(new Date());
-                        editor.putString(PREF_LASTSYNC, newSyncDate);
-                        editor.apply();
-
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                getSupportActionBar().setSubtitle("Last sync: " + newSyncDate);
-                            }
-                        });
-                        List<Climb> nonWear = realm.where(Climb.class).lessThan("gym",Shared.getStartofDate(null)).equalTo("onwear", true).findAll();
-                        for (Climb climb: nonWear) {
-                            climb.setOnwear(false);
-                        }
-
-                        List<Climb> todaysClimbs = realm.where(Climb.class).greaterThanOrEqualTo("gym",Shared.getStartofDate(null)).findAll();
-
-                        //set onwear to true
-                        for (Climb climb: todaysClimbs) {
-                            climb.setOnwear(true);
-                        }
-                        List<Climb> todaysClimbsCopy = realm.copyFromRealm(todaysClimbs);
-
-                        // copy the results into a string format
-                        String json = gson.toJson(todaysClimbsCopy);
-                        Log.d(TAG, "Sending ACK:" + json);
-                        sendMessageToRealmCreator(Shared.REALM_ACK_PATH, json.getBytes(StandardCharsets.UTF_8));
-                    }
-                }, new Realm.Transaction.OnError() {
-                    @Override
-                    public void onError(Throwable error) {
-                        Log.e(TAG, "Failed merging wear data with mobile: " + error.getMessage());
-                    }
-                });
+                final String newSyncDate = df.format(new Date());
+                editor.putString(PREF_LASTSYNC, newSyncDate);
+                editor.apply();
+                getSupportActionBar().setSubtitle("Last sync: " + newSyncDate);
                 break;
             default:
                 Log.e(TAG, "onWearMessageReceived: message path not recognized");
                 break;
         }
 
-    }
+    }*/
 
     private void setClimbFragmentTitle() {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
@@ -481,9 +322,9 @@ public class MainActivity extends AppCompatActivity
 
         SimpleSpanBuilder ssb = new SimpleSpanBuilder();
         if(filterGymId!=null) {
-            ssb.append(mRealm.where(Gym.class).equalTo("id", filterGymId).findFirst().getName() + "\n");
+            ssb.append(mRealm.where(Gym.class).equalTo(GymFields.ID, filterGymId).findFirst().getName() + "\n");
             if (filterAreaId != null) {
-                ssb.append(mRealm.where(Area.class).equalTo("id", filterAreaId).findFirst().getName() + "\n");
+                ssb.append(mRealm.where(Area.class).equalTo(GymFields.ID, filterAreaId).findFirst().getName() + "\n");
             }
         }
         getSupportActionBar().setSubtitle(ssb.build().toString());
@@ -497,7 +338,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onColorSelection(@NonNull ColorChooserDialog dialog, @ColorInt int selectedColor) {
-        // HACK: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
+        // FIXME: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
         EventBus.getDefault().post(new ClimbColorSelectedEvent(selectedColor));
     }
 
@@ -506,5 +347,23 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    @Subscribe
+    public void onRealmSyncEvent(RealmSyncEvent event) {
+        switch (event.step) {
+            case SYNC_REQUESTED:
+                // do nothing
+                break;
+            case REMOTE_SAVED_TO_TEMP:
+                mServerHelper.mergeLocalWithRemote();
+                break;
+            case REALM_OBJECT_MERGED:
+                mServerHelper.setSyncBit(event.bit);
+                break;
+            case REALM_DB_MERGED:
+                mServerHelper.sendRealmDb();
+                break;
+
+        }
+    }
 
 }

@@ -6,6 +6,7 @@ import android.text.style.RelativeSizeSpan;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.realm.Attempt;
+import com.example.mysynclibrary.realm.AttemptFields;
 import com.example.mysynclibrary.realm.Goal;
 
 import org.threeten.bp.ZonedDateTime;
@@ -93,7 +94,7 @@ public class GoalDAO {
             Date today = getTruncatedDate(Calendar.getInstance().getTime(), ChronoUnit.DAYS); // start of today
 
             // query for distinct session dates
-            RealmResults<Attempt> results = realm.where(Attempt.class).greaterThanOrEqualTo("datetime", mGoal.getStartDate()).distinct("date").sort("datetime", Sort.ASCENDING);
+            RealmResults<Attempt> results = realm.where(Attempt.class).greaterThanOrEqualTo(AttemptFields.DATETIME, mGoal.getStartDate()).distinct("date").sort("datetime", Sort.ASCENDING);
 
             if(results.isEmpty()) {
                 mStartDate = today;
@@ -121,14 +122,14 @@ public class GoalDAO {
             // get start and end date
             // get the realm results dealing with the "nonrecurring" goal
             RealmQuery<Attempt> query = realm.where(Attempt.class)
-                    .greaterThanOrEqualTo("datetime", mStartDate)
-                    .equalTo("climb.type", mGoal.getClimbType().ordinal())
-                    .greaterThanOrEqualTo("climb.grade", mGoal.getMingrade());
+                    .greaterThanOrEqualTo(AttemptFields.DATETIME, mStartDate)
+                    .equalTo(AttemptFields.CLIMB.TYPE, mGoal.getClimbType().ordinal())
+                    .greaterThanOrEqualTo(AttemptFields.CLIMB.GRADE, mGoal.getMingrade());
             if(mEndDate != null) {
-                query.lessThan("datetime", getIncrementedDate(mEndDate, ChronoUnit.DAYS, 1));
+                query.lessThan(AttemptFields.DATETIME, getIncrementedDate(mEndDate, ChronoUnit.DAYS, 1));
             }
             if (!mGoal.getIncludeAttempts()) {
-                query.equalTo("isSend", true);
+                query.equalTo(AttemptFields.IS_SEND, true);
             }
             if (mFullRangeResults != null) {
                 mFullRangeResults.removeAllChangeListeners(); // just in case, remove any listeners previously attached to these results

@@ -37,7 +37,9 @@ import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
 import com.example.mysynclibrary.eventbus.LocationFilterEvent;
 import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Attempt;
+import com.example.mysynclibrary.realm.AttemptFields;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 import com.github.clans.fab.FloatingActionButton;
 import com.github.clans.fab.FloatingActionMenu;
 import com.polyak.iconswitch.IconSwitch;
@@ -212,13 +214,13 @@ public class ClimbListMobileFragment extends Fragment {
     private void invalidateRealmResult() {
         // The way this works is any time the sort/filter fields change we need to invalidate the realm result to create the new query
         // If the underlying data changes it will call the changelistener, which will sort and update the list, so we don't need to call invalidate or notifydataset
-        RealmQuery<Climb> query = mRealm.where(Climb.class).equalTo("type", filterClimbType.ordinal());
+        RealmQuery<Climb> query = mRealm.where(Climb.class).equalTo(ClimbFields.TYPE, filterClimbType.ordinal());
         if(filterGymId != null) {
-            query.equalTo("gym.id", filterGymId);
+            query.equalTo(ClimbFields.GYM.ID, filterGymId);
         }
 
         if(filterAreaId != null) {
-            query.equalTo("area.id", filterAreaId);
+            query.equalTo(ClimbFields.AREA.ID, filterAreaId);
         }
 
         if(filterProjects) {
@@ -227,7 +229,7 @@ public class ClimbListMobileFragment extends Fragment {
                     .endGroup();
         }
         if(filterSet) {
-            query.equalTo("isRemoved", false);
+            query.equalTo(ClimbFields.IS_REMOVED, false);
         }
 
         mResult = query.findAll();
@@ -244,7 +246,7 @@ public class ClimbListMobileFragment extends Fragment {
     }
 
     private void sortResultAndUpdateAdapter(RealmResults<Climb> realmResults) {
-        // HACK: had to change ClimbListAdapter to an array adapter instead of RealmBaseAdapter, janky way to do this, this is tracked here: https://github.com/realm/realm-java/issues/4501
+        // FIXME: had to change ClimbListAdapter to an array adapter instead of RealmBaseAdapter, janky way to do this, this is tracked here: https://github.com/realm/realm-java/issues/4501
         // also here https://github.com/realm/realm-java/issues/2313
         // Need to make sure that we call this when mResult is updated, since list adapter is no longer automatically watching for changes
 
@@ -262,8 +264,8 @@ public class ClimbListMobileFragment extends Fragment {
                                 *         first argument is less than, equal to, or greater than the
                                 *         second.*/
                         // first see if they even have attempts
-                        Attempt o1Attempt = mRealm.where(Attempt.class).equalTo("climb.id", o1.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
-                        Attempt o2Attempt = mRealm.where(Attempt.class).equalTo("climb.id", o2.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
+                        Attempt o1Attempt = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, o1.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
+                        Attempt o2Attempt = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, o2.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
 
                         Date minDate = new Date(Long.MIN_VALUE);
                         Date o1LastClimbDate = o1Attempt == null? minDate:o1Attempt.getDatetime();
@@ -281,8 +283,8 @@ public class ClimbListMobileFragment extends Fragment {
                                 *         first argument is less than, equal to, or greater than the
                                 *         second.*/
                         // first see if they even have attempts
-                        int o1Attempts = mRealm.where(Attempt.class).equalTo("climb.id", o1.getId()).sum("count").intValue();
-                        int o2Attempts = mRealm.where(Attempt.class).equalTo("climb.id", o2.getId()).sum("count").intValue();
+                        int o1Attempts = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, o1.getId()).sum("count").intValue();
+                        int o2Attempts = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, o2.getId()).sum("count").intValue();
                         return Integer.compare(o2Attempts, o1Attempts);
                     }
                 });
@@ -296,8 +298,8 @@ public class ClimbListMobileFragment extends Fragment {
                                 *         first argument is less than, equal to, or greater than the
                                 *         second.*/
                         // get progress of last attempt
-                        Attempt o1Attempt = mRealm.where(Attempt.class).equalTo("climb.id", o1.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
-                        Attempt o2Attempt = mRealm.where(Attempt.class).equalTo("climb.id", o2.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
+                        Attempt o1Attempt = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, o1.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
+                        Attempt o2Attempt = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, o2.getId()).findAllSorted("datetime", Sort.ASCENDING).last(null);
 
                         float o1Progress = o1Attempt == null? 0f:o1Attempt.isSend()? 0f:o1Attempt.getProgress();
                         float o2Progress = o2Attempt == null? 0f:o2Attempt.isSend()? 0f:o2Attempt.getProgress();
@@ -343,7 +345,7 @@ public class ClimbListMobileFragment extends Fragment {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onClimbSortFilterChanged(ClimbSortFilterEvent event) {
-        // HACK: I tried using a listener to respond to FilterClimbDialogFragment in conjunction with a preferenceChangedListener, but the pref changed would sometimes not get called (when the app was quit via backpress and reopened).  Logcat showed onCreate being called (where pref listener was added), so not sure what the issue is
+        // FIXME: I tried using a listener to respond to FilterClimbDialogFragment in conjunction with a preferenceChangedListener, but the pref changed would sometimes not get called (when the app was quit via backpress and reopened).  Logcat showed onCreate being called (where pref listener was added), so not sure what the issue is
         getSortFilterPref();
         invalidateRealmResult();  // NOTE: if only sort pref has changed, we would really only need to call sortResultAndUpdateAdapter, but we'll call it anyways b/c it's not expensive
     }
@@ -456,14 +458,9 @@ public class ClimbListMobileFragment extends Fragment {
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
-                                            Climb managedClimb = realm.where(Climb.class).equalTo("id", unmanagedClimb.getId()).findFirst();
-                                            Attempt send = realm.createObject(Attempt.class,UUID.randomUUID().toString());
-                                            send.setSend(true);
-                                            send.setOnLead(true);
-                                            send.setDate(Calendar.getInstance().getTime());
-                                            send.setCount(1);
-                                            send.setProgress(100);
-                                            send.setClimb(managedClimb);
+                                            Climb managedClimb = realm.where(Climb.class).equalTo(ClimbFields.ID, unmanagedClimb.getId()).findFirst();
+                                            Attempt unmanagedSend = Attempt.createSend(managedClimb, true);
+                                            realm.copyToRealm(unmanagedSend);
                                         }
                                     }, new Realm.Transaction.OnSuccess() {
                                         @Override
@@ -483,14 +480,9 @@ public class ClimbListMobileFragment extends Fragment {
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
-                                            Climb managedClimb = realm.where(Climb.class).equalTo("id", unmanagedClimb.getId()).findFirst();
-                                            Attempt send = realm.createObject(Attempt.class,UUID.randomUUID().toString());
-                                            send.setSend(true);
-                                            send.setOnLead(false);
-                                            send.setDate(Calendar.getInstance().getTime());
-                                            send.setCount(1);
-                                            send.setProgress(100);
-                                            send.setClimb(managedClimb);
+                                            Climb managedClimb = realm.where(Climb.class).equalTo(ClimbFields.ID, unmanagedClimb.getId()).findFirst();
+                                            Attempt unmanagedSend = Attempt.createSend(managedClimb, false);
+                                            realm.copyToRealm(unmanagedSend);
                                         }
                                     }, new Realm.Transaction.OnSuccess() {
                                         @Override
@@ -510,7 +502,7 @@ public class ClimbListMobileFragment extends Fragment {
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                         @Override
                                         public void execute(Realm realm) {
-                                            Climb managedClimb = realm.where(Climb.class).equalTo("id", unmanagedClimb.getId()).findFirst();
+                                            Climb managedClimb = realm.where(Climb.class).equalTo(ClimbFields.ID, unmanagedClimb.getId()).findFirst();
                                             managedClimb.setRemoved(!managedClimb.isRemoved());
                                         }
                                     }, null, // NOTE: since we changed a climb, the listener gets called which refreshes the list adapter, so we don't need to invalidate realm results
@@ -549,12 +541,12 @@ public class ClimbListMobileFragment extends Fragment {
             });
 
             // get attempts for this climb
-            RealmResults<Attempt> attempts = mRealm.where(Attempt.class).equalTo("climb.id", unmanagedClimb.getId()).findAllSorted("date");
+            RealmResults<Attempt> attempts = mRealm.where(Attempt.class).equalTo(AttemptFields.CLIMB.ID, unmanagedClimb.getId()).findAllSorted("date");
             if(!attempts.isEmpty()) {
                 viewHolder.dateAttempted.setVisibility(View.VISIBLE);
                 viewHolder.dateAttempted.setText("Last Go: "+ SimpleDateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(attempts.last().getDatetime()));
-                int numSends = (int) attempts.where().equalTo("isSend", true).count();
-                int numAttempts = attempts.where().notEqualTo("isSend", true).sum("count").intValue();
+                int numSends = (int) attempts.where().equalTo(AttemptFields.IS_SEND, true).count();
+                int numAttempts = attempts.where().notEqualTo(AttemptFields.IS_SEND, true).sum("count").intValue();
 
                 if(numSends == 0) {
                     viewHolder.sends.setVisibility(View.INVISIBLE);
@@ -604,7 +596,7 @@ public class ClimbListMobileFragment extends Fragment {
                 if(attempts.isEmpty()) {
                     viewHolder.leadSend.setVisibility(View.GONE);
                 }else {
-                    if (attempts.where().equalTo("isSend", true).equalTo("onLead", true).findAll().isEmpty()) {
+                    if (attempts.where().equalTo(AttemptFields.IS_SEND, true).equalTo(AttemptFields.ON_LEAD, true).findAll().isEmpty()) {
                         // no lead sends
                         viewHolder.leadSend.setVisibility(View.GONE);
                     } else {

@@ -108,11 +108,11 @@ public class OverviewWearFragment extends Fragment {
     }
 
 
-    @Subscribe(sticky = true)
+    /*@Subscribe(sticky = true)
     public void onRealmResultEvent(RealmResultsEvent event) {
         // TODO: fix this
         updatePointsView();
-    }
+    }*/
 
     @Subscribe
     public void onEnterAmbientEvent(AmbientEvent event) {

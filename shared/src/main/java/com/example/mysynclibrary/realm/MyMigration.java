@@ -17,12 +17,12 @@ public class MyMigration implements RealmMigration {
         RealmSchema schema = realm.getSchema();
 
         // Migrate to version 1: Add project fields
-        if (oldVersion == 0) {
+        /*if (oldVersion == 0) {
             schema.get("Climb")
                     .addField("dirty", boolean.class)
-                    .addField("delete", boolean.class);
+                    .addField("safeDelete", boolean.class);
             oldVersion++;
-        }
+        }*/
 
     }
 

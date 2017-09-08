@@ -21,10 +21,14 @@ import android.widget.ListView;
 import com.afollestad.materialdialogs.color.ColorChooserDialog;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
+import com.example.mysynclibrary.eventbus.RealmSyncEvent;
 import com.example.mysynclibrary.realm.Area;
+import com.example.mysynclibrary.realm.AreaFields;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 import com.example.mysynclibrary.realm.Gym;
+import com.example.mysynclibrary.realm.GymFields;
 import com.farbod.labelledspinner.LabelledSpinner;
 
 import org.greenrobot.eventbus.EventBus;
@@ -130,25 +134,18 @@ public class EditClimbDialogFragment extends DialogFragment {
                 break;
         }
         if(mClimbUUID != null) {
-            Climb climb = mRealm.where(Climb.class).equalTo("id", mClimbUUID).findFirst();
+            Climb climb = mRealm.where(Climb.class).equalTo(ClimbFields.ID, mClimbUUID).findFirst();
             mClimb = mRealm.copyFromRealm(climb);  // detach from realm so changes can be made without saving until save button is pressed
             deleteButton.setVisibility(View.VISIBLE);
             deleteButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    Realm realm = Realm.getDefaultInstance();
-                    try {
+                    try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
-                        Climb climb = realm.where(Climb.class).equalTo("id", mClimbUUID).findFirst();
-                        if (climb.isOnwear()) {
-                            // this climb is on the wearable, so we need to keep track of it until we sync
-                            climb.setDelete(true);
-                        } else {
-                            climb.deleteFromRealm();
-                        }
-                         realm.commitTransaction();
+                        Climb climb = realm.where(Climb.class).equalTo(ClimbFields.ID, mClimbUUID).findFirst();
+                        climb.safeDelete();
+                        realm.commitTransaction();
                     } finally {
-                        realm.close();
                         dismiss();
                     }
                 }
@@ -156,28 +153,22 @@ public class EditClimbDialogFragment extends DialogFragment {
 
         }else {
             // create unmanaged climb and initialize all default fields here
-            mClimb = new Climb();
-            mClimb.setId(UUID.randomUUID().toString());
-            mClimb.setType(mDefaultType);
-            mClimb.setGrade(0);
-            mClimb.setColor(-1);
-            mClimb.setOnwear(false);
-            mClimb.setDelete(false);
-
             SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getContext());
             String gymId = pref.getString(PREF_FILTER_GYM_ID, null);
+
+            Gym gym = null;
+            Area area = null;
             if(gymId !=null) {
-                mClimb.setGym(mRealm.where(Gym.class).equalTo("id", gymId).findFirst());
+                gym = mRealm.where(Gym.class).equalTo(GymFields.ID, gymId).findFirst();
 
                 String areaId = pref.getString(PREF_FILTER_AREA_ID, null);
                 if(areaId !=null) {
-                    mClimb.setArea(mRealm.where(Area.class).equalTo("id", areaId).findFirst());
+                    area = mRealm.where(Area.class).equalTo(AreaFields.ID, areaId).findFirst();
                 }
             }
+            mClimb = new Climb(mDefaultType, gym, area);
+
         }
-        Calendar cal = Calendar.getInstance();
-        // this will reflect the current time, so use it to set "lastedit"
-        mClimb.setLastedit(cal.getTime());
 
         /* ******************** GRADE UI ****************************/
         invalidateGradeList();
@@ -214,7 +205,7 @@ public class EditClimbDialogFragment extends DialogFragment {
         gymSpinner.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
             @Override
             public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
-                // if it's the last item, show edit text, otherwise hide edit text
+                // if it's the last item, show edited text, otherwise hide edited text
                 if(position == adapterView.getAdapter().getCount()-1) {
                     // TODO: show dialog for adding gym and create unmanaged object on callback
                     mClimb.setGym(null);
@@ -291,22 +282,15 @@ public class EditClimbDialogFragment extends DialogFragment {
             @Override
             public void onClick(View view) {
                 // save the climb
-                Realm realm = Realm.getDefaultInstance();
-                try {
+                try (Realm realm = Realm.getDefaultInstance()) {
                     realm.beginTransaction();
                     Climb managedClimb = realm.copyToRealmOrUpdate(mClimb);
-                    if(mMode == EditClimbMode.ADD_SEND)
-                    {
-                        Attempt send = mRealm.createObject(Attempt.class,UUID.randomUUID().toString());
-                        send.setSend(true);
-                        send.setDate(Calendar.getInstance().getTime());
-                        send.setCount(1);
-                        send.setProgress(100);
-                        send.setClimb(managedClimb);
+                    if (mMode == EditClimbMode.ADD_SEND) {
+                        Attempt unmanagedSend = Attempt.createSend(managedClimb, false); // TODO: need a UI element or dialog box for if climb was on lead
+                        realm.copyToRealm(unmanagedSend);
                     }
                     realm.commitTransaction();
-                }finally{
-                    realm.close();
+                } finally {
                     dismiss();
                 }
             }
@@ -324,14 +308,14 @@ public class EditClimbDialogFragment extends DialogFragment {
             mAreaSpinner.setEnabled(true);
 
             final RealmResults<Area> areaObjects = mRealm.where(Area.class)
-                    .equalTo("gym.id", mClimb.getGym().getId())
-                    .equalTo("type",
+                    .equalTo(AreaFields.GYM.ID, mClimb.getGym().getId())
+                    .equalTo(AreaFields.TYPE,
                             mClimb.getType()==Shared.ClimbType.bouldering?
                                     Area.AreaType.BOULDER_ONLY.ordinal():
                                     Area.AreaType.ROPES_ONLY.ordinal()
                     )
                     .or()
-                    .equalTo("type", Area.AreaType.MIXED.ordinal())
+                    .equalTo(AreaFields.TYPE, Area.AreaType.MIXED.ordinal())
                     .findAll();
             final ArrayList<String> areaNames = new ArrayList<>();
             areaNames.add(""); // Append "blank" option
@@ -350,9 +334,9 @@ public class EditClimbDialogFragment extends DialogFragment {
             mAreaSpinner.setOnItemChosenListener(new LabelledSpinner.OnItemChosenListener() {
                 @Override
                 public void onItemChosen(View labelledSpinner, AdapterView<?> adapterView, View itemView, int position, long id) {
-                    // if it's the last item, show edit text, otherwise hide edit text
+                    // if it's the last item, show edited text, otherwise hide edited text
                     if (position == adapterView.getAdapter().getCount() - 1) {
-                        // show edit text
+                        // show edited text
                         // TODO: show dialog for adding area and create unmanaged object on callback
                         mClimb.setArea(null);
                     } else {
@@ -408,7 +392,7 @@ public class EditClimbDialogFragment extends DialogFragment {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onClimbColorEvent(ClimbColorSelectedEvent event) {
-        // HACK: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
+        // FIXME: Cannot give colorchooser a callback in editclimbdialogfragment, so MainACtivity implements  ColorChooserDialog.ColorCallback and fires an event so we can handle it there
         mColorButton.setBackgroundColor(event.color);
         mClimb.setColor(event.color);
     }

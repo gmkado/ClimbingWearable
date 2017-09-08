@@ -26,6 +26,7 @@ import com.afollestad.materialdialogs.MaterialDialog;
 import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.realm.Goal;
+import com.example.mysynclibrary.realm.GoalFields;
 
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
@@ -97,32 +98,23 @@ public class EditGoalDialogFragment extends DialogFragment {
         /************** Try getting goal***************************/
         Button deleteButton = (Button) v.findViewById(R.id.delete_button);
         if(mGoalUUID !=null) {
-            Goal goal  = mRealm.where(Goal.class).equalTo("id", mGoalUUID).findFirst();
+            Goal goal  = mRealm.where(Goal.class).equalTo(GoalFields.ID, mGoalUUID).findFirst();
             mGoal = mRealm.copyFromRealm(goal);  // detach from realm so changes can be made without saving until save button is pressed
             deleteButton.setVisibility(View.VISIBLE);
             deleteButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    Realm realm = Realm.getDefaultInstance();
-                    try {
+                    try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
-                        realm.where(Goal.class).equalTo("id", mGoalUUID).findFirst().deleteFromRealm();
+                        realm.where(Goal.class).equalTo(GoalFields.ID, mGoalUUID).findFirst().deleteFromRealm();
                         realm.commitTransaction();
                     } finally {
-                        realm.close();
                         dismiss();
                     }
                 }
             });
         }else {
             mGoal = new Goal(); // This is unmanaged, only gets saved when we press the save button
-            mGoal.setId(UUID.randomUUID().toString());
-            mGoal.setClimbType(mClimbType);
-            ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
-            mGoal.setStartDate(Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS)));
-            mGoal.setMingrade(0);
-            mGoal.setIncludeAttempts(false);
-            mGoal.setName("Untitled");
             deleteButton.setVisibility(View.GONE);
         }
 
@@ -159,13 +151,11 @@ public class EditGoalDialogFragment extends DialogFragment {
             @Override
             public void onClick(View view) {
                 // save the climb
-                Realm realm = Realm.getDefaultInstance();
-                try{
+                try (Realm realm = Realm.getDefaultInstance()) {
                     realm.beginTransaction();
                     realm.copyToRealmOrUpdate(mGoal);
                     realm.commitTransaction();
-                }finally{
-                    realm.close();
+                } finally {
                     dismiss();
                 }
             }
@@ -307,7 +297,7 @@ public class EditGoalDialogFragment extends DialogFragment {
                         DatePicker dp = (DatePicker) datePickerView.findViewById(R.id.datePicker);
                         Calendar cal = Calendar.getInstance();
                         cal.setTime(mGoal.getStartDate());
-                        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null); // HACK: stupid workaround since there is no mDatePicker.setOnDateChangedListener()
+                        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null); // FIXME: stupid workaround since there is no mDatePicker.setOnDateChangedListener()
 
                         // show the datepicker
                         new MaterialDialog.Builder(getContext())
@@ -407,7 +397,7 @@ public class EditGoalDialogFragment extends DialogFragment {
                                         DatePicker dp = (DatePicker) datePickerView.findViewById(R.id.datePicker);
                                         Calendar cal = Calendar.getInstance();
                                         cal.setTime(mGoal.getEndDate() == null ? mGoal.getStartDate(): mGoal.getEndDate());
-                                        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null); // HACK: stupid workaround since there is no mDatePicker.setOnDateChangedListener()
+                                        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null); // FIXME: stupid workaround since there is no mDatePicker.setOnDateChangedListener()
 
                                         // show the datepicker
                                         new MaterialDialog.Builder(getContext())
