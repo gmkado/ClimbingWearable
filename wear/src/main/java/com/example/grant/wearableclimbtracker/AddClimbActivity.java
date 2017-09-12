@@ -50,9 +50,7 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
 
         Bundle extras = getIntent().getExtras();
         mClimbType = (Shared.ClimbType)extras.get(MainActivity.EXTRA_CLIMBTYPE);
-
         mGradeList = mClimbType.grades;
-
         mRealm = Realm.getDefaultInstance();
 
         // setup the listview
@@ -134,17 +132,16 @@ public class AddClimbActivity extends Activity implements AdapterView.OnItemClic
         Log.d(TAG, "onTimerFinished");
 
 
-        mRealm.executeTransaction(new Realm.Transaction(){
+        mRealm.executeTransactionAsync(new Realm.Transaction() {
 
-            @Override
-            public void execute(Realm realm) {
-                // TODO: restructure this like mobile -> climb.setGrade(mSelectedPosition);
-                Climb climb = new Climb(mClimbType, null, null);
-                climb.safeDelete();
-
-
-            }
-        });
+                                           @Override
+                                           public void execute(Realm realm) {
+                                               // TODO: restructure this like mobile -> climb.setGrade(mSelectedPosition);
+                                               Climb climb = new Climb(mClimbType, null, null);
+                                               climb.setGrade(mSelectedPosition);
+                                               realm.copyToRealm(climb);
+                                           }
+                                       });
 
         // show confirmation
         Intent intent = new Intent(this, ConfirmationActivity.class);

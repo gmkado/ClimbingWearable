@@ -9,7 +9,6 @@ import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.DelayedConfirmationView;
@@ -24,7 +23,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.mysynclibrary.SyncHelper;
@@ -35,12 +33,15 @@ import com.example.mysynclibrary.realm.ClimbFields;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
+
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DELETE;
 
 public class MainActivity extends WearableActivity implements WearableActionDrawer.OnMenuItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -80,7 +81,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
             case R.id.delete_last:
                 results = mRealm.where(Climb.class)
                         .equalTo(ClimbFields.TYPE, mClimbType.ordinal())
-                        .equalTo(ClimbFields.SYNC_STATE.DELETE, false)
+                        .equalTo(ClimbFields.SYNC_STATE, DELETE.name())
                         .findAllSorted("date");
 
                 if(results.size()>0) {
@@ -94,7 +95,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
                             mRealm.executeTransaction(new Realm.Transaction() {
                                 @Override
                                 public void execute(Realm realm) {
-                                    results.last().safeDelete();
+                                    results.last().safedelete(false);
                                 }
                             });
                         }
@@ -229,12 +230,14 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
     protected void onStop() {
         super.onStop();
         EventBus.getDefault().unregister(this);
+        mClientHelper.disconnect();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         EventBus.getDefault().register(this);
+        mClientHelper.connect();
     }
 
     @Override
@@ -276,7 +279,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
         // run a query for today
         RealmResults<Climb> results = mRealm.where(Climb.class)
                 .equalTo(ClimbFields.TYPE, mClimbType.ordinal())
-                .equalTo(ClimbFields.SYNC_STATE.DELETE, false)
+                .notEqualTo(ClimbFields.SYNC_STATE, DELETE.name())
                 .findAll();
     }
 
@@ -316,7 +319,7 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
 
     }
 
-    @Subscribe
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
     public void onRealmSyncEvent(RealmSyncEvent event) {
         switch(event.step) {
             case SYNC_REQUESTED:
@@ -325,14 +328,10 @@ public class MainActivity extends WearableActivity implements WearableActionDraw
             case REMOTE_SAVED_TO_TEMP:
                 mClientHelper.overwriteLocalWithRemote();
                 break;
-            case REALM_OBJECT_MERGED:
-                // do nothing
-                break;
             case REALM_DB_MERGED:
-                // TODO: db is merged now, should we take any action?
                 break;
-
         }
+        EventBus.getDefault().removeStickyEvent(event);
 
     }
 

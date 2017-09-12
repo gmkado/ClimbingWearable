@@ -106,7 +106,7 @@ public class EditGoalDialogFragment extends DialogFragment {
                 public void onClick(View view) {
                     try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
-                        realm.where(Goal.class).equalTo(GoalFields.ID, mGoalUUID).findFirst().deleteFromRealm();
+                        realm.where(Goal.class).equalTo(GoalFields.ID, mGoalUUID).findFirst().safedelete(false);
                         realm.commitTransaction();
                     } finally {
                         dismiss();
@@ -114,7 +114,7 @@ public class EditGoalDialogFragment extends DialogFragment {
                 }
             });
         }else {
-            mGoal = new Goal(); // This is unmanaged, only gets saved when we press the save button
+            mGoal = new Goal(mClimbType); // This is unmanaged, only gets saved when we press the save button
             deleteButton.setVisibility(View.GONE);
         }
 

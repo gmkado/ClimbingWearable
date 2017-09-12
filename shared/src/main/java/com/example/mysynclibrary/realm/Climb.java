@@ -1,7 +1,9 @@
 package com.example.mysynclibrary.realm;
 
+import com.example.mysynclibrary.BuildConfig;
 import com.example.mysynclibrary.Shared;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.UUID;
 
@@ -12,11 +14,14 @@ import io.realm.annotations.LinkingObjects;
 import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.RealmClass;
 
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
+
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
 
 @RealmClass
 public class Climb extends RealmObject implements ISyncableRealmObject{
+    private boolean onRemote = false;
     // All fields are by default persisted.
     @PrimaryKey private String id;
     @Index private int grade;
@@ -32,17 +37,22 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     @LinkingObjects("climb")
     private final RealmResults<Attempt> attempts = null;
 
-    private SyncState syncState;
+    private String syncState;
+    private Date lastEdit;
 
     public Climb() {
         // NOTE: DON'T USE THIS CONSTRUCTOR!!!
+        if(BuildConfig.DEBUG && id == null) {
+            throw new AssertionError("Use parameterized constructor");
+        }
+
+    }
+    public Climb(Shared.ClimbType type, Gym gym, Area area) {
         id = UUID.randomUUID().toString();
         grade = 0;
         color = -1;
-        syncState = new SyncState();
-    }
-    public Climb(Shared.ClimbType type, Gym gym, Area area) {
-        super();
+        setSyncState(DIRTY);
+        onRemote = false;
         this.type = type.ordinal();
         this.gym = gym;
         this.area = area;
@@ -53,7 +63,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGrade(int grade) {
-        edited();
+        setSyncState(DIRTY);
         this.grade = grade;
     }
 
@@ -62,7 +72,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setType(Shared.ClimbType type) {
-        edited();
+        setSyncState(DIRTY);
         this.type = type.ordinal();
     }
 
@@ -71,7 +81,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setColor(int color) {
-        edited();
+        setSyncState(DIRTY);
         this.color = color;
     }
 
@@ -80,6 +90,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGym(Gym gym) {
+        setSyncState(DIRTY);
         this.gym = gym;
     }
 
@@ -88,7 +99,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setArea(Area area) {
-        edited();
+        setSyncState(DIRTY);
         this.area = area;
     }
 
@@ -97,7 +108,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setNotes(String notes) {
-        edited();
+        setSyncState(DIRTY);
         this.notes = notes;
     }
 
@@ -123,7 +134,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setRemoved(boolean removed) {
-        edited();
+        setSyncState(DIRTY);
         isRemoved = removed;
     }
 
@@ -136,42 +147,50 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     @Override
-    public void edited() {
-        syncState.edited();
-    }
-
-    @Override
-    public void synced() {
-        syncState.synced();
-    }
-
-    @Override
-    public void safeDelete() {
-        syncState.safeDelete(this);
-    }
-
-    @Override
     public boolean isOnRemote() {
-        return syncState.isOnRemote();
+        return onRemote;
     }
 
     @Override
-    public boolean isDelete() {
-        return syncState.isDelete();
+    public void setOnRemote(boolean onRemote) {
+        this.onRemote = onRemote;
+    }
+
+    @Override
+    public SyncState getSyncState() {
+        return (syncState !=null) ? SyncState.valueOf(syncState):null;
+    }
+
+    @Override
+    public void setSyncState(SyncState state) {
+        if(state == DIRTY) {
+            lastEdit = Calendar.getInstance().getTime();
+        }
+        this.syncState = state.name();
     }
 
     @Override
     public Date getLastEdit() {
-        return syncState.getLastEdit();
-    }
-
-    @Override
-    public void setDirty(boolean dirty) {
-        syncState.setDirty(dirty);
+        return lastEdit;
     }
 
     @Override
     public String getId() {
         return id;
+    }
+
+    @Override
+    public void safedelete(boolean forceDeletion) {
+        // NOTE: this should only be called in a transaction
+        if(forceDeletion || !isOnRemote()){
+            // delete all child objects
+            attempts.deleteAllFromRealm();
+            //...
+            // delete this object
+            deleteFromRealm();
+        } else {
+            // mark for deletion
+            setSyncState(SyncState.DELETE);
+        }
     }
 }

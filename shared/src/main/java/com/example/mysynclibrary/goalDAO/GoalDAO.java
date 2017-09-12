@@ -40,7 +40,6 @@ public class GoalDAO {
     private Date mCurrPeriodEndDate;
 
     public GoalDAO(Goal goal) {
-        super();
         mGoal = goal; // NOTE: we don't have a changelistener on goal because anytime the goals change, GoalListFragment repopulates the list anyways
         listener = null;
 
@@ -113,9 +112,6 @@ public class GoalDAO {
 
     private void getRealmResult() {
         try (Realm realm = Realm.getDefaultInstance()) {
-            // No need to close the Realm instance manually since this is wrapped in try statement
-            // https://realm.io/docs/java/latest/#closing-realm-instances
-
             // NOTE: our contract here is that the realm results stay valid after the map is populated.
             // NOTE: if not recurring, goallist will not use the map but rather the entire data set.
 

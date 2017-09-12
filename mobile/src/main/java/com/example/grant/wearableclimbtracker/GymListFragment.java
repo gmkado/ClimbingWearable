@@ -15,7 +15,9 @@ import android.widget.TextView;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.example.mysynclibrary.realm.Climb;
+import com.example.mysynclibrary.realm.ClimbFields;
 import com.example.mysynclibrary.realm.Gym;
+import com.example.mysynclibrary.realm.GymFields;
 import com.github.clans.fab.FloatingActionButton;
 
 import java.util.UUID;
@@ -23,6 +25,8 @@ import java.util.UUID;
 import io.realm.OrderedRealmCollection;
 import io.realm.Realm;
 import io.realm.RealmRecyclerViewAdapter;
+
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 /**
  * A fragment representing a list of Gym RealmObjects.
@@ -61,7 +65,7 @@ public class GymListFragment extends Fragment {
         addGymButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // show an edit dialog
+                // show an edited dialog
                 new MaterialDialog.Builder(getActivity())
                         .title("Input Gym Name")
                         .content("")
@@ -72,8 +76,8 @@ public class GymListFragment extends Fragment {
                                 mRealm.executeTransactionAsync(new Realm.Transaction() {
                                     @Override
                                     public void execute(Realm realm) {
-                                        Gym gym = realm.createObject(Gym.class, UUID.randomUUID().toString());
-                                        gym.setName(input.toString());
+                                        Gym unmanagedGym = new Gym(input.toString());
+                                        realm.copyToRealm(unmanagedGym);
                                     }
                                 });
                             }
@@ -110,7 +114,7 @@ public class GymListFragment extends Fragment {
 
             holder.gymName.setText(holder.mItem.getName());
             holder.numAreas.setText(String.format("%s areas", Integer.toString(holder.mItem.getAreas().size())));
-            long numClimbs = mRealm.where(Climb.class).equalTo("gym.id", holder.mItem.getId()).count();
+            long numClimbs = mRealm.where(Climb.class).equalTo(ClimbFields.GYM.ID, holder.mItem.getId()).count();
             holder.numClimbs.setText(String.format("%s climbs", Long.toString(numClimbs)));
             final String gymId = holder.mItem.getId();
             holder.menu.setOnClickListener(new View.OnClickListener() {
@@ -122,7 +126,7 @@ public class GymListFragment extends Fragment {
                         public boolean onMenuItemClick(MenuItem item) {
                             switch(item.getItemId()) {
                                 case R.id.item_edit:
-                                    // show an edit dialog
+                                    // show an edited dialog
                                     new MaterialDialog.Builder(getActivity())
                                             .title("Input Gym Name")
                                             .content("")
@@ -133,7 +137,7 @@ public class GymListFragment extends Fragment {
                                                     mRealm.executeTransactionAsync(new Realm.Transaction() {
                                                         @Override
                                                         public void execute(Realm realm) {
-                                                            realm.where(Gym.class).equalTo("id", gymId).findFirst().setName(input.toString());
+                                                            realm.where(Gym.class).equalTo(GymFields.ID, gymId).findFirst().setName(input.toString());
                                                         }
                                                     });
                                                 }

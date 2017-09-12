@@ -49,6 +49,7 @@ import io.realm.RealmResults;
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_AREA_ID;
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_CLIMBTYPE;
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_GYM_ID;
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DELETE;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener, ColorChooserDialog.ColorCallback {
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity
     protected void onStop() {
         super.onStop();
         EventBus.getDefault().unregister(this);
+        mServerHelper.disconnect();
 
         // Save the current page
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -77,6 +79,7 @@ public class MainActivity extends AppCompatActivity
     protected void onStart() {
         super.onStart();
         EventBus.getDefault().register(this);
+        mServerHelper.connect();
     }
 
     @Override
@@ -202,6 +205,7 @@ public class MainActivity extends AppCompatActivity
                 break;
             case R.id.nav_settings:
                 // open settings
+                //TODO: can't get out of here once its clicked
                 intent = new Intent(this, SettingsActivity.class);
                 startActivity(intent);
                 break;
@@ -218,7 +222,7 @@ public class MainActivity extends AppCompatActivity
                         CSVWriter writer = new CSVWriter(new FileWriter(newFile), ',');  // write to the csv file
                         writer.writeNext(Climb.getTitleRow());
 
-                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo(ClimbFields.SYNC_STATE.DELETE, true).findAll();
+                        RealmResults<Climb> result = mRealm.where(Climb.class).notEqualTo(ClimbFields.SYNC_STATE, DELETE.name()).findAll();
                         for (Climb climb : result) {
                             writer.writeNext(climb.toStringArray());
                         }
@@ -356,14 +360,11 @@ public class MainActivity extends AppCompatActivity
             case REMOTE_SAVED_TO_TEMP:
                 mServerHelper.mergeLocalWithRemote();
                 break;
-            case REALM_OBJECT_MERGED:
-                mServerHelper.setSyncBit(event.bit);
-                break;
             case REALM_DB_MERGED:
                 mServerHelper.sendRealmDb();
                 break;
-
         }
+        EventBus.getDefault().removeStickyEvent(event);
     }
 
 }

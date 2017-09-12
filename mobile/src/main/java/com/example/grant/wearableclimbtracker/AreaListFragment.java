@@ -32,6 +32,8 @@ import io.realm.OrderedRealmCollection;
 import io.realm.Realm;
 import io.realm.RealmRecyclerViewAdapter;
 
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
+
 /**
  * A fragment representing a list of Area RealmObjects.
  * <p/>
@@ -111,14 +113,15 @@ public class AreaListFragment extends Fragment {
                                         LabelledSpinner) dialog.getCustomView().findViewById(R.id.spinner_areatype))
                                         .getSpinner().getSelectedItemPosition()];
 
-                                Area area;
+                                Area managedArea;
                                 if(areaId != null) {
-                                    area = realm.where(Area.class).equalTo(AreaFields.ID, areaId).findFirst();
-                                    area.setName(name);
-                                    area.setType(type);
+                                    managedArea = realm.where(Area.class).equalTo(AreaFields.ID, areaId).findFirst();
+                                    managedArea.setName(name);
+                                    managedArea.setType(type);
                                 }else {
                                     Gym managedGym = realm.where(Gym.class).equalTo(AreaFields.ID, mGymID).findFirst();
                                     Area unmanagedArea = new Area(name, type, managedGym);
+
                                     realm.copyToRealm(unmanagedArea);
                                 }
 

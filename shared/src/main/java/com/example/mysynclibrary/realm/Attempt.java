@@ -1,5 +1,7 @@
 package com.example.mysynclibrary.realm;
 
+import com.example.mysynclibrary.BuildConfig;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -10,10 +12,13 @@ import io.realm.RealmObject;
 import io.realm.annotations.Index;
 import io.realm.annotations.PrimaryKey;
 
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
+
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
 public class Attempt extends RealmObject implements ISyncableRealmObject{
 
+    String syncState;
     // All fields are by default persisted.
     private boolean isSend;
     private boolean onLead;
@@ -23,20 +28,23 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     private int count;          // number of attempts saved in this object
     private float progress;  // percent done, 0-100
     @PrimaryKey private String id;
-
-    SyncState syncState;
+    private boolean onRemote;
+    private Date lastEdit;
 
     public Attempt() {
-        //NOTE: DON'T USE THIS, USE CREATOR METHODS INSTEAD
-        // set defaults
-        id = UUID.randomUUID().toString();
-        setDate(Calendar.getInstance().getTime());
-        syncState = new SyncState();
+        // NOTE: DON'T USE THIS CONSTRUCTOR!!!
+        if(BuildConfig.DEBUG && id == null) {
+            throw new AssertionError("Use parameterized constructor");
+        }
     }
 
     public Attempt(Climb climb, float progress, int count, boolean isSend, boolean isLead) {
-        //NOTE: DON'T USE THIS, USE CREATOR METHODS INSTEAD
-        super();
+        //NOTE: Use creators to build attempts without all the parameters
+        id = UUID.randomUUID().toString();
+        setDate(Calendar.getInstance().getTime());
+        setSyncState(DIRTY);
+        this.onRemote = false;
+
         this.climb = climb;
         this.count = count;
         this.isSend = isSend;
@@ -57,7 +65,7 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setSend(boolean send) {
-        edited();
+        setSyncState(DIRTY);
         isSend = send;
     }
 
@@ -66,7 +74,7 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setCount(int count) {
-        edited();
+        setSyncState(DIRTY);
         this.count = count;
     }
 
@@ -75,7 +83,7 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setProgress(float progress) {
-        edited();
+        setSyncState(DIRTY);
         if(progress > 100) {
             progress = 1;
         }else if(progress < 0) {
@@ -89,7 +97,7 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setDate(Date date) {
-        edited();
+        setSyncState(DIRTY);
         this.datetime = date;
 
         // TODO: is this robust for different timezones?
@@ -106,7 +114,8 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setClimb(Climb climb) {
-        edited();
+
+        setSyncState(DIRTY);
         this.climb = climb;
     }
 
@@ -115,44 +124,52 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setOnLead(boolean onLead) {
-        edited();
+        setSyncState(DIRTY);
         this.onLead = onLead;
     }
 
 
     @Override
-    public void edited() {
-        syncState.edited();
-    }
+    public void safedelete(boolean forceDeletion) {
+        // NOTE: this should only be called in a transaction
+        if(forceDeletion || !isOnRemote()){
+            // delete all child objects
 
-    @Override
-    public void synced() {
-        syncState.synced();
-    }
-
-    @Override
-    public void safeDelete() {
-        syncState.safeDelete(this);
+            //...
+            // delete this object
+            deleteFromRealm();
+        } else {
+            // mark for deletion
+            setSyncState(SyncState.DELETE);
+        }
     }
 
     @Override
     public boolean isOnRemote() {
-        return syncState.isOnRemote();
+        return onRemote;
     }
 
     @Override
-    public boolean isDelete() {
-        return syncState.isDelete();
+    public void setOnRemote(boolean onRemote) {
+        this.onRemote = onRemote;
+    }
+
+    @Override
+    public SyncState getSyncState() {
+        return (syncState !=null) ? SyncState.valueOf(syncState):null;
+    }
+
+    @Override
+    public void setSyncState(SyncState state) {
+        if(state == DIRTY) {
+            lastEdit = Calendar.getInstance().getTime();
+        }
+        this.syncState = state.name();
     }
 
     @Override
     public Date getLastEdit() {
-        return syncState.getLastEdit();
-    }
-
-    @Override
-    public void setDirty(boolean dirty) {
-        syncState.setDirty(dirty);
+        return lastEdit;
     }
 
     @Override

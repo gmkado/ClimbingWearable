@@ -1,5 +1,6 @@
 package com.example.mysynclibrary.realm;
 
+import com.example.mysynclibrary.BuildConfig;
 import com.example.mysynclibrary.R;
 import com.example.mysynclibrary.Shared;
 
@@ -18,9 +19,13 @@ import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.Required;
 
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
+
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
 public class Goal extends RealmObject implements ISyncableRealmObject{
+    private boolean onRemote;
+    private Date lastEdit;
 
     // All fields are by default persisted.
 
@@ -38,6 +43,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setMingrade(int mingrade) {
+        setSyncState(DIRTY);
         this.mingrade = mingrade;
     }
 
@@ -52,21 +58,24 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     private boolean recurring;
     private int heightunit;
 
-    SyncState syncState;
+    String syncState;
 
     public Goal() {
         // NOTE: DON'T USE THIS CONSTRUCTOR!!!
+        if(BuildConfig.DEBUG && id == null) {
+            throw new AssertionError("Use parameterized constructor");
+        }
+    }
+
+    public Goal(Shared.ClimbType type) {
+        setSyncState(DIRTY);
+        onRemote = false;
         id = UUID.randomUUID().toString();
         ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
         startDate = Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS));
         mingrade = 0;
         includeAttempts = false;
         name = "Untitled";
-        syncState = new SyncState();
-    }
-
-    public Goal(Shared.ClimbType type) {
-        super();
         climbtype = type.ordinal();
     }
 
@@ -140,7 +149,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setIncludeAttempts(boolean includeAttempts) {
-        edited();
+        setSyncState(DIRTY);
         this.includeAttempts = includeAttempts;
     }
 
@@ -149,43 +158,38 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setName(String name) {
-        edited();
+        setSyncState(DIRTY);
         this.name = name;
     }
 
     @Override
-    public void edited() {
-        syncState.edited();
-    }
-
-    @Override
-    public void synced() {
-        syncState.synced();
-    }
-
-    @Override
-    public void safeDelete() {
-        syncState.safeDelete(this);
-    }
-    @Override
     public boolean isOnRemote() {
-        return syncState.isOnRemote();
+        return onRemote;
     }
 
     @Override
-    public boolean isDelete() {
-        return syncState.isDelete();
+    public void setOnRemote(boolean onRemote) {
+        this.onRemote = onRemote;
+    }
+
+    @Override
+    public SyncState getSyncState() {
+        return (syncState !=null) ? SyncState.valueOf(syncState):null;
+    }
+
+    @Override
+    public void setSyncState(SyncState state) {
+        if(state == DIRTY) {
+            lastEdit = Calendar.getInstance().getTime();
+        }
+        this.syncState = state.name();
     }
 
     @Override
     public Date getLastEdit() {
-        return syncState.getLastEdit();
+        return lastEdit;
     }
 
-    @Override
-    public void setDirty(boolean dirty) {
-        syncState.setDirty(dirty);
-    }
 
     @Override
     public String getId() {
@@ -279,7 +283,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGoalunit(GoalUnit goalUnit) {
-        edited();
+        setSyncState(DIRTY);
         this.goalunit = goalUnit.ordinal();
     }
 
@@ -288,7 +292,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setStartDate(Date startDate) {
-        edited();
+        setSyncState(DIRTY);
         this.startDate = startDate;
     }
 
@@ -297,7 +301,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setEndDate(Date endDate) {
-        edited();
+        setSyncState(DIRTY);
         this.endDate = endDate;
     }
 
@@ -306,12 +310,12 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setTarget(int target) {
-        edited();
+        setSyncState(DIRTY);
         this.target = target;
     }
 
     public void setClimbType(Shared.ClimbType type) {
-        edited();
+        setSyncState(DIRTY);
         this.climbtype = type.ordinal();
     }
 
@@ -324,7 +328,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setEndtype(EndType endtype) {
-        edited();
+        setSyncState(DIRTY);
         this.endtype = endtype.ordinal();
     }
 
@@ -333,7 +337,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setPeriod(Period period) {
-        edited();
+        setSyncState(DIRTY);
         this.period = period.ordinal();
     }
 
@@ -342,7 +346,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setNumPeriods(int numPeriods) {
-        edited();
+        setSyncState(DIRTY);
         this.numPeriods = numPeriods;
     }
 
@@ -351,7 +355,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setRecurring(boolean recurring){
-        edited();
+        setSyncState(DIRTY);
         this.recurring = recurring;
     }
 
@@ -360,7 +364,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setHeightunit(HeightUnit heightunit) {
-        edited();
+        setSyncState(DIRTY);
         this.heightunit = heightunit.ordinal();
     }
 
@@ -391,5 +395,17 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
 
     }
 
-
+    @Override
+    public void safedelete(boolean forceDeletion) {
+        // NOTE: this should only be called in a transaction
+        if(forceDeletion || !isOnRemote()){
+            // delete all child objects
+            //...
+            // delete this object
+            deleteFromRealm();
+        } else {
+            // mark for deletion
+            setSyncState(DIRTY);
+        }
+    }
 }

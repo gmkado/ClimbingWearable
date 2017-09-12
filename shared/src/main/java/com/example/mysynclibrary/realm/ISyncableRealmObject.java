@@ -15,17 +15,27 @@ public interface ISyncableRealmObject<T> {
         - All sync-related logic is implemented in SyncState, removing any repeated code
 
         NOTE: RealmObjects in this application should never use createObject, but should use constructors that allow the appropriate default fields to be set
-        FIXME: is there a way to force this behavior?
      */
-    void edited(); // object has been edited, so mark as dirty and set last edited date
-    void synced(); // object has been synced, so mark as onremote and not dirty
-    void safeDelete(); // delete object if its safe to do so, otherwise mark for deletion
 
+    /* NOTE: this needs to take care of cascading deletes:
+    https://github.com/realm/realm-core/issues/746
+    https://github.com/realm/realm-java/issues/1104
+    Current solution: https://github.com/realm/realm-java/issues/2717#issuecomment-255973863
+    */
+    void safedelete(boolean forceDeletion); // object has been deleted, so mark for deletion or delete if not on remote,
 
     boolean isOnRemote();
-    boolean isDelete();
+    void setOnRemote(boolean onRemote);
+    SyncState getSyncState();
+    void setSyncState(SyncState state);
+
     Date getLastEdit();
-
-
     String getId();
+
+
+    enum SyncState{
+        CLEAN,
+        DIRTY,
+        DELETE
+    }
 }

@@ -23,6 +23,8 @@ import java.util.UUID;
 import io.realm.Realm;
 import io.realm.RealmResults;
 
+import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DELETE;
+
 /**
  * Created by Grant on 7/15/2017.
  */
@@ -91,7 +93,7 @@ public class EditAttemptsDialogFragment extends DialogFragment {
                     try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
                         Attempt attempt = realm.where(Attempt.class).equalTo(AttemptFields.ID, mAttemptId).findFirst();
-                        attempt.safeDelete();
+                        attempt.safedelete(false);
                         realm.commitTransaction();
                     } finally {
                         dismiss();
@@ -103,7 +105,7 @@ public class EditAttemptsDialogFragment extends DialogFragment {
             // Try to set the current progress to the most recent progress
             RealmResults<Attempt> attempts = mRealm.where(Attempt.class)
                     .equalTo(AttemptFields.CLIMB.ID, mClimb.getId())
-                    .equalTo(AttemptFields.SYNC_STATE.DELETE, false).findAllSorted("date");
+                    .notEqualTo(AttemptFields.SYNC_STATE, DELETE.name()).findAllSorted("date");
             float progress = 0f;
             if(!attempts.isEmpty()) {
                 progress = attempts.last().getProgress();

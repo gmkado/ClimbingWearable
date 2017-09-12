@@ -143,7 +143,7 @@ public class EditClimbDialogFragment extends DialogFragment {
                     try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
                         Climb climb = realm.where(Climb.class).equalTo(ClimbFields.ID, mClimbUUID).findFirst();
-                        climb.safeDelete();
+                        climb.safedelete(false);
                         realm.commitTransaction();
                     } finally {
                         dismiss();
@@ -289,6 +289,7 @@ public class EditClimbDialogFragment extends DialogFragment {
                         Attempt unmanagedSend = Attempt.createSend(managedClimb, false); // TODO: need a UI element or dialog box for if climb was on lead
                         realm.copyToRealm(unmanagedSend);
                     }
+
                     realm.commitTransaction();
                 } finally {
                     dismiss();

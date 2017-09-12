@@ -3,7 +3,6 @@ apply plugin: 'realm-android'
 android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
-
     defaultConfig {
         applicationId "com.example.grant.wearableclimbtracker"
         minSdkVersion 23
@@ -17,6 +16,8 @@ android {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+    productFlavors {
     }
 }
 
@@ -34,7 +35,7 @@ dependencies {
     compile 'com.android.support:recyclerview-v7:25.3.1'
     compile project(':shared')
     compile 'com.android.support.constraint:constraint-layout:1.0.1'
-    compile 'com.facebook.stetho:stetho:1.4.1'
-    compile 'com.uphyca:stetho_realm:2.0.0'
+    compile 'com.facebook.stetho:stetho:1.5.0'
+    compile 'com.uphyca:stetho_realm:2.1.0'
     compile 'me.denley.wearprefs:WearPrefs:1.1.3'
 }
