@@ -4,7 +4,6 @@ package com.example.mysynclibrary.realm;
 import android.support.annotation.NonNull;
 
 import com.example.mysynclibrary.BuildConfig;
-import com.example.mysynclibrary.Shared;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -142,12 +141,12 @@ public class Area extends RealmObject implements ISyncableRealmObject{
             return list;
         }
 
-        public static boolean matches(AreaType type, Shared.ClimbType climbType) {
+        public static boolean matches(AreaType type, Climb.ClimbType climbType) {
             // return whether the areatype matches the climbtype
             if(type == MIXED) {
                 return true;
             }else {
-                return type == (climbType == Shared.ClimbType.bouldering ? AreaType.BOULDER_ONLY : AreaType.ROPES_ONLY);
+                return type == (climbType == Climb.ClimbType.bouldering ? AreaType.BOULDER_ONLY : AreaType.ROPES_ONLY);
             }
         }
 

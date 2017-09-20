@@ -16,12 +16,15 @@
             android:gravity="center"
             android:text="Wear not enabled, change setting on phone"
             android:visibility="visible" />
+
         <android.support.wearable.view.drawer.WearableDrawerLayout
             android:id="@+id/drawer_layout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             tools:context="com.example.grant.wearableclimbtracker.MainActivity"
             tools:deviceIds="wear">
+
+
             <android.support.v4.widget.NestedScrollView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
@@ -30,6 +33,20 @@
                     android:orientation="vertical"
                     android:layout_height="wrap_content"
                     android:layout_width="match_parent">
+                    <TextView
+                        android:id="@+id/textview_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="PGSV"
+                        android:textAlignment="center"
+                        android:textSize="30sp"
+                        android:textStyle="bold"
+                        tools:background="#a8546e7a" />
+                    <android.support.wearable.view.WearableRecyclerView
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:id="@+id/listView"/>
                 </LinearLayout>
             </android.support.v4.widget.NestedScrollView>
 
@@ -37,7 +54,8 @@
                 android:id = "@+id/top_navigation_drawer"
                 android:layout_height="match_parent"
                 android:layout_width="match_parent"
-                android:background="@color/dark_grey"/>
+                android:background="@color/dark_grey"
+                app:navigation_style="single_page"/>
 
             <android.support.wearable.view.drawer.WearableActionDrawer
                 android:id="@+id/bottom_action_drawer"

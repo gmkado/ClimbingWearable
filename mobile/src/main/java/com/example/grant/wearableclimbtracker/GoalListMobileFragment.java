@@ -17,8 +17,8 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.akexorcist.roundcornerprogressbar.IconRoundCornerProgressBar;
-import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.goalDAO.GoalDAO;
+import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
 import com.example.mysynclibrary.realm.GoalFields;
 import com.github.clans.fab.FloatingActionButton;
@@ -33,8 +33,8 @@ import io.realm.RealmResults;
 /**
  * A fragment representing a list of Items.
  */
-public class GoalListFragment extends Fragment {
-    private static final String TAG = "GoalListFragment";
+public class GoalListMobileFragment extends Fragment {
+    private static final String TAG = "GoalListMobileFragment";
     private Realm mRealm;
     private RealmResults<Goal> mResult;
     private RecyclerView mRecyclerView;
@@ -43,11 +43,11 @@ public class GoalListFragment extends Fragment {
      * Mandatory empty constructor for the fragment manager to instantiate the
      * fragment (e.g. upon screen orientation changes).
      */
-    public GoalListFragment() {
+    public GoalListMobileFragment() {
     }
 
-    public static GoalListFragment newInstance() {
-        GoalListFragment fragment = new GoalListFragment();
+    public static GoalListMobileFragment newInstance() {
+        GoalListMobileFragment fragment = new GoalListMobileFragment();
         //Bundle args = new Bundle();
         //args.putInt(ARG_COLUMN_COUNT, columnCount);
         //fragment.setArguments(args);
@@ -86,14 +86,14 @@ public class GoalListFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 // Create and show the dialog.
-                showDialogFragment(EditClimbDialogFragment.newInstance(Shared.ClimbType.bouldering, null, EditClimbDialogFragment.EditClimbMode.ADD_PROJECT));
+                showDialogFragment(EditClimbDialogFragment.newInstance(Climb.ClimbType.bouldering, null, EditClimbDialogFragment.EditClimbMode.ADD_PROJECT));
             }
         });
         FloatingActionButton fabAddSend = (FloatingActionButton) rootView.findViewById(R.id.fab_add_send);
         fabAddSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showDialogFragment(EditClimbDialogFragment.newInstance(Shared.ClimbType.bouldering, null, EditClimbDialogFragment.EditClimbMode.ADD_SEND));
+                showDialogFragment(EditClimbDialogFragment.newInstance(Climb.ClimbType.bouldering, null, EditClimbDialogFragment.EditClimbMode.ADD_SEND));
             }
         });
         // add goal button listener
@@ -101,7 +101,7 @@ public class GoalListFragment extends Fragment {
         fabAddGoal.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, null));
+                showDialogFragment(EditGoalDialogFragment.newInstance(Climb.ClimbType.bouldering, null));
             }
         });
         return rootView;
@@ -185,7 +185,7 @@ public class GoalListFragment extends Fragment {
                             int id = item.getItemId();
                             switch (id) {
                                 case R.id.item_edit:
-                                    showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, holder.mGoalDAO.getGoal().getId()));
+                                    showDialogFragment(EditGoalDialogFragment.newInstance(Climb.ClimbType.bouldering, holder.mGoalDAO.getGoal().getId()));
                                     break;
                                 case R.id.item_delete:
                                     mRealm.executeTransactionAsync(new Realm.Transaction() {

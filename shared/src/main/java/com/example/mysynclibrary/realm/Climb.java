@@ -1,10 +1,13 @@
 package com.example.mysynclibrary.realm;
 
 import com.example.mysynclibrary.BuildConfig;
-import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.R;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import io.realm.RealmObject;
@@ -47,7 +50,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
         }
 
     }
-    public Climb(Shared.ClimbType type, Gym gym, Area area) {
+    public Climb(ClimbType type, Gym gym, Area area) {
         id = UUID.randomUUID().toString();
         grade = 0;
         color = -1;
@@ -67,11 +70,11 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
         this.grade = grade;
     }
 
-    public Shared.ClimbType getType() {
-        return Shared.ClimbType.values()[type];
+    public ClimbType getType() {
+        return ClimbType.values()[type];
     }
 
-    public void setType(Shared.ClimbType type) {
+    public void setType(ClimbType type) {
         setSyncState(DIRTY);
         this.type = type.ordinal();
     }
@@ -118,7 +121,7 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public String[] toStringArray() {
-        Shared.ClimbType type = getType();
+        ClimbType type = getType();
         // TODO: fix this to include new way of recording attempts -- return new String[] {getSendDate().toString(), type.title, type.grades.get(getGrade())};
         return null;
     }
@@ -191,6 +194,82 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
         } else {
             // mark for deletion
             setSyncState(SyncState.DELETE);
+        }
+    }
+
+    public enum ClimbType {
+        bouldering("Bouldering", R.drawable.icon_boulder,
+                createGradeList(0, 17, "V", 18, null),
+                Arrays.asList("V3", "V6", "V9")),
+        ropes("Ropes", R.drawable.icon_ropes,
+                createGradeList(6, 15, "5.",10, Arrays.asList("a","b","c","d")),
+                Arrays.asList("5.8", "5.10d", "5.12d"));
+
+        private static List<String> createGradeList(int minGrade, int maxGrade, String prefix, int minSuffixGrade, List<String> suffixList) {
+            ArrayList<String> gradeList = new ArrayList();
+
+            for(int grade = minGrade; grade <= maxGrade; grade++) {
+                // this is janky but oh well
+                if(grade >= minSuffixGrade) {
+                    for(String suffix: suffixList) {
+                        gradeList.add(prefix + grade + suffix);
+                    }
+                }else {
+                    gradeList.add(prefix + grade);
+                }
+            }
+            return gradeList;
+        }
+
+        public String title;
+        public int icon;
+        public List<String> grades;
+        public List<Integer> indMaxGradeForLevel; // index of the max grade for a particular level
+
+        ClimbType(String title, int icon, List<String> grades, List<String> levelDef){
+            this.title = title;
+            this.icon = icon;
+            this.grades = grades;
+
+            // levelDef = hardest grades for easy, med, hard. Expert is assumed as anything larger than hard
+            assert levelDef.size() == ClimbLevel.values().length - 1;
+            indMaxGradeForLevel = Arrays.asList(
+                    grades.indexOf(levelDef.get(ClimbLevel.beginner.ordinal())),
+                    grades.indexOf(levelDef.get(ClimbLevel.intermediate.ordinal())),
+                    grades.indexOf(levelDef.get(ClimbLevel.advanced.ordinal())),
+                    grades.size() - 1);
+
+            if(indMaxGradeForLevel.contains(-1)) {
+                // this means one of the grades was not found so throw an error
+                throw new IndexOutOfBoundsException();
+            }
+        }
+
+        public int getIndexOfMaxGradeForLevel(ClimbLevel level) {
+            return indMaxGradeForLevel.get(level.ordinal());
+        }
+
+        public String getLabelForLevel(ClimbLevel level) {
+            int startInd;
+            if(level.ordinal() == 0) {
+                startInd = 0;
+            }else {
+                startInd = getIndexOfMaxGradeForLevel(level.values()[level.ordinal()-1])+1;
+            }
+            int endInd = getIndexOfMaxGradeForLevel(level);
+            return level.title + " (" + grades.get(startInd) + " to " +grades.get(endInd) + ")";
+        }
+    }
+
+    public enum ClimbLevel{
+        beginner("Beginner"),
+        intermediate("Intermediate"),
+        advanced("Advanced"),
+        expert("Expert");
+
+        public String title;
+        ClimbLevel(String title) {
+            this.title = title;
         }
     }
 }

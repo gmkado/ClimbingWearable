@@ -19,10 +19,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.Toast;
 
 import com.afollestad.materialdialogs.color.ColorChooserDialog;
-import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.SimpleSpanBuilder;
 import com.example.mysynclibrary.SyncHelper;
 import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
@@ -41,7 +39,6 @@ import org.greenrobot.eventbus.Subscribe;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Set;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
@@ -183,7 +180,7 @@ public class MainActivity extends AppCompatActivity
                 setClimbFragmentTitle();
                 break;
             case R.id.nav_goal:
-                fragment = GoalListFragment.newInstance();
+                fragment = GoalListMobileFragment.newInstance();
                 getSupportFragmentManager().beginTransaction().replace(R.id.content_main, fragment).commit();
 
                 item.setChecked(true); // Highlight the selected item has been done by NavigationView
@@ -319,7 +316,7 @@ public class MainActivity extends AppCompatActivity
 
     private void setClimbFragmentTitle() {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-        Shared.ClimbType filterClimbType = Shared.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
+        Climb.ClimbType filterClimbType = Climb.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Climb.ClimbType.bouldering.ordinal())];
         String filterGymId = pref.getString(PREF_FILTER_GYM_ID, null);
         String filterAreaId = pref.getString(PREF_FILTER_AREA_ID, null);
         getSupportActionBar().setTitle(filterClimbType.title);

@@ -8,7 +8,7 @@
             android:title="Climbs" />
         <item
             android:id="@+id/nav_goal"
-            android:icon="@drawable/goal_reached"
+            android:icon="@drawable/ic_goal_reached"
             android:title="Goals" />
     </group>
 

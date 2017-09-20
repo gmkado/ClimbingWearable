@@ -15,13 +15,10 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.ListView;
 
 import com.afollestad.materialdialogs.color.ColorChooserDialog;
-import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.ClimbColorSelectedEvent;
-import com.example.mysynclibrary.eventbus.RealmSyncEvent;
 import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.AreaFields;
 import com.example.mysynclibrary.realm.Attempt;
@@ -36,8 +33,6 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.UUID;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
@@ -66,7 +61,7 @@ public class EditClimbDialogFragment extends DialogFragment {
     private Button mSaveButton;
     private EditClimbMode mMode;
     private ListView mGradeListView;
-    private Shared.ClimbType mDefaultType;
+    private Climb.ClimbType mDefaultType;
 
     public EditClimbDialogFragment() {
         // Required empty public constructor
@@ -80,7 +75,7 @@ public class EditClimbDialogFragment extends DialogFragment {
      * @param climbUuid String uuid of climb (if editing a climb.
      * @return A new instance of fragment EditClimbDialogFragment.
      */
-    public static EditClimbDialogFragment newInstance(Shared.ClimbType climbType, String climbUuid, EditClimbMode mode) {
+    public static EditClimbDialogFragment newInstance(Climb.ClimbType climbType, String climbUuid, EditClimbMode mode) {
         EditClimbDialogFragment fragment = new EditClimbDialogFragment();
         Bundle args = new Bundle();
         args.putInt(ARG_CLIMBTYPE, climbType.ordinal());
@@ -103,7 +98,7 @@ public class EditClimbDialogFragment extends DialogFragment {
         if (getArguments() != null) {
             mClimbUUID = getArguments().getString(ARG_CLIMBUUID);
             mMode = EditClimbMode.values()[getArguments().getInt(ARG_MODE)];
-            mDefaultType = Shared.ClimbType.values()[getArguments().getInt(ARG_CLIMBTYPE)];
+            mDefaultType = Climb.ClimbType.values()[getArguments().getInt(ARG_CLIMBTYPE)];
         }
 
         mRealm = Realm.getDefaultInstance();
@@ -236,6 +231,7 @@ public class EditClimbDialogFragment extends DialogFragment {
             colors.add(climb.getColor());
         }
         colors.add(0); // add a color
+
         mColorButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -311,7 +307,7 @@ public class EditClimbDialogFragment extends DialogFragment {
             final RealmResults<Area> areaObjects = mRealm.where(Area.class)
                     .equalTo(AreaFields.GYM.ID, mClimb.getGym().getId())
                     .equalTo(AreaFields.TYPE,
-                            mClimb.getType()==Shared.ClimbType.bouldering?
+                            mClimb.getType()== Climb.ClimbType.bouldering?
                                     Area.AreaType.BOULDER_ONLY.ordinal():
                                     Area.AreaType.ROPES_ONLY.ordinal()
                     )

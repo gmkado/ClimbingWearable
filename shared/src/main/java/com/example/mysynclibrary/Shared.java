@@ -1,6 +1,10 @@
 package com.example.mysynclibrary;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.support.v4.util.Pair;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -215,85 +219,23 @@ public class Shared {
         return (int) mDateRange.between(startZDT, endZDT);
     }
 
+    // input w and h are in dp
+    public static Drawable getScaledDrawable(Context context, int res, int w, int h) {
+        Bitmap bmap = BitmapFactory.decodeResource(context.getResources(), res);
+        Bitmap bmapScaled = Bitmap.createScaledBitmap(bmap, dpToPx(context, w), dpToPx(context, h), false);
+        return new BitmapDrawable(context.getResources(), bmapScaled);
 
-
-    public enum ClimbLevel{
-        beginner("Beginner"),
-        intermediate("Intermediate"),
-        advanced("Advanced"),
-        expert("Expert");
-
-        public String title;
-        ClimbLevel(String title) {
-            this.title = title;
-        }
     }
 
-    public enum ClimbType {
-        bouldering("Bouldering", R.drawable.icon_boulder,
-                createGradeList(0, 17, "V", 18, null),
-                Arrays.asList("V3", "V6", "V9")),
-        ropes("Ropes", R.drawable.icon_ropes,
-                createGradeList(6, 15, "5.",10, Arrays.asList("a","b","c","d")),
-                Arrays.asList("5.8", "5.10d", "5.12d"));
-
-        private static List<String> createGradeList(int minGrade, int maxGrade, String prefix, int minSuffixGrade, List<String> suffixList) {
-            ArrayList<String> gradeList = new ArrayList();
-
-            for(int grade = minGrade; grade <= maxGrade; grade++) {
-                // this is janky but oh well
-                if(grade >= minSuffixGrade) {
-                    for(String suffix: suffixList) {
-                        gradeList.add(prefix + grade + suffix);
-                    }
-                }else {
-                    gradeList.add(prefix + grade);
-                }
-            }
-            return gradeList;
-        }
-
-        public String title;
-        public int icon;
-        public List<String> grades;
-        public List<Integer> indMaxGradeForLevel; // index of the max grade for a particular level
-
-        ClimbType(String title, int icon, List<String> grades, List<String> levelDef){
-            this.title = title;
-            this.icon = icon;
-            this.grades = grades;
-
-            // levelDef = hardest grades for easy, med, hard. Expert is assumed as anything larger than hard
-            assert levelDef.size() == ClimbLevel.values().length - 1;
-            indMaxGradeForLevel = Arrays.asList(
-                    grades.indexOf(levelDef.get(ClimbLevel.beginner.ordinal())),
-                    grades.indexOf(levelDef.get(ClimbLevel.intermediate.ordinal())),
-                    grades.indexOf(levelDef.get(ClimbLevel.advanced.ordinal())),
-                    grades.size() - 1);
-
-            if(indMaxGradeForLevel.contains(-1)) {
-                // this means one of the grades was not found so throw an error
-                throw new IndexOutOfBoundsException();
-            }
-        }
-
-        public int getIndexOfMaxGradeForLevel(ClimbLevel level) {
-            return indMaxGradeForLevel.get(level.ordinal());
-        }
-
-        public String getLabelForLevel(ClimbLevel level) {
-            int startInd;
-            if(level.ordinal() == 0) {
-                startInd = 0;
-            }else {
-                startInd = getIndexOfMaxGradeForLevel(level.values()[level.ordinal()-1])+1;
-            }
-            int endInd = getIndexOfMaxGradeForLevel(level);
-            return level.title + " (" + grades.get(startInd) + " to " +grades.get(endInd) + ")";
-        }
+    public static int dpToPx(Context context, int dp) {
+        DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+        return (int) (dp * ((float)metrics.densityDpi/DisplayMetrics.DENSITY_DEFAULT));
     }
 
-
+    public static int pxToDp(Context context, int px) {
+        DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+        return (int) (px / ((float)metrics.densityDpi/DisplayMetrics.DENSITY_DEFAULT));
+    }
 
 
 }

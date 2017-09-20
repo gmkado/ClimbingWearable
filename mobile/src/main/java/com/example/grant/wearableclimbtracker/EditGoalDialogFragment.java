@@ -23,19 +23,15 @@ import android.widget.TextView;
 
 import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
-import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.SimpleSpanBuilder;
+import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Goal;
 import com.example.mysynclibrary.realm.GoalFields;
-
-import org.threeten.bp.ZonedDateTime;
-import org.threeten.bp.temporal.ChronoUnit;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
-import java.util.UUID;
 
 import io.realm.Realm;
 
@@ -46,7 +42,7 @@ public class EditGoalDialogFragment extends DialogFragment {
     private static final String TAG = "EditGoalDialogFragment";
     private static final String SPACE_STRING = "   ";
 
-    private Shared.ClimbType mClimbType;
+    private Climb.ClimbType mClimbType;
     private String mGoalUUID;
     private Realm mRealm;
     private Button mSaveButton;
@@ -65,7 +61,7 @@ public class EditGoalDialogFragment extends DialogFragment {
      * @param climbUuid String uuid of climb (if editing a climb.
      * @return A new instance of fragment EditClimbDialogFragment.
      */
-    public static EditGoalDialogFragment newInstance(Shared.ClimbType climbType, String climbUuid) {
+    public static EditGoalDialogFragment newInstance(Climb.ClimbType climbType, String climbUuid) {
         EditGoalDialogFragment fragment = new EditGoalDialogFragment();
         Bundle args = new Bundle();
         args.putInt(ARG_CLIMBTYPE, climbType.ordinal());
@@ -78,7 +74,7 @@ public class EditGoalDialogFragment extends DialogFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mClimbType = Shared.ClimbType.values()[getArguments().getInt(ARG_CLIMBTYPE)];
+            mClimbType = Climb.ClimbType.values()[getArguments().getInt(ARG_CLIMBTYPE)];
             mGoalUUID = getArguments().getString(ARG_GOALUUID);
         }
 
@@ -188,7 +184,7 @@ public class EditGoalDialogFragment extends DialogFragment {
                                         .itemsCallbackSingleChoice(mGoal.getClimbType().ordinal(), new MaterialDialog.ListCallbackSingleChoice() {
                                             @Override
                                             public boolean onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
-                                                mGoal.setClimbType(Shared.ClimbType.values()[which]);
+                                                mGoal.setClimbType(Climb.ClimbType.values()[which]);
                                                 if(mGoal.getMingrade() > mGoal.getClimbType().grades.size()-1) {
                                                     mGoal.setMingrade(mGoal.getClimbType().grades.size()-1);
                                                 }

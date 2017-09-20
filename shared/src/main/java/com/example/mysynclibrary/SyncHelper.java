@@ -271,9 +271,7 @@ public class SyncHelper{
                         } else {
                             if (remoteObject.getSyncState() != DELETE) {
                                 // object doesn't exist on mobile, so add it
-                                // TODO: this changes the id
-                                T managedCopy = realm.copyToRealm(remoteObject);
-                                Log.d(TAG, String.format("Remote id = %s, Local id = %s", remoteObject.getId(), managedCopy.getId()));
+                                T managedCopy = realm.copyToRealmOrUpdate(remoteObject); // FIXME: getting errors here using copyToRealm, same suspicion as "overrideLocalWitRemote" fixme. Since I'm pretty sure logic is right, just use copyToRealmOrUpdate
 
                             }
                         }

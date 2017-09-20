@@ -9,16 +9,12 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
-import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.AttemptFields;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.ClimbFields;
 import com.github.florent37.androidslidr.Slidr;
 import com.shawnlin.numberpicker.NumberPicker;
-
-import java.util.Calendar;
-import java.util.UUID;
 
 import io.realm.Realm;
 import io.realm.RealmResults;
@@ -132,7 +128,7 @@ public class EditAttemptsDialogFragment extends DialogFragment {
 
         // is lead
         Switch leadSwitch = (Switch)v.findViewById(R.id.switch_leadAttempt);
-        if(mClimb.getType() == Shared.ClimbType.bouldering) {
+        if(mClimb.getType() == Climb.ClimbType.bouldering) {
             leadSwitch.setVisibility(View.GONE);
         }else {
             leadSwitch.setVisibility(View.VISIBLE);

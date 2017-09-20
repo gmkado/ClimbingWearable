@@ -5,6 +5,12 @@
 
     <string name="title_activity_add_climb">AddClimbActivity</string>
     <string name="title_activity_confirmation">ConfirmationActivity</string>
+    <string name="history_title">History</string>
+    <string name="goal_title">Goal</string>
+    <string name="project_title">Project</string>
+    <string name="settings_title">Settings</string>
+    <string name="location_title">Location</string>
+    <string name="title_activity_location_picker">LocationPickerActivity</string>
 
 
 </resources>

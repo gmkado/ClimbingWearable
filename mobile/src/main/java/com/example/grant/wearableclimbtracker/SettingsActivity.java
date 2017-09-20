@@ -12,7 +12,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.MenuItem;
 import android.support.v4.app.NavUtils;
 
-import com.example.mysynclibrary.Shared;
+import com.example.mysynclibrary.realm.Climb;
 
 import java.util.List;
 
@@ -83,11 +83,11 @@ public class SettingsActivity extends AppCompatActivity {
             addPreferencesFromResource(R.xml.preferences);
 
             // populate lists
-            populateListPref((ListPreference)findPreference(KEY_WARMUP_MAXGRADE_BOULDER), Shared.ClimbType.bouldering.grades, 0);
-            populateListPref((ListPreference)findPreference(KEY_WARMUP_MAXGRADE_ROPES), Shared.ClimbType.ropes.grades, 0);
+            populateListPref((ListPreference)findPreference(KEY_WARMUP_MAXGRADE_BOULDER), Climb.ClimbType.bouldering.grades, 0);
+            populateListPref((ListPreference)findPreference(KEY_WARMUP_MAXGRADE_ROPES), Climb.ClimbType.ropes.grades, 0);
 
-            populateListPref((ListPreference)findPreference(KEY_GOAL_GRADE_BOULDER), Shared.ClimbType.bouldering.grades, 0);
-            populateListPref((ListPreference)findPreference(KEY_GOAL_GRADE_ROPES), Shared.ClimbType.ropes.grades, 0);
+            populateListPref((ListPreference)findPreference(KEY_GOAL_GRADE_BOULDER), Climb.ClimbType.bouldering.grades, 0);
+            populateListPref((ListPreference)findPreference(KEY_GOAL_GRADE_ROPES), Climb.ClimbType.ropes.grades, 0);
 
             updateWarmupCategory();
             updateGoalCategory();

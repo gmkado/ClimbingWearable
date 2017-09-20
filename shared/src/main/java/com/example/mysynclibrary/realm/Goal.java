@@ -67,7 +67,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
         }
     }
 
-    public Goal(Shared.ClimbType type) {
+    public Goal(Climb.ClimbType type) {
         setSyncState(DIRTY);
         onRemote = false;
         id = UUID.randomUUID().toString();
@@ -84,7 +84,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
      * @return
      */
     public String getSummary() {
-        String summary = (getClimbType()==Shared.ClimbType.bouldering?"Boulder ": "Rope climb ");
+        String summary = (getClimbType()== Climb.ClimbType.bouldering?"Boulder ": "Rope climb ");
         switch(getGoalUnit()) {
             case CLIMBS:
                 summary = summary.concat(Integer.toString(target) + " climbs ");
@@ -314,13 +314,13 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
         this.target = target;
     }
 
-    public void setClimbType(Shared.ClimbType type) {
+    public void setClimbType(Climb.ClimbType type) {
         setSyncState(DIRTY);
         this.climbtype = type.ordinal();
     }
 
-    public Shared.ClimbType getClimbType() {
-        return Shared.ClimbType.values()[climbtype];
+    public Climb.ClimbType getClimbType() {
+        return Climb.ClimbType.values()[climbtype];
     }
 
     public EndType getEndType() {

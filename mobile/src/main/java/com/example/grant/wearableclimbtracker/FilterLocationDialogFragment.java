@@ -1,8 +1,6 @@
 package com.example.grant.wearableclimbtracker;
 
-import android.content.Context;
 import android.content.SharedPreferences;
-import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
@@ -14,11 +12,10 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 
-import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
 import com.example.mysynclibrary.eventbus.LocationFilterEvent;
 import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.AreaFields;
+import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.Gym;
 import com.farbod.labelledspinner.LabelledSpinner;
 import com.polyak.iconswitch.IconSwitch;
@@ -42,7 +39,7 @@ public class FilterLocationDialogFragment extends DialogFragment {
     private LabelledSpinner mAreaSpinner;
     private String mGymId;
     private String mAreaId;
-    private Shared.ClimbType mClimbType;
+    private Climb.ClimbType mClimbType;
     private RealmResults<Gym> mGymObjects;
     private RealmResults<Area> mAreaObjects;
 
@@ -78,7 +75,7 @@ public class FilterLocationDialogFragment extends DialogFragment {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         mGymId = pref.getString(PREF_FILTER_GYM_ID, null);
         mAreaId = pref.getString(PREF_FILTER_AREA_ID, null);
-        mClimbType = Shared.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
+        mClimbType = Climb.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Climb.ClimbType.bouldering.ordinal())];
     }
 
 
@@ -131,11 +128,11 @@ public class FilterLocationDialogFragment extends DialogFragment {
 
         // filter -- climbtype
         IconSwitch climbTypeSwitch = (IconSwitch) view.findViewById(R.id.switch_climbtype);
-        climbTypeSwitch.setChecked(mClimbType == Shared.ClimbType.bouldering? IconSwitch.Checked.LEFT: IconSwitch.Checked.RIGHT);
+        climbTypeSwitch.setChecked(mClimbType == Climb.ClimbType.bouldering? IconSwitch.Checked.LEFT: IconSwitch.Checked.RIGHT);
         climbTypeSwitch.setCheckedChangeListener(new IconSwitch.CheckedChangeListener() {
             @Override
             public void onCheckChanged(IconSwitch.Checked current) {
-                mClimbType = current== IconSwitch.Checked.LEFT? Shared.ClimbType.bouldering: Shared.ClimbType.ropes;
+                mClimbType = current== IconSwitch.Checked.LEFT? Climb.ClimbType.bouldering: Climb.ClimbType.ropes;
                 // need to update the areas to reflect the correct climbtype
                 updateAreaUI();
             }
@@ -180,7 +177,7 @@ public class FilterLocationDialogFragment extends DialogFragment {
             String gymName = (String) mGymSpinner.getSpinner().getSelectedItem();
             mAreaObjects = mRealm.where(Area.class)
                     .equalTo(AreaFields.GYM.NAME, gymName)
-                    .in(AreaFields.TYPE, new Integer[] {Area.AreaType.MIXED.ordinal(), mClimbType == Shared.ClimbType.bouldering?
+                    .in(AreaFields.TYPE, new Integer[] {Area.AreaType.MIXED.ordinal(), mClimbType == Climb.ClimbType.bouldering?
                             Area.AreaType.BOULDER_ONLY.ordinal():
                             Area.AreaType.ROPES_ONLY.ordinal()})
                     .findAll();

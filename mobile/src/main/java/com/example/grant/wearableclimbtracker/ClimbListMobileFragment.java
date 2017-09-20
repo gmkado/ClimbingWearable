@@ -31,18 +31,15 @@ import android.widget.TextView;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.akexorcist.roundcornerprogressbar.TextRoundCornerProgressBar;
 import com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.SortByField;
-import com.example.mysynclibrary.Shared;
 import com.example.mysynclibrary.eventbus.ClimbResultChangedEvent;
 import com.example.mysynclibrary.eventbus.ClimbSortFilterEvent;
 import com.example.mysynclibrary.eventbus.LocationFilterEvent;
-import com.example.mysynclibrary.realm.Area;
 import com.example.mysynclibrary.realm.Attempt;
 import com.example.mysynclibrary.realm.AttemptFields;
 import com.example.mysynclibrary.realm.Climb;
 import com.example.mysynclibrary.realm.ClimbFields;
 import com.github.clans.fab.FloatingActionButton;
 import com.github.clans.fab.FloatingActionMenu;
-import com.polyak.iconswitch.IconSwitch;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -52,10 +49,8 @@ import java.util.Date;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.UUID;
 
 import io.realm.Realm;
 import io.realm.RealmChangeListener;
@@ -70,7 +65,6 @@ import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragmen
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_CLIMBTYPE;
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_GYM_ID;
 import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DELETE;
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 /**
  * Created by Grant on 10/17/2016.
@@ -84,7 +78,7 @@ public class ClimbListMobileFragment extends Fragment {
     private SortByField sortByField;
     private boolean filterProjects;
     private boolean filterSet;
-    private Shared.ClimbType filterClimbType;
+    private Climb.ClimbType filterClimbType;
     private String filterGymId;
     private String filterAreaId;
 
@@ -138,7 +132,7 @@ public class ClimbListMobileFragment extends Fragment {
 
     private void getLocationFilterPref() {
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        filterClimbType = Shared.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Shared.ClimbType.bouldering.ordinal())];
+        filterClimbType = Climb.ClimbType.values()[pref.getInt(PREF_FILTER_CLIMBTYPE, Climb.ClimbType.bouldering.ordinal())];
         filterGymId = pref.getString(PREF_FILTER_GYM_ID, null);
         filterAreaId = pref.getString(PREF_FILTER_AREA_ID, null);
     }
@@ -171,7 +165,7 @@ public class ClimbListMobileFragment extends Fragment {
         fabAddGoal.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showDialogFragment(EditGoalDialogFragment.newInstance(Shared.ClimbType.bouldering, null));
+                showDialogFragment(EditGoalDialogFragment.newInstance(Climb.ClimbType.bouldering, null));
             }
         });
 
@@ -529,7 +523,7 @@ public class ClimbListMobileFragment extends Fragment {
                         }
                     });
                     menu.getMenu().add(Menu.NONE, ClimbMenuItems.EDIT.ordinal(), ClimbMenuItems.EDIT.ordinal(), "Edit");
-                    if(unmanagedClimb.getType() == Shared.ClimbType.ropes) {
+                    if(unmanagedClimb.getType() == Climb.ClimbType.ropes) {
                         menu.getMenu().add(Menu.NONE, ClimbMenuItems.SEND_NOTLEAD.ordinal(), ClimbMenuItems.SEND_NOTLEAD.ordinal(), "Add TR Send");
                         menu.getMenu().add(Menu.NONE, ClimbMenuItems.SEND_LEAD.ordinal(), ClimbMenuItems.SEND_LEAD.ordinal(), "Add Lead Send");
                     }else {
@@ -569,10 +563,10 @@ public class ClimbListMobileFragment extends Fragment {
                 if (attempts.first().isSend()) {
                     // flashed
                     viewHolder.status.setVisibility(View.VISIBLE);
-                    viewHolder.status.setImageDrawable(getContext().getDrawable(R.drawable.flash));
+                    viewHolder.status.setImageDrawable(getContext().getDrawable(R.drawable.ic_flash));
                 } else if(numSends > 0) {
                     viewHolder.status.setVisibility(View.VISIBLE);
-                    viewHolder.status.setImageDrawable(getContext().getDrawable(R.drawable.checked));
+                    viewHolder.status.setImageDrawable(getContext().getDrawable(R.drawable.ic_check));
                 } else {
                     viewHolder.status.setVisibility(View.INVISIBLE);
                 }
@@ -594,7 +588,7 @@ public class ClimbListMobileFragment extends Fragment {
             }
 
             // set lead icon
-            if(unmanagedClimb.getType() == Shared.ClimbType.bouldering) {
+            if(unmanagedClimb.getType() == Climb.ClimbType.bouldering) {
                 viewHolder.leadSend.setVisibility(View.GONE);
             }else {
                 if(attempts.isEmpty()) {
