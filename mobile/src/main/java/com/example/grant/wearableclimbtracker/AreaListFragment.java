@@ -32,7 +32,6 @@ import io.realm.OrderedRealmCollection;
 import io.realm.Realm;
 import io.realm.RealmRecyclerViewAdapter;
 
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 /**
  * A fragment representing a list of Area RealmObjects.

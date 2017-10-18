@@ -19,13 +19,10 @@ import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.Required;
 
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
-public class Goal extends RealmObject implements ISyncableRealmObject{
-    private boolean onRemote;
-    private Date lastEdit;
+public class Goal extends RealmObject {
 
     // All fields are by default persisted.
 
@@ -43,7 +40,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setMingrade(int mingrade) {
-        setSyncState(DIRTY);
         this.mingrade = mingrade;
     }
 
@@ -58,7 +54,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     private boolean recurring;
     private int heightunit;
 
-    String syncState;
 
     public Goal() {
         // NOTE: DON'T USE THIS CONSTRUCTOR!!!
@@ -68,8 +63,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public Goal(Climb.ClimbType type) {
-        setSyncState(DIRTY);
-        onRemote = false;
         id = UUID.randomUUID().toString();
         ZonedDateTime zdt = Shared.DateToZDT(Calendar.getInstance().getTime());
         startDate = Shared.ZDTToDate(zdt.truncatedTo(ChronoUnit.DAYS));
@@ -149,8 +142,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setIncludeAttempts(boolean includeAttempts) {
-        setSyncState(DIRTY);
-        this.includeAttempts = includeAttempts;
+       this.includeAttempts = includeAttempts;
     }
 
     public String getName() {
@@ -158,43 +150,14 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setName(String name) {
-        setSyncState(DIRTY);
         this.name = name;
     }
 
-    @Override
-    public boolean isOnRemote() {
-        return onRemote;
-    }
-
-    @Override
-    public void setOnRemote(boolean onRemote) {
-        this.onRemote = onRemote;
-    }
-
-    @Override
-    public SyncState getSyncState() {
-        return (syncState !=null) ? SyncState.valueOf(syncState):null;
-    }
-
-    @Override
-    public void setSyncState(SyncState state) {
-        if(state == DIRTY) {
-            lastEdit = Calendar.getInstance().getTime();
-        }
-        this.syncState = state.name();
-    }
-
-    @Override
-    public Date getLastEdit() {
-        return lastEdit;
-    }
-
-
-    @Override
     public String getId() {
         return id;
     }
+
+
     public enum HeightUnit {
         FT,
         M;
@@ -283,8 +246,7 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGoalunit(GoalUnit goalUnit) {
-        setSyncState(DIRTY);
-        this.goalunit = goalUnit.ordinal();
+       this.goalunit = goalUnit.ordinal();
     }
 
     public Date getStartDate() {
@@ -292,7 +254,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setStartDate(Date startDate) {
-        setSyncState(DIRTY);
         this.startDate = startDate;
     }
 
@@ -301,7 +262,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setEndDate(Date endDate) {
-        setSyncState(DIRTY);
         this.endDate = endDate;
     }
 
@@ -310,12 +270,10 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setTarget(int target) {
-        setSyncState(DIRTY);
         this.target = target;
     }
 
     public void setClimbType(Climb.ClimbType type) {
-        setSyncState(DIRTY);
         this.climbtype = type.ordinal();
     }
 
@@ -328,7 +286,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setEndtype(EndType endtype) {
-        setSyncState(DIRTY);
         this.endtype = endtype.ordinal();
     }
 
@@ -337,7 +294,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setPeriod(Period period) {
-        setSyncState(DIRTY);
         this.period = period.ordinal();
     }
 
@@ -346,7 +302,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setNumPeriods(int numPeriods) {
-        setSyncState(DIRTY);
         this.numPeriods = numPeriods;
     }
 
@@ -355,7 +310,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setRecurring(boolean recurring){
-        setSyncState(DIRTY);
         this.recurring = recurring;
     }
 
@@ -364,7 +318,6 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setHeightunit(HeightUnit heightunit) {
-        setSyncState(DIRTY);
         this.heightunit = heightunit.ordinal();
     }
 
@@ -395,17 +348,4 @@ public class Goal extends RealmObject implements ISyncableRealmObject{
 
     }
 
-    @Override
-    public void safedelete(boolean forceDeletion) {
-        // NOTE: this should only be called in a transaction
-        if(forceDeletion || !isOnRemote()){
-            // delete all child objects
-            //...
-            // delete this object
-            deleteFromRealm();
-        } else {
-            // mark for deletion
-            setSyncState(DIRTY);
-        }
-    }
 }

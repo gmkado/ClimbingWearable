@@ -8,7 +8,7 @@
             android:title="Climbs" />
         <item
             android:id="@+id/nav_goal"
-            android:icon="@drawable/ic_goal_reached"
+            android:icon="@drawable/ic_goal"
             android:title="Goals" />
     </group>
 
@@ -17,10 +17,6 @@
             <item android:id="@+id/nav_editgyms"
                 android:icon="@drawable/ic_location"
                 android:title="Edit Gyms"/>
-            <item
-                android:id="@+id/nav_sync"
-                android:icon="@drawable/ic_sync_black_24dp"
-                android:title="Sync with wear" />
             <item
                 android:id="@+id/nav_settings"
                 android:icon="@drawable/ic_menu_manage"
@@ -33,6 +29,10 @@
                 android:id="@+id/nav_feedback"
                 android:icon="@drawable/ic_menu_send"
                 android:title="Feedback" />
+            <item
+                android:id="@+id/nav_logout"
+                android:icon="@drawable/ic_exit_to_app"
+                android:title="Logout" />
         </menu>
     </item>
 

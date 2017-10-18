@@ -102,7 +102,10 @@ public class EditGoalDialogFragment extends DialogFragment {
                 public void onClick(View view) {
                     try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
-                        realm.where(Goal.class).equalTo(GoalFields.ID, mGoalUUID).findFirst().safedelete(false);
+                        Goal goal = realm.where(Goal.class).equalTo(GoalFields.ID, mGoalUUID).findFirst();
+                        if (goal != null) {
+                            goal.deleteFromRealm();
+                        }
                         realm.commitTransaction();
                     } finally {
                         dismiss();

@@ -17,14 +17,12 @@ import io.realm.annotations.LinkingObjects;
 import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.RealmClass;
 
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
 
 @RealmClass
-public class Climb extends RealmObject implements ISyncableRealmObject{
-    private boolean onRemote = false;
+public class Climb extends RealmObject {
     // All fields are by default persisted.
     @PrimaryKey private String id;
     @Index private int grade;
@@ -40,8 +38,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     @LinkingObjects("climb")
     private final RealmResults<Attempt> attempts = null;
 
-    private String syncState;
-    private Date lastEdit;
 
     public Climb() {
         // NOTE: DON'T USE THIS CONSTRUCTOR!!!
@@ -54,8 +50,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
         id = UUID.randomUUID().toString();
         grade = 0;
         color = -1;
-        setSyncState(DIRTY);
-        onRemote = false;
         this.type = type.ordinal();
         this.gym = gym;
         this.area = area;
@@ -66,7 +60,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGrade(int grade) {
-        setSyncState(DIRTY);
         this.grade = grade;
     }
 
@@ -75,7 +68,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setType(ClimbType type) {
-        setSyncState(DIRTY);
         this.type = type.ordinal();
     }
 
@@ -84,7 +76,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setColor(int color) {
-        setSyncState(DIRTY);
         this.color = color;
     }
 
@@ -93,7 +84,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGym(Gym gym) {
-        setSyncState(DIRTY);
         this.gym = gym;
     }
 
@@ -102,7 +92,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setArea(Area area) {
-        setSyncState(DIRTY);
         this.area = area;
     }
 
@@ -111,7 +100,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setNotes(String notes) {
-        setSyncState(DIRTY);
         this.notes = notes;
     }
 
@@ -137,7 +125,6 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setRemoved(boolean removed) {
-        setSyncState(DIRTY);
         isRemoved = removed;
     }
 
@@ -149,53 +136,10 @@ public class Climb extends RealmObject implements ISyncableRealmObject{
         return createdAt;
     }
 
-    @Override
-    public boolean isOnRemote() {
-        return onRemote;
-    }
-
-    @Override
-    public void setOnRemote(boolean onRemote) {
-        this.onRemote = onRemote;
-    }
-
-    @Override
-    public SyncState getSyncState() {
-        return (syncState !=null) ? SyncState.valueOf(syncState):null;
-    }
-
-    @Override
-    public void setSyncState(SyncState state) {
-        if(state == DIRTY) {
-            lastEdit = Calendar.getInstance().getTime();
-        }
-        this.syncState = state.name();
-    }
-
-    @Override
-    public Date getLastEdit() {
-        return lastEdit;
-    }
-
-    @Override
     public String getId() {
         return id;
     }
 
-    @Override
-    public void safedelete(boolean forceDeletion) {
-        // NOTE: this should only be called in a transaction
-        if(forceDeletion || !isOnRemote()){
-            // delete all child objects
-            attempts.deleteAllFromRealm();
-            //...
-            // delete this object
-            deleteFromRealm();
-        } else {
-            // mark for deletion
-            setSyncState(SyncState.DELETE);
-        }
-    }
 
     public enum ClimbType {
         bouldering("Bouldering", R.drawable.icon_boulder,

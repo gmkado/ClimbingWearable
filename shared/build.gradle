@@ -1,3 +1,4 @@
+//noinspection GradleCompatible
 apply plugin: 'com.android.library'
 apply plugin: 'realm-android'
 
@@ -15,9 +16,20 @@ android {
 
     }
     buildTypes {
+        def host = "104.131.131.171"
+        debug {
+            // This will automatically detect the IP address of the machine building RealmTasks.
+            // It is assumed that this machine is also running the Object Server.
+            // If not, replace 'host' with the IP of the machine hosting the server.
+            buildConfigField "String", "OBJECT_SERVER_IP", "\"${host}\""
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // This will automatically detect the IP address of the machine building RealmTasks.
+            // It is assumed that this machine is also running the Object Server.
+            // If not, replace 'host' with the IP of the machine hosting the server.
+            buildConfigField "String", "OBJECT_SERVER_IP", "\"${host}\""
         }
     }
 }
@@ -29,10 +41,18 @@ dependencies {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
     compile 'com.android.support:appcompat-v7:25.3.1'
+    compile 'com.android.support:support-v4:25.3.1'
+    compile 'com.android.support:recyclerview-v7:25.3.1'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
     testCompile 'junit:junit:4.12'
-    compile 'com.google.android.gms:play-services-base:11.0.2'
-    compile 'com.google.android.gms:play-services-wearable:11.0.2'
+    compile 'com.google.android.gms:play-services-base:11.0.4'
+    compile 'com.google.android.gms:play-services-wearable:11.0.4'
+
+    // realm dependencies
     compile 'io.realm:realm-android-library:1.1.0'
+    compile 'io.realm:android-adapters:2.1.0'
+
+
     compile 'com.google.code.gson:gson:2.7'
     compile 'org.greenrobot:eventbus:3.0.0'
     compile 'com.github.PhilJay:MPAndroidChart-Realm:v1.1.0@aar'
@@ -41,6 +61,16 @@ dependencies {
     compile 'org.jetbrains:annotations-java5:15.0'
     annotationProcessor 'dk.ilios:realmfieldnameshelper:1.1.1'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
-    compile 'io.realm:android-adapters:2.1.0'
+
+    // Dependency for Facebook Sign-in
+    compile 'com.facebook.android:facebook-android-sdk:4.20.0'
+
+    // Dependency for Google Sign-In
+    compile "com.google.firebase:firebase-core:11.0.4"
+    compile "com.google.firebase:firebase-auth:11.0.4"
+    compile 'com.google.android.gms:play-services-auth:11.0.4'
 }
 
+realm {
+    syncEnabled = true;
+}

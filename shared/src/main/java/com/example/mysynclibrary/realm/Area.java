@@ -14,20 +14,16 @@ import java.util.UUID;
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
 
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
-public class Area extends RealmObject implements ISyncableRealmObject{
+public class Area extends RealmObject{
 
-    String syncState;
     // All fields are by default persisted.
     private String name;
     private Gym gym;
     private int type;
     @PrimaryKey private String id;
-    private Date lastEdit;
-    private boolean onRemote;
 
 
     public Area(){
@@ -41,65 +37,16 @@ public class Area extends RealmObject implements ISyncableRealmObject{
     public Area(String name, AreaType type, Gym gym) {
         id = UUID.randomUUID().toString();
         this.name = name;
-        setSyncState(DIRTY);
-        onRemote = false;
         setType(type);
         this.gym = gym;
     }
 
-    @Override
-    public void safedelete(boolean forceDeletion) {
-        // NOTE: this should only be called in a transaction
-        if(forceDeletion || !onRemote){
-            // delete all child objects
-            //...
-            // delete this object
-            deleteFromRealm();
-        } else {
-            // mark for deletion
-            setSyncState(SyncState.DELETE);
-        }
-    }
-
-    @Override
-    public boolean isOnRemote() {
-        return onRemote;
-    }
-
-    @Override
-    public void setOnRemote(boolean onRemote) {
-        this.onRemote = onRemote;
-    }
-
-    @Override
-    public SyncState getSyncState() {
-        return (syncState !=null) ? SyncState.valueOf(syncState):null;
-    }
-
-    @Override
-    public void setSyncState(SyncState state) {
-        if(state == DIRTY) {
-            lastEdit = Calendar.getInstance().getTime();
-        }
-        this.syncState = state.name();
-    }
-
-    @Override
-    public Date getLastEdit() {
-        return lastEdit;
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
 
     public AreaType getType() {
         return AreaType.values()[type];
     }
 
     public void setType(AreaType type) {
-        setSyncState(DIRTY);
         this.type = type.ordinal();
     }
 
@@ -108,7 +55,6 @@ public class Area extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setGym(Gym gym) {
-        setSyncState(DIRTY);
         this.gym = gym;
     }
 
@@ -118,8 +64,11 @@ public class Area extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setName(String name) {
-        setSyncState(DIRTY);
         this.name = name;
+    }
+
+    public String getId() {
+        return id;
     }
 
     public enum AreaType{

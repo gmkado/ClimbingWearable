@@ -1,11 +1,12 @@
 apply plugin: 'com.android.application'
-apply plugin: 'realm-android'
+apply plugin: 'project-report'
+
 android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
     defaultConfig {
         applicationId "com.example.grant.wearableclimbtracker"
-        minSdkVersion 23
+        minSdkVersion 21
         targetSdkVersion 25
         versionCode 1
         versionName "1.0"
@@ -22,21 +23,21 @@ android {
 }
 
 repositories {
-    maven { url 'https://github.com/uPhyca/stetho-realm/raw/master/maven-repo' }
+    //maven { url 'https://github.com/uPhyca/stetho-realm/raw/master/maven-repo' }
     maven { url "https://jitpack.io" }
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    provided 'com.google.android.wearable:wearable:2.0.3'
-    compile 'com.google.android.support:wearable:2.0.3'
-    //NOTE: this is done in shared gradle, is it needed here? compile 'com.google.android.gms:play-services-wearable:11.0.2'
-    compile 'com.android.support:support-v4:25.3.1'
-    compile 'com.android.support:recyclerview-v7:25.3.1'
+    provided 'com.google.android.wearable:wearable:2.0.5'
+    compile 'com.google.android.support:wearable:2.0.5'
     compile project(':shared')
-    compile 'com.android.support.constraint:constraint-layout:1.0.1'
-    compile 'com.facebook.stetho:stetho:1.5.0'
-    compile 'com.uphyca:stetho_realm:2.1.0'
+    //compile 'com.facebook.stetho:stetho:1.5.0'
+    //compile 'com.uphyca:stetho_realm:2.1.0'
     compile 'me.denley.wearprefs:WearPrefs:1.1.3'
     compile 'com.amulyakhare:com.amulyakhare.textdrawable:1.0.1' // this is for listview icon
 }
+
+
+// ADD THIS AT THE BOTTOM
+apply plugin: 'com.google.gms.google-services'

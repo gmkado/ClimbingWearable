@@ -27,7 +27,6 @@ import io.realm.Realm;
 import io.realm.RealmRecyclerViewAdapter;
 import io.realm.RealmResults;
 
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DELETE;
 
 /**
  * Created by Grant on 9/20/2017.
@@ -57,8 +56,7 @@ public class LocationPickerActivity extends WearableActivity{
         mListView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
 
 
-        RealmResults<Gym> gymResults = mRealm.where(Gym.class)
-                .notEqualTo(GymFields.SYNC_STATE, DELETE.name()).findAll();
+        RealmResults<Gym> gymResults = mRealm.where(Gym.class).findAll();
         if(gymResults.isEmpty()) {
             Toast.makeText(this, "No gyms found, add some in mobile app", Toast.LENGTH_LONG).show();
             finishWithResult();
@@ -120,8 +118,7 @@ public class LocationPickerActivity extends WearableActivity{
                 public void onClick(View v) {
                     selectedGym = gym;
                     RealmResults<Area> areaResults = mRealm.where(Area.class)
-                            .equalTo(AreaFields.GYM.ID, gym.getId())
-                            .notEqualTo(AreaFields.SYNC_STATE, DELETE.name()).findAll();
+                            .equalTo(AreaFields.GYM.ID, gym.getId()).findAll();
                     if(areaResults.isEmpty()) {
                         Toast.makeText(LocationPickerActivity.this, "No areas found for this gym, add some in mobile app", Toast.LENGTH_LONG).show();
                         finishWithResult();

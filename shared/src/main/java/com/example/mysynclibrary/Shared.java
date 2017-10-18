@@ -10,17 +10,8 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
-import com.example.mysynclibrary.realm.Area;
-import com.example.mysynclibrary.realm.Attempt;
-import com.example.mysynclibrary.realm.Climb;
-import com.example.mysynclibrary.realm.ClimbFields;
 import com.example.mysynclibrary.realm.ClimbingModule;
-import com.example.mysynclibrary.realm.Goal;
-import com.example.mysynclibrary.realm.Gym;
-import com.example.mysynclibrary.realm.ISyncableRealmObject;
-import com.google.android.gms.wearable.Asset;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -29,23 +20,18 @@ import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
 import org.threeten.bp.temporal.WeekFields;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 
+import io.realm.ObjectServerError;
 import io.realm.Realm;
-import io.realm.RealmConfiguration;
-import io.realm.RealmModel;
-import io.realm.RealmObject;
-import io.realm.RealmResults;
+import io.realm.SyncConfiguration;
+import io.realm.SyncSession;
+import io.realm.SyncUser;
+import io.realm.internal.objectserver.Token;
 
 /**
  * Created by Grant on 9/28/2016.
@@ -55,6 +41,8 @@ import io.realm.RealmResults;
 public class Shared {
     private static final String TAG = "Shared";
 
+    public static final String AUTH_URL = "http://" + BuildConfig.OBJECT_SERVER_IP + ":9080/auth";
+    public static final String REALM_URL = "realm://" + BuildConfig.OBJECT_SERVER_IP + ":9080/~/realmclimbs";
 
     // ********** shared preference keys ***********//
     public static final String KEY_WEAR_ENABLED = "wear_enabled_switch";
@@ -80,8 +68,12 @@ public class Shared {
     private static final String SYNC_KEY_AREAS = "key_areas";
     private static final String SYNC_KEY_GOALS = "key_goals";
     private static final Type SYNC_MAP_TYPE = new TypeToken<HashMap<String, String>>() {}.getType();
+    public static final String KEY_SYNC_USER = "key_sync_user"; // json string to send realm syncuser to wearable
+    public static final String KEY_AUTH_MODE = "key_auth_mode";
+    public static final String KEY_AUTH_EMAIL = "key_auth_email";
+    public static final String KEY_AUTH_PASSWORD = "key_auth_password";
+    public static final String KEY_AUTH_TOKEN = "key_auth_token";
     private static Gson mGson;
-
 
     public static Gson getGson() {
         if(mGson == null) {
@@ -111,24 +103,6 @@ public class Shared {
         return gson; */
     }
 
-    public static void initRealm(Context context) {
-        Realm.init(context);
-
-        // Create the Realm (or database).  The Realm file will be located in Context.getFilesDir() with name "default.realm"
-        Realm.setDefaultConfiguration(getRealmConfig(null));
-    }
-
-    public static RealmConfiguration getRealmConfig(String name) {
-        RealmConfiguration.Builder builder = new RealmConfiguration.Builder()
-                //.schemaVersion(0)
-                //.migration(new MyMigration())
-                .deleteRealmIfMigrationNeeded()
-                .modules(new ClimbingModule()); // this is necessary for library module
-        if(name !=null) {
-            builder.name(name);
-        }
-        return builder.build();
-    }
 
     /* Datetime utils*/
     public static Date ZDTToDate(ZonedDateTime zdt) {

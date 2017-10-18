@@ -64,8 +64,6 @@ import static com.example.grant.wearableclimbtracker.FilterClimbDialogFragment.P
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_AREA_ID;
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_CLIMBTYPE;
 import static com.example.grant.wearableclimbtracker.FilterLocationDialogFragment.PREF_FILTER_GYM_ID;
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DELETE;
-
 /**
  * Created by Grant on 10/17/2016.
  */
@@ -211,8 +209,7 @@ public class ClimbListMobileFragment extends Fragment {
         // The way this works is any time the sort/filter fields change we need to invalidate the realm result to create the new query
         // If the underlying data changes it will call the changelistener, which will sort and update the list, so we don't need to call invalidate or notifydataset
         RealmQuery<Climb> query = mRealm.where(Climb.class)
-                .equalTo(ClimbFields.TYPE, filterClimbType.ordinal())
-                .notEqualTo(ClimbFields.SYNC_STATE, DELETE.name());
+                .equalTo(ClimbFields.TYPE, filterClimbType.ordinal());
         if(filterGymId != null) {
             query.equalTo(ClimbFields.GYM.ID, filterGymId);
         }
@@ -316,7 +313,6 @@ public class ClimbListMobileFragment extends Fragment {
         mAdapter = new ClimbListAdapter(getContext(),sortedResults);
         mListView.setAdapter(mAdapter);
     }
-
 
     @Override
     public void onResume() {

@@ -3,7 +3,7 @@
     package="com.example.grant.wearableclimbtracker">
 
     <uses-feature android:name="android.hardware.type.watch" />
-
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
@@ -18,7 +18,7 @@
             android:required="false" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".WearMainActivity"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -27,7 +27,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".AddClimbActivity"
+            android:name=".EditClimbActivity"
             android:label="@string/title_activity_add_climb"
              />
         <activity
@@ -38,16 +38,6 @@
             android:name="android.support.wearable.activity.ConfirmationActivity"
             android:label="@string/title_activity_confirmation" />
 
-        <service
-            android:name=".WearDataLayerService"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
-                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data android:scheme="wear" android:host="*"/>
-            </intent-filter>
-        </service>
     </application>
 
 </manifest>

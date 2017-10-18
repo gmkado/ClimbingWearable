@@ -3,6 +3,7 @@
     package="com.example.grant.wearableclimbtracker">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".MyApplication"
@@ -11,36 +12,37 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity"
-            android:label="@string/title_activity_main"
-            android:theme="@style/AppTheme.NoActionBar">
+        <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
+        <activity
+            android:name=".login.SignInActivity"
+            android:label="@string/app_name">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <service
-            android:name=".MobileDataLayerService"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
-                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data
-                    android:host="*"
-                    android:scheme="wear" />
-            </intent-filter>
-        </service>
+        <activity
+            android:name=".login.RegisterActivity"
+            android:label="@string/activity_register_label">
+        </activity>
+
+        <activity android:name=".MobileMainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBar">
+        </activity>
 
         <activity
             android:name=".SettingsActivity"
             android:label="Settings"
-            android:parentActivityName=".MainActivity">
+            android:parentActivityName=".MobileMainActivity">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.example.grant.wearableclimbtracker.MainActivity" />
+                android:value="com.example.grant.wearableclimbtracker.WearMainActivity" />
         </activity>
+
+        <activity android:name="com.facebook.FacebookActivity"
+            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+            android:label="@string/app_name" />
 
         <provider
             android:name="android.support.v4.content.FileProvider"
@@ -51,11 +53,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/filepaths" />
         </provider>
-
-        <meta-data
-            android:name="io.fabric.ApiKey"
-            android:value="22325fae494a3d6f867ece25bc4d6b2cc1b43536" />
     </application>
 
-    <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

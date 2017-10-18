@@ -192,7 +192,9 @@ public class GoalListMobileFragment extends Fragment {
                                                @Override
                                                public void execute(Realm realm) {
                                                    Goal goal = realm.where(Goal.class).equalTo(GoalFields.ID, goalId).findFirst();
-                                                   goal.safedelete(false);
+                                                   if (goal != null) {
+                                                       goal.deleteFromRealm();
+                                                   }
                                                }
                                            }, null, // NOTE: since we changed a goal, the listener gets called which refreshes the list adapter, so we don't need to invalidate realm results
                                             new Realm.Transaction.OnError() {

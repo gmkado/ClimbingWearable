@@ -138,7 +138,9 @@ public class EditClimbDialogFragment extends DialogFragment {
                     try (Realm realm = Realm.getDefaultInstance()) {
                         realm.beginTransaction();
                         Climb climb = realm.where(Climb.class).equalTo(ClimbFields.ID, mClimbUUID).findFirst();
-                        climb.safedelete(false);
+                        if (climb != null) {
+                            climb.deleteFromRealm();
+                        }
                         realm.commitTransaction();
                     } finally {
                         dismiss();

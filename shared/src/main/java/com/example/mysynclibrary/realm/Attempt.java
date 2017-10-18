@@ -12,13 +12,10 @@ import io.realm.RealmObject;
 import io.realm.annotations.Index;
 import io.realm.annotations.PrimaryKey;
 
-import static com.example.mysynclibrary.realm.ISyncableRealmObject.SyncState.DIRTY;
 
 // Your model just have to extend RealmObject.
 // This will inherit an annotation which produces proxy getters and setters for ALL fields.
-public class Attempt extends RealmObject implements ISyncableRealmObject{
-
-    String syncState;
+public class Attempt extends RealmObject {
     // All fields are by default persisted.
     private boolean isSend;
     private boolean onLead;
@@ -28,8 +25,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     private int count;          // number of attempts saved in this object
     private float progress;  // percent done, 0-100
     @PrimaryKey private String id;
-    private boolean onRemote;
-    private Date lastEdit;
 
     public Attempt() {
         // NOTE: DON'T USE THIS CONSTRUCTOR!!!
@@ -42,8 +37,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
         //NOTE: Use creators to build attempts without all the parameters
         id = UUID.randomUUID().toString();
         setDate(Calendar.getInstance().getTime());
-        setSyncState(DIRTY);
-        this.onRemote = false;
 
         this.climb = climb;
         this.count = count;
@@ -65,7 +58,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setSend(boolean send) {
-        setSyncState(DIRTY);
         isSend = send;
     }
 
@@ -74,7 +66,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setCount(int count) {
-        setSyncState(DIRTY);
         this.count = count;
     }
 
@@ -83,7 +74,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setProgress(float progress) {
-        setSyncState(DIRTY);
         if(progress > 100) {
             progress = 1;
         }else if(progress < 0) {
@@ -97,7 +87,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setDate(Date date) {
-        setSyncState(DIRTY);
         this.datetime = date;
 
         // TODO: is this robust for different timezones?
@@ -114,8 +103,6 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setClimb(Climb climb) {
-
-        setSyncState(DIRTY);
         this.climb = climb;
     }
 
@@ -124,55 +111,9 @@ public class Attempt extends RealmObject implements ISyncableRealmObject{
     }
 
     public void setOnLead(boolean onLead) {
-        setSyncState(DIRTY);
         this.onLead = onLead;
     }
 
-
-    @Override
-    public void safedelete(boolean forceDeletion) {
-        // NOTE: this should only be called in a transaction
-        if(forceDeletion || !isOnRemote()){
-            // delete all child objects
-
-            //...
-            // delete this object
-            deleteFromRealm();
-        } else {
-            // mark for deletion
-            setSyncState(SyncState.DELETE);
-        }
-    }
-
-    @Override
-    public boolean isOnRemote() {
-        return onRemote;
-    }
-
-    @Override
-    public void setOnRemote(boolean onRemote) {
-        this.onRemote = onRemote;
-    }
-
-    @Override
-    public SyncState getSyncState() {
-        return (syncState !=null) ? SyncState.valueOf(syncState):null;
-    }
-
-    @Override
-    public void setSyncState(SyncState state) {
-        if(state == DIRTY) {
-            lastEdit = Calendar.getInstance().getTime();
-        }
-        this.syncState = state.name();
-    }
-
-    @Override
-    public Date getLastEdit() {
-        return lastEdit;
-    }
-
-    @Override
     public String getId() {
         return id;
     }

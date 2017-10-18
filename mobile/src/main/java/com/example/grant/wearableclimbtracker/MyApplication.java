@@ -1,18 +1,13 @@
 package com.example.grant.wearableclimbtracker;
 
 import android.app.Application;
+import android.util.Log;
 
-import com.crashlytics.android.Crashlytics;
-import com.example.mysynclibrary.Shared;
-import com.example.mysynclibrary.realm.ClimbingModule;
-import com.example.mysynclibrary.realm.MyMigration;
-import com.facebook.stetho.Stetho;
 import com.jakewharton.threetenabp.AndroidThreeTen;
-import com.uphyca.stetho_realm.RealmInspectorModulesProvider;
 
-import io.fabric.sdk.android.Fabric;
 import io.realm.Realm;
-import io.realm.RealmConfiguration;
+import io.realm.log.LogLevel;
+import io.realm.log.RealmLog;
 import wearprefs.WearPrefs;
 
 /**
@@ -22,15 +17,15 @@ public class MyApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        Fabric.with(this, new Crashlytics());
-
-        Shared.initRealm(this);
-        Stetho.initialize(
+        Realm.init(this);
+        /*Stetho.initialize(
                 Stetho.newInitializerBuilder(this)
                         .enableDumpapp(Stetho.defaultDumperPluginsProvider(this))
                         .enableWebKitInspector(RealmInspectorModulesProvider.builder(this).build())
-                        .build());
+                        .build());*/
+
         AndroidThreeTen.init(this);
         WearPrefs.init(this);
+        RealmLog.setLevel(LogLevel.TRACE);
     }
 }
